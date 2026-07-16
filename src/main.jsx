@@ -117,11 +117,6 @@ function LoginScreen({ selectedRole, onBack, onLogin }) {
       <form className="auth-card" onSubmit={handleSubmit}>
         <h1>CONEXIA</h1>
         <p>INTELLIGENT DOCUMENT SYSTEMS</p>
-        <div className={`auth-status ${isSupabaseConfigured ? "ready" : "pending"}`}>
-          <ShieldCheck size={18} />
-          {isSupabaseConfigured ? "Supabase Auth ready" : "Supabase URL saved. Add anon key for live auth."}
-          <small>{supabaseConfig.url}</small>
-        </div>
         <label>
           Selected Role
           <input value={role.label} readOnly />
