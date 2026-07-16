@@ -15,11 +15,11 @@ export function authenticateDevAccount(email, password) {
   const account = devAccounts[email.trim().toLowerCase()];
 
   if (!account) {
-    return { ok: false, message: "No development account exists for that email." };
+    return { ok: false, message: "Unregistered email address." };
   }
 
   if (account.password !== password) {
-    return { ok: false, message: "Incorrect development password." };
+    return { ok: false, message: "Incorrect password." };
   }
 
   return { ok: true, account };
