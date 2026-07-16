@@ -132,7 +132,6 @@ function LoginScreen({ selectedRole, onBack, onLogin }) {
         {error && <div className="auth-error">{error}</div>}
         <button type="submit">Sign In <ChevronRight /></button>
         <button type="button" className="text-action" onClick={onBack}>Back to role selection</button>
-        <small>Development accounts use the shared temporary password: {DEV_PASSWORD}</small>
       </form>
       <footer>
         <span>2024 CONEXIA University Systems</span>
