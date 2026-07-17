@@ -329,7 +329,7 @@ function LoginScreen({ onBack, onLogin }) {
               setEmail(event.target.value);
               setError("");
             }}
-            placeholder="name@university.edu"
+            placeholder="role@conexia.edu"
             autoComplete="email"
           />
         </label>

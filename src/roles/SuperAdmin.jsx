@@ -78,7 +78,7 @@ function UserDirectory() {
         <Panel title="Create User">
           <div className="form-grid admin-form">
             <label>Full Name<input placeholder="Full name" /></label>
-            <label>Institutional Email<input placeholder="user@conexia.com" /></label>
+            <label>Institutional Email<input placeholder="user@conexia.edu" /></label>
             <label>Role<select><option>Department Staff</option><option>IRO Staff</option><option>IRO Admin</option><option>Legal Counsel</option><option>Super Admin</option></select></label>
             <label>Office<select>{departments.map((dept) => <option key={dept.code}>{dept.name}</option>)}</select></label>
             <label>Department<select>{departments.map((dept) => <option key={dept.code}>{dept.code} - {dept.name}</option>)}</select></label>
