@@ -13,7 +13,6 @@ export function Topbar({ role, account }) {
         <input placeholder="Search tracking ID, partner, or department..." />
       </div>
       <Bell size={24} />
-      <Settings size={24} />
       <div className="profile">
         <div>
           {displayName}

@@ -115,7 +115,6 @@ function WelcomePage({ onLogin }) {
         <p>Join the world's leading universities in streamlining documentation and scaling global academic cooperation effortlessly.</p>
         <div>
           <button onClick={onLogin}>Get Started Today</button>
-          <button className="secondary">Talk to a Specialist</button>
         </div>
       </section>
 

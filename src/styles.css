@@ -628,7 +628,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   line-height: 1.45;
 }
 
-.welcome-cta .secondary {
+.welcome-cta {
   margin-left: 10px;
   background: rgba(255,255,255,.12);
   color: white;
