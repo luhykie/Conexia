@@ -22,34 +22,156 @@ import { IroAdmin } from "./roles/IroAdmin";
 import { IroStaff } from "./roles/IroStaff";
 import { LegalCounsel } from "./roles/LegalCounsel";
 import { SuperAdmin } from "./roles/SuperAdmin";
+import {BrowserRouter, Navigate, Route, Routes, useNavigate, useParams,} from "react-router-dom";
 
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
+const AUTH_STORAGE_KEY = "conexia-account";
+
+function getSavedAccount() {
+  try {
+    const savedAccount = localStorage.getItem(AUTH_STORAGE_KEY);
+
+    return savedAccount ? JSON.parse(savedAccount) : null;
+  } catch (error) {
+    console.error("Unable to restore saved account:", error);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    return null;
+  }
+}
+
 function App() {
-  const [screen, setScreen] = React.useState("welcome");
-  const [account, setAccount] = React.useState(null);
-  const [page, setPage] = React.useState("dashboard");
+  const [account, setAccount] = React.useState(getSavedAccount);
 
   function handleLogin(nextAccount) {
+    localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify(nextAccount)
+    );
+
     setAccount(nextAccount);
-    setPage(getDefaultPage(nextAccount.roleKey));
-    setScreen("app");
   }
 
   function handleLogout() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
     setAccount(null);
-    setPage("dashboard");
-    setScreen("welcome");
   }
 
-  if (screen === "login") {
-    return <LoginScreen onBack={() => setScreen("welcome")} onLogin={handleLogin} />;
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          account
+            ? <Navigate to={`/app/${getDefaultPage(account.roleKey)}`} replace />
+            : <WelcomeRoute />
+        }
+      />
+
+      <Route
+        path="/login"
+        element={
+          account
+            ? <Navigate to={`/app/${getDefaultPage(account.roleKey)}`} replace />
+            : <LoginRoute onLogin={handleLogin} />
+        }
+      />
+
+      <Route
+        path="/app/:page"
+        element={
+          account
+            ? (
+              <WorkspaceRoute
+                account={account}
+                onLogout={handleLogout}
+              />
+            )
+            : <Navigate to="/login" replace />
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function WelcomeRoute() {
+  const navigate = useNavigate();
+
+  return (
+    <WelcomePage
+      onLogin={() => navigate("/login")}
+    />
+  );
+}
+
+function LoginRoute({ onLogin }) {
+  const navigate = useNavigate();
+
+  function handleSuccessfulLogin(nextAccount) {
+    onLogin(nextAccount);
+
+    navigate(
+      `/app/${getDefaultPage(nextAccount.roleKey)}`,
+      { replace: true }
+    );
   }
 
-  if (screen === "app" && account) {
-    return <ProtectedWorkspace account={account} page={page} setPage={setPage} onLogout={handleLogout} />;
+  return (
+    <LoginScreen
+      onBack={() => navigate("/")}
+      onLogin={handleSuccessfulLogin}
+    />
+  );
+}
+
+function WorkspaceRoute({ account, onLogout }) {
+  const navigate = useNavigate();
+  const { page = "dashboard" } = useParams();
+
+  const safePage = canAccessPage(account.roleKey, page)
+    ? page
+    : getDefaultPage(account.roleKey);
+
+  React.useEffect(() => {
+    if (page !== safePage) {
+      navigate(`/app/${safePage}`, { replace: true });
+    }
+  }, [page, safePage, navigate]);
+
+  function navigateToPage(nextPage) {
+    if (!canAccessPage(account.roleKey, nextPage)) {
+      navigate(
+        `/app/${getDefaultPage(account.roleKey)}`,
+        { replace: true }
+      );
+
+      return;
+    }
+
+    navigate(`/app/${nextPage}`);
   }
 
-  return <WelcomePage onLogin={() => setScreen("login")} />;
+  function handleLogout() {
+    onLogout();
+    navigate("/", { replace: true });
+  }
+
+  return (
+    <Shell
+      roleKey={account.roleKey}
+      page={safePage}
+      setPage={navigateToPage}
+      account={account}
+      onLogout={handleLogout}
+    >
+      <RolePage
+        roleKey={account.roleKey}
+        page={safePage}
+        account={account}
+      />
+    </Shell>
+  );
 }
 
 // Public welcome page matched to the supplied Conexia Figma export.
@@ -238,21 +360,6 @@ function LoginScreen({ onBack, onLogin }) {
   );
 }
 
-// RBAC guard prevents direct navigation to pages outside the signed-in role.
-function ProtectedWorkspace({ account, page, setPage, onLogout }) {
-  const safePage = canAccessPage(account.roleKey, page) ? page : getDefaultPage(account.roleKey);
-
-  React.useEffect(() => {
-    if (safePage !== page) setPage(safePage);
-  }, [page, safePage, setPage]);
-
-  return (
-    <Shell roleKey={account.roleKey} page={safePage} setPage={setPage} account={account} onLogout={onLogout}>
-      <RolePage roleKey={account.roleKey} page={safePage} account={account} />
-    </Shell>
-  );
-}
-
 // Selects the correct role module after RBAC has allowed the page.
 function RolePage({ roleKey, page, account }) {
   if (roleKey === "super") return <SuperAdmin page={page} account={account} />;
@@ -262,4 +369,10 @@ function RolePage({ roleKey, page, account }) {
   return <DepartmentStaff page={page} account={account} />;
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
