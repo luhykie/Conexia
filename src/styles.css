@@ -103,6 +103,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); margin-bottom: var(--space-8); }
 /* Modified: dashboard card geometry and internal alignment. */
 .stat-card { min-height: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--space-6); position: relative; box-shadow: var(--shadow-card); }
+.stat-card.clickable { cursor: pointer; }
+.stat-card.clickable:hover { transform: translateY(-2px); }
 .stat-card svg { padding: 8px; width: 46px; height: 46px; color: var(--green-800); background: #c8f8df; border-radius: 6px; }
 .stat-card span { float: right; color: var(--green-800); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .stat-card strong { display: block; clear: both; margin-top: var(--space-5); font-size: 32px; color: #0f1e31; line-height: 1; }
@@ -114,6 +116,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .stat-card.blue svg { background: #e6edff; color: #4b56e8; }
 .stat-card.dark { background: var(--green-950); color: white; }
 .stat-card.dark strong, .stat-card.dark p, .stat-card.dark span { color: white; }
+
+.dashboard-alert { margin-bottom: var(--space-5); padding: var(--space-4); border-radius: var(--radius-card); border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+.dashboard-alert.loading { background: #f3f7fb; }
+.dashboard-alert.danger { background: #fff1f1; border-color: #ffc7c7; color: var(--red); }
 
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); align-items: start; }

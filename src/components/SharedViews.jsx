@@ -7,11 +7,12 @@ import { StatGrid } from "./StatGrid";
 import { dashboardStats, expiryRows, notificationRows, recentActivity } from "../data/mockData";
 
 // Shared dashboard skeleton used by all roles.
-export function DashboardView({ roleKey, title, subtitle, action }) {
+export function DashboardView({ roleKey, title, subtitle, action, stats, onCardClick, statusBanner }) {
   return (
     <section className="page">
       <PageTitle title={title} subtitle={subtitle} action={action} />
-      <StatGrid stats={dashboardStats[roleKey]} />
+      {statusBanner}
+      <StatGrid stats={stats ?? dashboardStats[roleKey]} onCardClick={onCardClick} />
       <div className="dashboard-grid">
         <Panel title="Recent Activity">
           <DataTable headers={["Submission ID", "Entity Name", "Type", "Timestamp", "Status"]} rows={recentActivity} />
