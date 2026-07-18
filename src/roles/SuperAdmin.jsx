@@ -1662,6 +1662,35 @@ function AuditLogs() {
         action="Refresh Logs"
       />
 
+      <div className="stats-grid">
+        <article className="stat-card">
+          <CalendarClock />
+          <span>Activity</span>
+          <strong>14%</strong>
+          <p>
+            Increase in administrative activity.
+          </p>
+        </article>
+
+        <article className="stat-card danger">
+          <ShieldCheck />
+          <span>Flagged</span>
+          <strong>1</strong>
+          <p>
+            Suspicious authentication event detected.
+          </p>
+        </article>
+
+        <article className="stat-card">
+          <FileText />
+          <span>Integrity</span>
+          <strong>Valid</strong>
+          <p>
+            All displayed audit logs are verified.
+          </p>
+        </article>
+      </div>
+
       <div className="audit-filter-bar">
         <label>
           User
@@ -1729,35 +1758,6 @@ function AuditLogs() {
           rows={filteredRows}
         />
       </Panel>
-
-      <div className="stats-grid">
-        <article className="stat-card">
-          <CalendarClock />
-          <span>Activity</span>
-          <strong>14%</strong>
-          <p>
-            Increase in administrative activity.
-          </p>
-        </article>
-
-        <article className="stat-card danger">
-          <ShieldCheck />
-          <span>Flagged</span>
-          <strong>1</strong>
-          <p>
-            Suspicious authentication event detected.
-          </p>
-        </article>
-
-        <article className="stat-card">
-          <FileText />
-          <span>Integrity</span>
-          <strong>Valid</strong>
-          <p>
-            All displayed audit logs are verified.
-          </p>
-        </article>
-      </div>
     </section>
   );
 }

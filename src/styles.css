@@ -100,9 +100,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .outline { background: white !important; color: var(--green-950) !important; border: 1px solid var(--green-700) !important; }
 .danger.outline { color: var(--red) !important; border-color: var(--red) !important; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); margin-bottom: var(--space-8); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
 /* Modified: dashboard card geometry and internal alignment. */
-.stat-card { min-height: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--space-6); position: relative; box-shadow: var(--shadow-card); }
+.stat-card { min-height: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--space-6); position: relative; box-shadow: var(--shadow-card); }
 .stat-card svg { padding: 8px; width: 46px; height: 46px; color: var(--green-800); background: #c8f8df; border-radius: 6px; }
 .stat-card span { float: right; color: var(--green-800); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .stat-card strong { display: block; clear: both; margin-top: var(--space-5); font-size: 32px; color: #0f1e31; line-height: 1; }
@@ -1641,5 +1646,278 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 @media (max-width: 700px) {
   .department-summary-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+.audit-filter-bar {
+  background: #fff;
+  border: 1px solid #dfe7e2;
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+/* ==========================================================================
+   Super Admin Button System
+   Consistent sizing, spacing, typography, borders, icons, and hover states.
+   ========================================================================== */
+
+.super-admin-page button {
+  min-width: 0;
+  height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color .2s ease,
+    border-color .2s ease,
+    color .2s ease,
+    box-shadow .2s ease,
+    transform .2s ease;
+}
+
+.super-admin-page button svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  stroke-width: 2;
+}
+
+.super-admin-page button:hover {
+  filter: none;
+}
+
+.super-admin-page button:active {
+  transform: translateY(1px);
+}
+
+.super-admin-page button:focus-visible {
+  outline: 3px solid rgba(0, 122, 82, .2);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Primary Buttons
+   ========================================================================== */
+
+.super-admin-page .primary,
+.super-admin-page .page-title button:not(.outline),
+.super-admin-page .settings-save-bar button,
+.super-admin-page .action-strip .primary {
+  color: #ffffff;
+  background: var(--green-800);
+  border-color: var(--green-800);
+}
+
+.super-admin-page .primary:hover,
+.super-admin-page .page-title button:not(.outline):hover,
+.super-admin-page .settings-save-bar button:hover,
+.super-admin-page .action-strip .primary:hover {
+  color: #ffffff;
+  background: var(--green-700);
+  border-color: var(--green-700);
+  box-shadow: 0 4px 10px rgba(0, 90, 56, .16);
+}
+
+/* ==========================================================================
+   Secondary / Outline Buttons
+   ========================================================================== */
+
+.super-admin-page .outline,
+.super-admin-page .table-action,
+.super-admin-page .user-manage-button,
+.super-admin-page .settings-inline-button {
+  color: var(--green-950) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--green-700) !important;
+}
+
+.super-admin-page .outline:hover,
+.super-admin-page .table-action:hover,
+.super-admin-page .user-manage-button:hover,
+.super-admin-page .settings-inline-button:hover {
+  color: #ffffff !important;
+  background: var(--green-700) !important;
+  border-color: var(--green-700) !important;
+  box-shadow: 0 4px 10px rgba(0, 90, 56, .12);
+}
+
+/* ==========================================================================
+   Compact Table Buttons
+   ========================================================================== */
+
+.super-admin-page .table-action {
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.super-admin-page .table-action svg {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+}
+
+/* ==========================================================================
+   Manage Dropdown Button
+   ========================================================================== */
+
+.super-admin-page .user-manage-button {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* Dropdown menu actions */
+
+.super-admin-page .user-action-dropdown button {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  justify-content: flex-start;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.super-admin-page .user-action-dropdown button:hover {
+  color: var(--green-950);
+  background: #edf8f2;
+  box-shadow: none;
+  transform: none;
+}
+
+.super-admin-page .user-action-dropdown button svg {
+  color: var(--green-700);
+}
+
+/* ==========================================================================
+   Dashboard Period Buttons
+   ========================================================================== */
+
+.super-admin-page .trend-period-filter button {
+  height: 36px;
+  min-width: 88px;
+  padding: 0 16px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.super-admin-page .trend-period-filter button:hover {
+  color: var(--green-950);
+  background: rgba(0, 122, 82, .08);
+  box-shadow: none;
+  transform: none;
+}
+
+.super-admin-page .trend-period-filter button.active {
+  color: #ffffff;
+  background: var(--green-700);
+}
+
+/* ==========================================================================
+   Role Management Selection Cards
+   These remain card-shaped but use consistent interaction styles.
+   ========================================================================== */
+
+.super-admin-page .role-management-item {
+  height: auto;
+  min-height: 92px;
+  padding: 16px;
+  justify-content: stretch;
+  color: var(--ink);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  white-space: normal;
+}
+
+.super-admin-page .role-management-item:hover {
+  color: var(--ink);
+  background: #f1fbf6;
+  border-color: var(--green-700);
+  box-shadow: none;
+  transform: none;
+}
+
+.super-admin-page .role-management-item.selected {
+  background: #effbf5;
+  border-color: var(--green-700);
+  box-shadow: inset 4px 0 0 var(--green-700);
+}
+
+/* ==========================================================================
+   Dangerous Actions
+   Add className="danger-button" to destructive buttons.
+   ========================================================================== */
+
+.super-admin-page .danger-button {
+  color: var(--red);
+  background: #ffffff;
+  border-color: #e8a3a5;
+}
+
+.super-admin-page .danger-button:hover {
+  color: #ffffff;
+  background: var(--red);
+  border-color: var(--red);
+  box-shadow: 0 4px 10px rgba(201, 24, 29, .14);
+}
+
+/* ==========================================================================
+   Disabled Buttons
+   ========================================================================== */
+
+.super-admin-page button:disabled {
+  color: #8b9490 !important;
+  background: #eef1ef !important;
+  border-color: #d5dbd7 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+  opacity: .75;
+  transform: none;
+}
+
+/* ==========================================================================
+   Mobile Button Behavior
+   ========================================================================== */
+
+@media (max-width: 700px) {
+  .super-admin-page .action-strip {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .super-admin-page .action-strip button,
+  .super-admin-page .settings-save-bar button,
+  .super-admin-page .backup-actions button {
+    width: 100%;
+  }
+
+  .super-admin-page .trend-period-filter button {
+    min-width: 0;
+    flex: 1;
   }
 }
