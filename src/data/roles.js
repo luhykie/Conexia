@@ -10,11 +10,11 @@ import {
   Folder,
   Gauge,
   Gavel,
-  Grid2X2,
   Handshake,
   History,
   LayoutDashboard,
   RefreshCw,
+  Settings,
   Shield,
   ShieldCheck,
   Users,
@@ -24,43 +24,52 @@ import {
 export const roles = {
   super: {
     label: "SUPER ADMIN",
-    subtitle: "Manage the entire system, users, roles, permissions, workflows, and audit logs.",
+    subtitle:
+      "Manage users, roles, departments, security, system settings, monitoring, and administrative audit logs.",
     theme: "SUPER ADMIN",
     user: "Conexia Super Admin",
     title: "SUPER ADMIN",
     icon: ShieldCheck,
     defaultPage: "dashboard",
   },
+
   admin: {
     label: "IRO ADMIN",
-    subtitle: "Manage document routing, validate review forms, archive agreements, and generate reports.",
+    subtitle:
+      "Manage document routing, validate review forms, archive agreements, and generate reports.",
     theme: "IRO ADMIN",
     user: "PAIR IRO Administrator",
     title: "IRO ADMIN",
     icon: Building2,
     defaultPage: "dashboard",
   },
+
   staff: {
     label: "IRO STAFF",
-    subtitle: "Receive submissions, log agreements, generate review forms, and route to Legal.",
+    subtitle:
+      "Receive submissions, log agreements, generate review forms, and route to Legal.",
     theme: "IRO STAFF PORTAL",
     user: "PAIR IRO Staff",
     title: "IRO STAFF",
     icon: Folder,
     defaultPage: "dashboard",
   },
+
   legal: {
     label: "LEGAL COUNSEL",
-    subtitle: "Review agreements, approve or return documents, record notarization.",
+    subtitle:
+      "Review agreements, approve or return documents, and record notarization.",
     theme: "LEGAL COUNSEL",
     user: "Legal Counsel",
     title: "LEGAL COUNSEL",
     icon: Gavel,
     defaultPage: "dashboard",
   },
+
   department: {
     label: "DEPARTMENT STAFF",
-    subtitle: "Submit documents, monitor status, receive legal comments, and resubmit.",
+    subtitle:
+      "Submit documents, monitor status, receive legal comments, and resubmit.",
     theme: "Institutional Repository",
     user: "Department Staff",
     title: "Department Office",
@@ -79,6 +88,7 @@ export const navItems = {
     ["expiry", "Expiry", CalendarClock],
     ["notifications", "Notifications", Bell],
   ],
+
   staff: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["incoming", "Incoming Submissions", Folder],
@@ -86,6 +96,7 @@ export const navItems = {
     ["status", "Status Tracker", Gauge],
     ["expiry", "Expiry", CalendarClock],
   ],
+
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["log-review", "Log & Review Form", FileText],
@@ -97,6 +108,7 @@ export const navItems = {
     ["expiry", "Expiry", CalendarClock],
     ["notifications", "Notifications", Bell],
   ],
+
   legal: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["review", "Review Queue", ClipboardCheck],
@@ -104,11 +116,13 @@ export const navItems = {
     ["expiry", "Expiry", CalendarClock],
     ["history", "My Action History", History],
   ],
+
   super: [
     ["dashboard", "Dashboard", LayoutDashboard],
-    ["monitoring", "System Monitoring", Gauge],
     ["users", "User Management", Users],
+    ["roles", "Role Management", Shield],
+    ["departments", "Department Management", Building2],
+    ["monitoring", "System Monitoring", Gauge],
     ["audit", "Audit Logs", ClipboardCheck],
   ],
 };
-

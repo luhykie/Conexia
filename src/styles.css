@@ -143,7 +143,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .table footer button { width: 36px; height: 36px; min-width: 36px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-control); background: white; }
 .active-page { background: var(--green-800) !important; color: white; }
 /* Modified: all semantic badge variants share exactly one 32px geometry. */
-.badge { display: inline-flex !important; align-items: center; justify-content: center; width: fit-content; height: 32px; min-height: 32px !important; padding: 0 14px !important; border-radius: var(--radius-badge); background: #dff8eb; color: #078054; font-size: 14px; font-weight: 600; font-family: inherit !important; text-transform: capitalize; white-space: nowrap; align-self: center; }
+.badge {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  height: 32px;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border-radius: var(--radius-badge);
+  background: #dff8eb;
+  color: #078054;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit !important;
+  text-transform: none;
+  white-space: nowrap;
+  align-self: center;
+}
 .badge.pending, .badge.expiring, .badge.urgent, .badge.pending-review, .badge.pending-notarization, .badge.under-review, .badge.awaiting-review, .badge.awaiting-seal, .badge.awaiting-final-sign, .badge.high, .badge.medium, .badge.in-distribution { background: #ffe8c6; color: #9b5b00; }
 .badge.danger, .badge.flagged, .badge.critical, .badge.rejected, .badge.expired { background: #ffe0e1; color: var(--red); }
 .badge.blue, .badge.notarized { background: #e3ecff; color: #3564b8; }
@@ -765,32 +782,864 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .legal-page .review-sidebar footer { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 
 /* ==========================================================================
-   Super Admin Screens
-   Governance dashboards, user directory, system monitoring, and audit logs.
+   Super Admin Dashboard
+   Interactive statistics cards, period filters, and trend chart.
    ========================================================================== */
-.super-admin-page .security-note { margin-top: calc(-1 * var(--space-2)); }
+
+.super-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.super-stat-card {
+  --metric-color: var(--green-700);
+
+  width: 100%;
+  min-height: 160px;
+  height: auto;
+  padding: var(--space-5);
+  display: block;
+  position: relative;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition:
+    opacity .2s ease,
+    transform .2s ease,
+    border-color .2s ease,
+    box-shadow .2s ease;
+}
+
+.super-stat-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: transparent;
+  transition: background .2s ease;
+}
+
+.super-stat-card.selected {
+  opacity: 1;
+  border-color: var(--metric-color);
+  box-shadow:
+    inset 0 0 0 1px var(--metric-color),
+    var(--shadow-card);
+}
+
+.super-stat-card.selected::after {
+  background: var(--metric-color);
+}
+
+.super-stat-card.not-selected {
+  opacity: .55;
+  border-color: var(--line);
+}
+
+.super-stat-card.not-selected::after {
+  background: transparent;
+}
+
+.super-stat-card:hover {
+  filter: none;
+  transform: translateY(-2px);
+  border-color: var(--metric-color);
+  box-shadow: 0 8px 22px rgba(0, 56, 32, .1);
+}
+
+.super-stat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.super-stat-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--metric-color);
+  background: #e9f7f0;
+  border-radius: var(--radius-control);
+}
+
+.super-stat-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.super-stat-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.super-stat-card strong {
+  display: block;
+  margin-bottom: var(--space-3);
+  color: var(--ink);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.super-stat-change {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.super-stat-change.increase {
+  color: var(--green-700);
+}
+
+.super-stat-change.decrease {
+  color: var(--red);
+}
+
+.super-stat-change.unchanged {
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Super Admin Trend Filters
+   Daily, weekly, monthly, and metric checkbox controls.
+   ========================================================================== */
+
+.trend-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6) 0;
+}
+
+.trend-period-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: #edf2f8;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.trend-period-filter button {
+  height: 36px;
+  min-width: 82px;
+  padding: 0 var(--space-4);
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.trend-period-filter button:hover {
+  filter: none;
+  color: var(--green-950);
+  background: rgba(0, 122, 82, .08);
+}
+
+.trend-period-filter button.active {
+  color: white;
+  background: var(--green-700);
+  box-shadow: 0 1px 3px rgba(0, 56, 32, .16);
+}
+
+.trend-metric-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3) var(--space-5);
+}
+
+.trend-metric-filters label {
+  display: inline-flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: var(--space-2);
+  color: #4f5956;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.trend-metric-filters input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  min-height: 17px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--green-700);
+}
+
+.metric-color-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+}
+
+/* ==========================================================================
+   Super Admin Trend Chart
+   Responsive SVG line chart and dynamic legend.
+   ========================================================================== */
+
+.admin-trend-chart {
+  width: 100%;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  overflow-x: auto;
+}
+
+.admin-trend-chart svg {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+.trend-grid-line {
+  stroke: #e3e9e4;
+  stroke-width: 1;
+}
+
+.trend-axis-line {
+  stroke: #aeb9b1;
+  stroke-width: 1;
+}
+
+.trend-axis-label {
+  fill: #6e7973;
+  font-size: 12px;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+.trend-chart-point {
+  cursor: pointer;
+  stroke: white;
+  stroke-width: 2;
+  transition: r .2s ease;
+}
+
+.trend-chart-point:hover {
+  r: 7;
+}
+
+.trend-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-4) var(--space-6);
+  margin-top: var(--space-3);
+}
+
+.trend-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: #59635f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.trend-chart-legend i {
+  width: 24px;
+  height: 3px;
+  display: inline-block;
+  border-radius: 999px;
+}
+
+/* ==========================================================================
+   Super Admin Dashboard Lower Section
+   Recent activity and system overview.
+   ========================================================================== */
+
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: var(--space-6);
+}
+
+.dashboard-bottom-grid .panel {
+  margin-bottom: 0;
+}
+
+.activity-list {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+.activity-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 76px;
+  padding: var(--space-4);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.activity-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green-800);
+  background: #dff8eb;
+  border-radius: var(--radius-control);
+}
+
+.activity-item strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--green-950);
+  font-size: 15px;
+}
+
+.activity-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.activity-item small {
+  color: #78817e;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.system-overview-list {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+.system-overview-list > div {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.system-overview-list span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.system-overview-list strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.status-success {
+  color: var(--green-700) !important;
+}
+
+.status-warning {
+  color: var(--amber) !important;
+}
+
+/* ==========================================================================
+   Super Admin System Monitoring
+   Health, storage, database, and security summary cards.
+   ========================================================================== */
+
+.monitoring-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.monitoring-status-card {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  color: var(--green-800);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.monitoring-status-card > svg {
+  width: 42px;
+  height: 42px;
+  padding: var(--space-2);
+  color: var(--green-800);
+  background: #dff8eb;
+  border-radius: var(--radius-control);
+}
+
+.monitoring-status-card.warning > svg {
+  color: #855900;
+  background: #ffe8c6;
+}
+
+.monitoring-status-card span {
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.monitoring-status-card strong {
+  color: var(--ink);
+  font-size: 24px;
+}
+
+.monitoring-status-card small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
 
 /* ==========================================================================
    Responsive Layout
    Single-column fallbacks for smaller viewport demos.
    ========================================================================== */
+@media (max-width: 1100px) {
+  .super-dashboard-stats,
+  .monitoring-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trend-toolbar {
+    flex-direction: column;
+  }
+
+  .trend-metric-filters {
+    justify-content: flex-start;
+  }
+
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
-  body { min-width: 0; }
-  .app-shell, .role-screen, .dashboard-grid, .two-col, .split-page, .stats-grid, .feature-grid, .welcome-grid, .metric-row, .welcome-footer { grid-template-columns: 1fr; }
-  .sidebar { position: static; min-height: auto; }
-  .brand-mark { height: 160px; }
-  .topbar { padding: 0 16px; }
-  .page { padding: 24px 16px; }
-  .role-hero { min-height: 520px; }
-  .detail-drawer { min-height: auto; }
-  .admin-form { grid-template-columns: 1fr; }
-  .welcome-nav { position: static; flex-wrap: wrap; height: auto; padding: 16px; }
-  .welcome-nav nav { order: 3; width: 100%; }
-  .welcome-hero { min-height: 620px; padding-top: 96px; }
-  .welcome-hero h1 { font-size: 36px; }
-  .campus-art { width: 100%; right: -24%; opacity: .35; }
-  .security-band { display: grid; padding: 28px 16px; }
-  .cert-row { min-width: 0; grid-template-columns: repeat(2, 1fr); }
-  .welcome-cta { margin: 0 16px 24px; }
-  .auth-card { width: min(520px, calc(100vw - 32px)); }
+  body {
+    min-width: 0;
+  }
+
+  .app-shell,
+  .role-screen,
+  .dashboard-grid,
+  .two-col,
+  .split-page,
+  .stats-grid,
+  .feature-grid,
+  .welcome-grid,
+  .metric-row,
+  .welcome-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    min-height: auto;
+  }
+
+  .brand-mark {
+    height: 160px;
+  }
+
+  .topbar {
+    padding: 0 16px;
+  }
+
+  .page {
+    padding: 24px 16px;
+  }
+
+  .role-hero {
+    min-height: 520px;
+  }
+
+  .detail-drawer {
+    min-height: auto;
+  }
+
+  .admin-form {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-nav {
+    position: static;
+    flex-wrap: wrap;
+    height: auto;
+    padding: 16px;
+  }
+
+  .welcome-nav nav {
+    order: 3;
+    width: 100%;
+  }
+
+  .welcome-hero {
+    min-height: 620px;
+    padding-top: 96px;
+  }
+
+  .welcome-hero h1 {
+    font-size: 36px;
+  }
+
+  .campus-art {
+    width: 100%;
+    right: -24%;
+    opacity: .35;
+  }
+
+  .security-band {
+    display: grid;
+    padding: 28px 16px;
+  }
+
+  .cert-row {
+    min-width: 0;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .welcome-cta {
+    margin: 0 16px 24px;
+  }
+
+  .auth-card {
+    width: min(520px, calc(100vw - 32px));
+  }
+}
+
+@media (max-width: 650px) {
+  .super-dashboard-stats,
+  .monitoring-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-toolbar {
+    padding: var(--space-4);
+  }
+
+  .trend-period-filter {
+    width: 100%;
+  }
+
+  .trend-period-filter button {
+    flex: 1;
+    min-width: 0;
+    padding: 0 var(--space-2);
+  }
+
+  .trend-metric-filters {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-trend-chart {
+    padding: var(--space-3) var(--space-4) var(--space-5);
+  }
+
+  .activity-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .activity-item small {
+    grid-column: 2;
+  }
+}
+
+
+/* ==========================================================================
+   Super Admin User Management Table
+   ========================================================================== */
+
+.user-management-table {
+  width: 100%;
+  min-width: 0;
+}
+
+.user-management-table .panel {
+  overflow: hidden;
+}
+
+.user-management-table .table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Use proper widths for all seven columns. */
+.user-management-table .thead,
+.user-management-table .tr {
+  grid-template-columns:
+    minmax(150px, 1.15fr)
+    minmax(175px, 1.25fr)
+    minmax(125px, .9fr)
+    minmax(95px, .65fr)
+    minmax(120px, .8fr)
+    minmax(145px, .95fr)
+    270px;
+
+  min-width: 1150px;
+}
+
+/* Table header */
+
+.user-management-table .thead {
+  height: 54px;
+  background: #eaf1ff;
+}
+
+.user-management-table .thead span {
+  padding: 0 14px;
+  overflow: hidden;
+  color: #53605a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  white-space: nowrap;
+}
+
+/* Table rows */
+
+.user-management-table .tr {
+  min-height: 64px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+}
+
+.user-management-table .tr:hover {
+  background: #f8fbf9;
+}
+
+.user-management-table .tr > span {
+  min-width: 0;
+  padding: 12px 14px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+  font-size: 14px;
+  text-overflow: ellipsis;
+}
+
+/* Name */
+
+.user-management-table .tr > span:nth-child(1) {
+  color: var(--green-950);
+  font-family: inherit;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+/* Email */
+
+.user-management-table .tr > span:nth-child(2) {
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+/* Role, department, status, and login */
+
+.user-management-table .tr > span:nth-child(3),
+.user-management-table .tr > span:nth-child(4),
+.user-management-table .tr > span:nth-child(5),
+.user-management-table .tr > span:nth-child(6) {
+  white-space: nowrap;
+}
+
+/* Actions cell */
+
+.user-management-table .tr > span:nth-child(7) {
+  width: 100%;
+  padding: 10px 12px;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Remove any badge-like background around the actions. */
+
+.user-management-table .tr > span:nth-child(7)::before,
+.user-management-table .tr > span:nth-child(7)::after {
+  display: none;
+}
+
+/* Actions container */
+
+.user-management-table .user-table-actions {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 72px 108px 72px;
+  align-items: center;
+  justify-content: start;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  border: 0;
+  border-radius: 0;
+}
+
+/* Action buttons */
+
+.user-management-table .table-action {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--green-950);
+  background: #ffffff;
+  border: 1px solid var(--green-700);
+  border-radius: var(--radius-control);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.user-management-table .table-action:hover {
+  filter: none;
+  color: #ffffff;
+  background: var(--green-700);
+}
+
+.user-management-table .table-action svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+/* Table footer */
+
+.user-management-table .table footer {
+  min-width: 1150px;
+  background: #ffffff;
+}
+
+/* Horizontal scrollbar */
+
+.user-management-table .table::-webkit-scrollbar {
+  height: 8px;
+}
+
+.user-management-table .table::-webkit-scrollbar-track {
+  background: #edf1ee;
+}
+
+.user-management-table .table::-webkit-scrollbar-thumb {
+  background: #a8b5ad;
+  border-radius: 999px;
+}
+
+.user-management-table .table::-webkit-scrollbar-thumb:hover {
+  background: var(--green-700);
+}
+
+/* ==========================================================================
+   Department Management Summary Cards
+   ========================================================================== */
+
+.department-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.department-summary-card {
+  min-height: 180px;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.department-summary-icon {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-5);
+  color: var(--green-800);
+  background: #dff8eb;
+  border-radius: var(--radius-control);
+}
+
+.department-summary-label {
+  margin-bottom: var(--space-2);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.department-summary-card strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--ink);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.department-summary-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+  .department-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .department-summary-grid {
+    grid-template-columns: 1fr;
+  }
 }
