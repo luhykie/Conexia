@@ -1921,3 +1921,208 @@ textarea { padding-top: var(--space-3); resize: vertical; }
     flex: 1;
   }
 }
+
+/* ======================================================
+   SUPER ADMIN SETTINGS
+====================================================== */
+
+.settings-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---------- Section ---------- */
+
+.settings-section {
+  background: #fff;
+  border: 1px solid #e6ece8;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgba(0,0,0,.04);
+}
+
+.settings-section header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #edf1ee;
+  background: #fafcfa;
+}
+
+.settings-section header span {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(0,122,82,.08);
+  color: #007a52;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-section header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.settings-section header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.settings-section-content {
+  padding: 24px;
+}
+
+/* ---------- Forms ---------- */
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+  gap: 20px;
+}
+
+.settings-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #2d3436;
+}
+
+.settings-form-grid input,
+.settings-form-grid select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid #d9e2dc;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: .2s;
+  background: white;
+}
+
+.settings-form-grid input:focus,
+.settings-form-grid select:focus {
+  outline: none;
+  border-color: #007a52;
+  box-shadow: 0 0 0 3px rgba(0,122,82,.12);
+}
+
+.settings-form-grid input[type="color"] {
+  height: 46px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+/* ---------- Toggle ---------- */
+
+.setting-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid #edf1ee;
+  border-radius: 12px;
+  background: #fafcfa;
+}
+
+.setting-toggle-row strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.setting-toggle-row small {
+  color: #6b7280;
+}
+
+.setting-toggle-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #007a52;
+}
+
+/* ---------- Buttons ---------- */
+
+.backup-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.backup-actions button,
+.settings-inline-button,
+.settings-save-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Sticky Save ---------- */
+
+.settings-save-bar {
+  margin-top: 30px;
+  background: #fff;
+  border: 1px solid #e6ece8;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  position: sticky;
+  bottom: 18px;
+  box-shadow: 0 -3px 16px rgba(0,0,0,.05);
+}
+
+.settings-save-bar strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.settings-save-bar p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* ---------- Tables ---------- */
+
+.settings-section table {
+  margin-top: 18px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width:900px){
+
+.settings-form-grid{
+grid-template-columns:1fr;
+}
+
+.settings-save-bar{
+flex-direction:column;
+align-items:flex-start;
+}
+
+.settings-save-bar button{
+width:100%;
+justify-content:center;
+}
+
+.backup-actions{
+flex-direction:column;
+}
+
+.backup-actions button{
+width:100%;
+justify-content:center;
+}
+
+}

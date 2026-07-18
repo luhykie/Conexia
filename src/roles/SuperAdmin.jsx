@@ -1807,7 +1807,6 @@ function SystemSettings() {
       <PageTitle
         title="System Settings"
         subtitle="Configure university branding, passwords, sessions, email, maintenance, backups, and security."
-        action="Save All Changes"
       />
 
       <div className="settings-layout">
