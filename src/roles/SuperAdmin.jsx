@@ -18,7 +18,6 @@ export function SuperAdmin({ page }) {
       roleKey="super"
       title="Overall System Statistics"
       subtitle="Aggregated submissions, engagement, active sessions, and pending actions across all nodes."
-      action="Read-only Governance Mode"
     />
   );
 }
@@ -99,7 +98,14 @@ function UserDirectory() {
         <DataTable headers={["Full Name", "Email", "Role", "Office", "Department", "Status", "Password Policy"]} rows={userRows} />
       </Panel>
       <Panel title="Official Schools & Programs">
-        <DataTable headers={["Department Code", "Office / Department Name", "Seed Email"]} rows={departments.map((dept) => [dept.code, dept.name, dept.email])} />
+        <DataTable
+          headers={["Department Code", "Office / Department Name", "Seed Email"]}
+          rows={departments.map((dept) => [
+            dept.code,
+            dept.name,
+            dept.email.toLowerCase(),
+          ])}
+        />
       </Panel>
     </section>
   );

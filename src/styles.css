@@ -200,7 +200,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .doc-preview { margin: var(--space-8); min-height: 600px; background: white; border: 1px solid #e1e5e8; padding: var(--space-12); font-family: Georgia, serif; line-height: 1.8; box-shadow: var(--shadow-card); }
 .doc-preview h3 { text-align: center; letter-spacing: .06em; }
 .status-card { padding: var(--space-6); margin-bottom: var(--space-6); border-color: var(--green-700); }
-.progress-steps, .pipeline { display: flex; justify-content: space-between; align-items: center; margin: var(--space-8) 0; position: relative; }
+.progress-steps, .pipeline { display: flex; justify-content: space-between; align-items: center; margin: var(--space-8); position: relative; }
 .progress-steps span, .pipeline span { display: grid; gap: 8px; text-align: center; color: #777; font-weight: 900; }
 .progress-steps span::before { content: "•"; width: 48px; height: 48px; margin: 0 auto; border-radius: 16px; border: 3px solid var(--line); display: grid; place-items: center; font-size: 0; }
 .progress-steps .done::before { content: "✓"; font-size: 22px; color: white; background: var(--green-700); border-color: var(--green-700); }
@@ -793,4 +793,79 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .cert-row { min-width: 0; grid-template-columns: repeat(2, 1fr); }
   .welcome-cta { margin: 0 16px 24px; }
   .auth-card { width: min(520px, calc(100vw - 32px)); }
+}
+
+/* Super Admin development accounts table */
+.super-admin-page .table .thead,
+.super-admin-page .table .tr {
+  grid-template-columns:
+    180px                  /* Full Name */
+    190px                  /* Email */
+    140px                  /* Role */
+    minmax(220px, 1fr)     /* Office */
+    100px                  /* Department */
+    85px                   /* Status */
+    240px;                 /* Password Policy */
+}
+
+/* Reduce cell padding so all columns fit */
+.super-admin-page .table .thead span,
+.super-admin-page .table .tr span {
+  padding: 14px 12px;
+  min-width: 0;
+}
+
+/* Allow long office names to wrap instead of overlapping */
+.super-admin-page .table .tr span:nth-child(4) {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+}
+
+/* Keep shorter values on one line */
+.super-admin-page .table .tr span:nth-child(2),
+.super-admin-page .table .tr span:nth-child(5),
+.super-admin-page .table .tr span:nth-child(6),
+.super-admin-page .table .thead span {
+  white-space: nowrap;
+}
+
+/* Keep the password badge inside its column */
+.super-admin-page .table .tr span:nth-child(7) {
+  overflow: hidden;
+}
+
+.super-admin-page .table .tr span:nth-child(7) .badge {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+/* Official Schools & Programs table */
+.super-admin-page .panel .table[style*="--cols: 3"] .thead,
+.super-admin-page .panel .table[style*="--cols: 3"] .tr {
+  grid-template-columns:
+    170px                 /* Department Code */
+    minmax(420px, 1fr)    /* Office / Department Name */
+    230px;                /* Seed Email */
+}
+
+/* Better spacing for the 3-column table */
+.super-admin-page .panel .table[style*="--cols: 3"] .thead span,
+.super-admin-page .panel .table[style*="--cols: 3"] .tr span {
+  padding: 14px 14px;
+  min-width: 0;
+}
+
+/* Allow long department names to wrap */
+.super-admin-page .panel .table[style*="--cols: 3"] .tr span:nth-child(2) {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+/* Keep code and email on one line */
+.super-admin-page .panel .table[style*="--cols: 3"] .thead span,
+.super-admin-page .panel .table[style*="--cols: 3"] .tr span:nth-child(1),
+.super-admin-page .panel .table[style*="--cols: 3"] .tr span:nth-child(3) {
+  white-space: nowrap;
 }
