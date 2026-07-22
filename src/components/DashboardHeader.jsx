@@ -5,7 +5,7 @@ import { Filter, Plus } from "lucide-react";
 export function DashboardHeader() {
   return (
     <header className="iro-dashboard-header">
-      <div>
+      <div className="title-block">
         <h1>Good Morning, Chendy.</h1>
         <p>Here is your operational overview for today. You have 12 unlogged items requiring immediate attention.</p>
       </div>

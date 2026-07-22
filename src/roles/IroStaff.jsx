@@ -38,36 +38,11 @@ function IroStaffDashboard() {
 
 // IncomingSubmissions moved to components/IncomingSubmissions.jsx
 
+import LogReviewPage from "../components/LogReviewPage";
+
 // Gives IRO Staff a document preview plus administrative completeness checklist.
 function LogReview() {
-  return (
-    <section className="page iro-staff-page">
-      <PageTitle title="Log & Review Form" subtitle="Verify incoming submission data before routing to Legal." action="Mark as Logged" />
-      <div className="two-col">
-        <div>
-          <Panel title="Document Preview: DRAFT_MOA_V2.1.PDF">
-            <div className="doc-preview">
-              <h3>MEMORANDUM OF AGREEMENT</h3>
-              <p>Standard Institutional Template v4.0</p>
-              <p>KNOW ALL MEN BY THESE PRESENTS:</p>
-              <p>This Agreement made and entered into this 24th day of October 2023 by and between the Department of Institutional Relations and Global Logistics Solutions Inc.</p>
-            </div>
-          </Panel>
-        </div>
-        <aside className="review-sidebar">
-          <h2>Completeness Check</h2>
-          {["Partner Details Verified", "Signatory Identified", "Standard Template Used"].map((item) => (
-            <label className="checkline" key={item}><input type="checkbox" /> {item}</label>
-          ))}
-          <label>Internal Staff Notes<textarea placeholder="Any initial observations for the reviewer..." /></label>
-          <Panel title="Routing & Automation">
-            <button className="primary wide-inline">Auto-Generate Review Form</button>
-            <Dropzone label="Attach supporting document" detail="Optional supporting PDF or DOCX" />
-          </Panel>
-        </aside>
-      </div>
-    </section>
-  );
+  return <LogReviewPage />;
 }
 
 // Tracks submission stage history from receipt through legal review.

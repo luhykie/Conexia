@@ -1,12 +1,12 @@
 import React from "react";
 import { Filter, Plus } from "lucide-react";
 
-export function IncomingHeader() {
+export function LogReviewHeader() {
   return (
-    <header className="incoming-header">
+    <header className="incoming-header log-review-header">
       <div className="title-block">
-        <h1>INCOMING SUBMISSIONS</h1>
-        <p className="subtitle">Manage and review incoming partnership documents. Prioritize high-waiting items to maintain departmental KPIs.</p>
+        <h1>LOG & REVIEW FORM</h1>
+        <p className="subtitle">Register institutional agreements and perform initial administrative reviews. Ensure all mandatory data fields are populated before routing to relevant departments.</p>
       </div>
 
       <div className="header-actions">
@@ -20,3 +20,5 @@ export function IncomingHeader() {
     </header>
   );
 }
+
+export default LogReviewHeader;
