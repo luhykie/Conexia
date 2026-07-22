@@ -9,6 +9,7 @@ import { Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from
 import { StatGrid } from "../components/StatGrid";
 import { QueuePreview } from "../components/QueuePreview";
 import { WorkflowActivity } from "../components/WorkflowActivity";
+import IncomingSubmissions from "../components/IncomingSubmissions";
 import { incomingRows } from "../data/mockData";
 
 // Routes all IRO Staff pages through one role-owned component.
@@ -35,22 +36,7 @@ function IroStaffDashboard() {
   );
 }
 
-// Shows all newly received submissions requiring IRO Staff processing.
-function IncomingSubmissions() {
-  return (
-    <section className="page iro-staff-page">
-      <PageTitle title="Incoming Queue" subtitle="Receive, filter, and export department submissions." />
-      <StatGrid stats={[
-        ["42", "Total Pending", Folder, "+12 New"],
-        ["18", "Under Review", FileText, "Avg 2.4d", "warn"],
-      ]} />
-      <FilterBar labels={["All Departments", "College of Law", "Engineering", "Business School", "Medicine"]} />
-      <Panel title="Active Submissions" tools={<ExportButton label="Export CSV" />}>
-        <DataTable headers={["Tracking #", "Department", "Document Type", "Date Submitted", "Status"]} rows={incomingRows} />
-      </Panel>
-    </section>
-  );
-}
+// IncomingSubmissions moved to components/IncomingSubmissions.jsx
 
 // Gives IRO Staff a document preview plus administrative completeness checklist.
 function LogReview() {
