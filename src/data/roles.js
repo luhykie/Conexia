@@ -82,9 +82,10 @@ export const navItems = {
   staff: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["incoming", "Incoming Submissions", Folder],
-    ["log-review", "Log & Review", FileCheck2],
+    ["log-review", "Log & Review Form", FileCheck2],
     ["status", "Status Tracker", Gauge],
     ["expiry", "Expiry", CalendarClock],
+    ["notifications", "Notifications", Bell],
   ],
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],

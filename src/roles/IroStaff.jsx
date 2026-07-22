@@ -1,10 +1,14 @@
 import React from "react";
-import { CheckCircle2, Clock3, Download, FileText, Folder, Gauge } from "lucide-react";
+import { Download, FileText, Folder } from "lucide-react";
 import { DataTable } from "../components/DataTable";
+import { DashboardHeader } from "../components/DashboardHeader";
+import { DashboardStats } from "../components/DashboardStats";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
-import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar } from "../components/SharedViews";
+import { Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
+import { QueuePreview } from "../components/QueuePreview";
+import { WorkflowActivity } from "../components/WorkflowActivity";
 import { incomingRows } from "../data/mockData";
 
 // Routes all IRO Staff pages through one role-owned component.
@@ -13,14 +17,21 @@ export function IroStaff({ page }) {
   if (page === "log-review") return <LogReview />;
   if (page === "status") return <StatusTracker />;
   if (page === "expiry") return <ExpiryView title="Global Expiry List" action="Bulk Notify Offices" />;
+  if (page === "notifications") return <NotificationsView />;
 
+  return <IroStaffDashboard />;
+}
+
+function IroStaffDashboard() {
   return (
-    <DashboardView
-      roleKey="staff"
-      title="Dashboard Overview"
-      subtitle="Real-time tracking of institutional relations workflow."
-      action="Process Now"
-    />
+    <section className="page iro-staff-dashboard">
+      <DashboardHeader />
+      <DashboardStats />
+      <div className="iro-dashboard-grid">
+        <QueuePreview />
+        <WorkflowActivity />
+      </div>
+    </section>
   );
 }
 

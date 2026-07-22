@@ -752,6 +752,420 @@ textarea { padding-top: var(--space-3); resize: vertical; }
    ========================================================================== */
 .iro-staff-page .review-sidebar { position: sticky; top: 88px; }
 
+.staff-shell {
+  background: var(--workspace);
+}
+
+.staff-shell .workspace {
+  background: var(--workspace);
+}
+
+.staff-shell .topbar {
+  height: 82px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  padding: 0 40px 0 26px;
+}
+
+.staff-shell .topbar .search {
+  width: min(760px, 62vw);
+  height: 34px;
+  border-radius: 10px;
+  border-color: var(--line);
+  background: #eef3fb;
+}
+
+.staff-shell .topbar .search input {
+  height: 34px;
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.staff-shell .topbar > svg {
+  color: var(--green-950);
+}
+
+.staff-shell .profile {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.staff-shell .profile small {
+  color: #777;
+  font-size: 10px;
+}
+
+.staff-shell .avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  border-color: #9fceb9;
+  background: var(--green-800);
+  color: white;
+}
+
+.staff-shell .sidebar {
+  background: var(--green-900);
+}
+
+.staff-shell .brand-mark {
+  height: 190px;
+}
+
+.staff-shell .seal {
+  width: 58px;
+  height: 58px;
+  border-width: 2px;
+}
+
+.staff-shell .seal svg {
+  width: 28px;
+  height: 28px;
+}
+
+.staff-shell .brand-mark h1 {
+  font-size: 28px;
+}
+
+.staff-shell .brand-mark p {
+  font-size: 11px;
+}
+
+.staff-shell .sidebar nav {
+  padding: 0 16px;
+  gap: 6px;
+}
+
+.staff-shell .sidebar button {
+  height: 42px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #e5f2ed;
+}
+
+.staff-shell .sidebar button.active {
+  background: rgba(255,194,14,.14);
+  color: var(--gold);
+  box-shadow: inset 4px 0 0 var(--gold);
+}
+
+.staff-shell .sidebar-footer {
+  border-top: 0;
+  padding-bottom: 28px;
+}
+
+.iro-staff-dashboard {
+  padding: 22px 40px 34px;
+  max-width: 1120px;
+}
+
+.iro-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.iro-dashboard-header h1 {
+  margin: 0 0 2px;
+  color: var(--green-950);
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.iro-dashboard-header p {
+  margin: 0;
+  max-width: 620px;
+  color: #4f5a57;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.iro-dashboard-actions {
+  display: flex;
+  gap: 14px;
+  padding-top: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.iro-dashboard-actions button {
+  height: 38px;
+  border-radius: 4px;
+  font-size: 14px;
+  padding: 0 16px;
+}
+
+.iro-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.iro-stat-card {
+  min-height: 148px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  padding: 24px 22px 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.iro-stat-card svg {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 4px;
+  background: #c8f8df;
+  color: var(--green-800);
+}
+
+.iro-stat-card span {
+  position: absolute;
+  top: 42px;
+  left: 106px;
+  max-width: 90px;
+  color: var(--green-800);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.iro-stat-card strong {
+  display: block;
+  margin-top: 24px;
+  color: #0f1e31;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.iro-stat-card p {
+  margin: 9px 0 0;
+  color: #59625f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.iro-stat-card.dark {
+  background: var(--green-950);
+  border-color: var(--green-950);
+}
+
+.iro-stat-card.dark::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -22px;
+  width: 116px;
+  height: 72px;
+  background: rgba(255,255,255,.1);
+  clip-path: polygon(0 70%, 22% 44%, 38% 52%, 58% 12%, 75% 24%, 100% 0, 100% 100%, 0 100%);
+}
+
+.iro-stat-card.dark svg {
+  background: #c8f8df;
+  color: var(--green-800);
+}
+
+.iro-stat-card.dark span,
+.iro-stat-card.dark strong,
+.iro-stat-card.dark p {
+  color: white;
+}
+
+.iro-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.iro-panel {
+  background: white;
+  border: 1px solid #ccd4ce;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.iro-panel > header {
+  min-height: 82px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.iro-panel h2 {
+  margin: 0;
+  color: #253347;
+  font-size: 18px;
+}
+
+.iro-panel header p {
+  margin: 4px 0 0;
+  color: #6e7773;
+  font-size: 12px;
+}
+
+.text-link {
+  height: auto;
+  padding: 0;
+  background: transparent;
+  color: var(--green-700);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.iro-queue-table {
+  border-top: 1px solid #ccd4ce;
+}
+
+.iro-queue-head,
+.iro-queue-row {
+  display: grid;
+  grid-template-columns: 1.15fr 1.15fr .95fr .9fr;
+  align-items: center;
+}
+
+.iro-queue-head {
+  min-height: 56px;
+  background: #edf3ff;
+  color: #747b7c;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.iro-queue-head span,
+.iro-queue-row > * {
+  padding: 0 22px;
+}
+
+.iro-queue-row {
+  min-height: 78px;
+  border-top: 1px solid #d4d9d5;
+  color: #5b6561;
+  font-size: 13px;
+}
+
+.iro-queue-row:first-of-type {
+  border-top: 0;
+}
+
+.iro-queue-row strong {
+  color: #253347;
+  line-height: 1.45;
+}
+
+.iro-queue-row time {
+  color: #425069;
+  font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.queue-badge {
+  justify-self: start;
+  height: 20px;
+  padding: 0 9px !important;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  color: #236d69;
+  background: #dff1fb;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.queue-badge.urgent {
+  background: #ffdfe1;
+  color: #cf565f;
+}
+
+.queue-badge.pending {
+  background: #ffe4bb;
+  color: #a46916;
+}
+
+.iro-activity-panel {
+  min-height: 510px;
+}
+
+.iro-activity-list {
+  padding: 16px 22px 24px;
+  position: relative;
+}
+
+.iro-activity-list::before {
+  content: "";
+  position: absolute;
+  top: 34px;
+  bottom: 42px;
+  left: 34px;
+  width: 2px;
+  background: #e7eef7;
+}
+
+.iro-activity-item {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 14px;
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.iro-activity-item:last-child {
+  padding-bottom: 0;
+}
+
+.activity-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--green-950);
+  background: #c8f8df;
+  position: relative;
+  z-index: 1;
+  margin-top: 2px;
+}
+
+.activity-dot.warn {
+  background: #ffe0b3;
+}
+
+.activity-dot.info {
+  background: #e6edff;
+}
+
+.iro-activity-item h3 {
+  margin: 0;
+  color: #253347;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.iro-activity-item p {
+  margin: 3px 0 4px;
+  color: #5f676b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.iro-activity-item time {
+  color: #858c91;
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-transform: uppercase;
+}
+
 /* ==========================================================================
    IRO Admin Screens
    Validation, reassignment, performance reports, archive, and engagements.
@@ -793,4 +1207,13 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .cert-row { min-width: 0; grid-template-columns: repeat(2, 1fr); }
   .welcome-cta { margin: 0 16px 24px; }
   .auth-card { width: min(520px, calc(100vw - 32px)); }
+  .staff-shell .topbar { height: auto; min-height: 76px; flex-wrap: wrap; justify-content: flex-start; padding: 16px; }
+  .staff-shell .topbar .search { order: 3; width: 100%; }
+  .iro-staff-dashboard { max-width: none; padding: 24px 16px; }
+  .iro-dashboard-header { display: grid; }
+  .iro-dashboard-actions { justify-content: flex-start; }
+  .iro-stat-grid, .iro-dashboard-grid { grid-template-columns: 1fr; }
+  .iro-queue-head, .iro-queue-row { grid-template-columns: 1fr; gap: 8px; padding: 16px 0; }
+  .iro-queue-head { display: none; }
+  .iro-queue-row > * { padding: 0 18px; }
 }

@@ -8,7 +8,7 @@ export function Shell({ roleKey, page, setPage, account, onLogout, children }) {
   const role = roles[roleKey];
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${roleKey}-shell`}>
       <Sidebar role={role} roleKey={roleKey} page={page} setPage={setPage} onLogout={onLogout} />
       <main className="workspace">
         <Topbar role={role} account={account} />
