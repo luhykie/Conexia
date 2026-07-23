@@ -14,14 +14,16 @@ import {
   Zap,
 } from "lucide-react";
 import "./styles.css";
-import { authenticateDevAccount, DEV_PASSWORD } from "./auth/devAccounts";
+import { fetchProfile, signInWithEmail, signOut } from "./auth/supabaseAuth";
+import { supabase } from "./lib/supabaseClient";
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
+import { isSupabaseConfigured } from "./supabaseConfig";
 import { Shell } from "./components/Shell";
-import { DepartmentStaff } from "./roles/DepartmentStaff";
-import { IroAdmin } from "./roles/IroAdmin";
-import { IroStaff } from "./roles/IroStaff";
-import { LegalCounsel } from "./roles/LegalCounsel";
-import { SuperAdmin } from "./roles/SuperAdmin";
+import { DepartmentStaff } from "./pages/roles/DepartmentStaff";
+import { IroAdmin } from "./pages/roles/IroAdmin";
+import { IroStaff } from "./pages/roles/IroStaff";
+import { LegalCounsel } from "./pages/roles/LegalCounsel";
+import { SuperAdmin } from "./pages/roles/SuperAdmin";
 import {BrowserRouter, Navigate, Route, Routes, useNavigate, useParams,} from "react-router-dom";
 
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
@@ -40,20 +42,50 @@ function getSavedAccount() {
 }
 
 function App() {
-  const [account, setAccount] = React.useState(getSavedAccount);
+  const [account, setAccount] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    // On first load, check if a Supabase session already exists (page refresh case).
+    async function restoreSession() {
+      const { data } = await supabase.auth.getSession();
+
+      if (data.session) {
+        const profile = await fetchProfile(data.session.user.id);
+        setAccount(profile);
+      }
+
+      setLoading(false);
+    }
+
+    restoreSession();
+
+    // Keep account in sync if the session changes elsewhere (e.g. token refresh, logout in another tab).
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session) {
+        setAccount(null);
+        return;
+      }
+
+      const profile = await fetchProfile(session.user.id);
+      setAccount(profile);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   function handleLogin(nextAccount) {
-    localStorage.setItem(
-      AUTH_STORAGE_KEY,
-      JSON.stringify(nextAccount)
-    );
-
     setAccount(nextAccount);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    await signOut();
     localStorage.removeItem(AUTH_STORAGE_KEY);
     setAccount(null);
+  }
+
+  if (loading) {
+    return <div style={{ padding: 40 }}>Loading...</div>;
   }
 
   return (
@@ -301,12 +333,18 @@ function FooterColumn({ title, items }) {
 // Development login validates known emails and infers each user's role automatically.
 function LoginScreen({ onBack, onLogin }) {
   const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState(DEV_PASSWORD);
+  const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    const result = authenticateDevAccount(email, password);
+    setLoading(true);
+    setError("");
+
+    const result = await signInWithEmail(email, password);
+
+    setLoading(false);
 
     if (!result.ok) {
       setError(result.message);
@@ -346,7 +384,7 @@ function LoginScreen({ onBack, onLogin }) {
           />
         </label>
         {error && <div className="auth-error">{error}</div>}
-        <button type="submit">Sign In <ChevronRight /></button>
+        <button type="submit" disabled={loading}>{loading ? "Signing In..." : "Sign In"} <ChevronRight /></button>
         <button type="button" className="text-action" onClick={onBack}>Back to welcome page</button>
       </form>
       <footer>
@@ -369,10 +407,28 @@ function RolePage({ roleKey, page, account }) {
   return <DepartmentStaff page={page} account={account} />;
 }
 
-createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+const root = createRoot(document.getElementById("root"));
+
+if (!isSupabaseConfigured) {
+  root.render(
+    <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
+      <h2 style={{ color: '#b00020' }}>Configuration required</h2>
+      <p>
+        Supabase is not configured for this environment. Please add the following environment variables to a local env file (e.g. <code>.env.local</code>) and restart the dev server:
+      </p>
+      <ul>
+        <li><code>VITE_SUPABASE_URL</code> — your Supabase project URL</li>
+        <li><code>VITE_SUPABASE_ANON_KEY</code> — your Supabase anon (public) key</li>
+      </ul>
+      <p>After updating the file, run <code>npm run dev</code> to restart Vite.</p>
+    </div>
+  );
+} else {
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+}
