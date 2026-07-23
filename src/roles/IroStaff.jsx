@@ -13,7 +13,7 @@ import { WorkflowActivity } from "../components/WorkflowActivity";
 import IncomingSubmissions from "../components/IncomingSubmissions";
 import { incomingRows } from "../data/mockData";
 import LogReviewPage from "../components/LogReviewPage";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 
 // Routes all IRO Staff pages through one role-owned component.
@@ -48,22 +48,24 @@ function IroStaffDashboard() {
   function handleCardClick(label){
     switch (label) {
       case "Unlogged":
-      navigate("/app/incoming");
-      break;
+        navigate("/app/incoming");
+        break;
 
       case "Logged Today":
         navigate("/app/log-review");
         break;
 
       case "Awaiting Check":
-          navigate("/app/log-review");
-          break;
-
-      case "Routed to Legal":
-        navigate("/app/status");
+        // Navigate to Log & Review and request filter for awaiting completeness check
+        navigate("/app/log-review", { state: { filterStatus: "awaiting" } });
         break;
 
-        default:
+      case "Routed to Legal":
+        // Navigate to Status Tracker and request filter for routed items
+        navigate("/app/status", { state: { filterStatus: "routed" } });
+        break;
+
+      default:
         break;
     }
   }
@@ -90,15 +92,25 @@ function LogReview() {
 
 // Tracks submission stage history from receipt through legal review.
 function StatusTracker() {
+  const location = useLocation();
+  const filterStatus = location?.state?.filterStatus || null;
+
+  const items = [
+    { id: "CTX-9902", name: "Pacific Global University", time: "2d 14h", status: "routed", complete: true },
+    { id: "CTX-9884", name: "Nautical Research Institute", time: "14h 22m", status: "under-review", complete: false },
+    { id: "CTX-9871", name: "Vanguard Medical College", time: "5d 02h", status: "routed", complete: true },
+  ];
+
+  const visible = filterStatus ? items.filter((i) => {
+    if (filterStatus === "routed") return i.status === "routed";
+    return true;
+  }) : items;
+
   return (
     <section className="page split-page iro-staff-page">
       <div>
         <PageTitle title="Submission Progression" subtitle="Real-time status of active institutional agreements." />
-        {[
-          ["CTX-9902", "Pacific Global University", "2d 14h", true],
-          ["CTX-9884", "Nautical Research Institute", "14h 22m", false],
-          ["CTX-9871", "Vanguard Medical College", "5d 02h", true],
-        ].map(([id, name, time, complete]) => (
+        {visible.map(({ id, name, time, complete }) => (
           <article className="status-card" key={id}>
             <span className="badge active">ID: {id}</span>
             <h2>{name}</h2>

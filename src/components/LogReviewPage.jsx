@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import { LogReviewHeader } from "./LogReviewHeader";
 import { DashboardStats } from "./DashboardStats";
 import DocumentPreview from "./DocumentPreview";
@@ -8,6 +9,8 @@ import StaffRemarks from "./StaffRemarks";
 import ReviewActions from "./ReviewActions";
 
 export function LogReviewPage() {
+  const location = useLocation();
+  const filterStatus = location?.state?.filterStatus || null;
   const checklistItems = [
     "Signatures Present",
     "Terms Defined",
@@ -20,6 +23,12 @@ export function LogReviewPage() {
       <LogReviewHeader />
 
       <DashboardStats />
+
+      {filterStatus === 'awaiting' && (
+        <div className="notice" style={{ marginTop: 12 }}>
+          <b>Showing:</b> Submissions awaiting completeness check are highlighted for review.
+        </div>
+      )}
 
       <div className="two-col">
         <div>
