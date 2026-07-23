@@ -1,5 +1,5 @@
 import React from "react";
-import { DashboardStats } from "./DashboardStats";
+import IncomingSummary from "./IncomingSummary";
 import { IncomingHeader } from "./IncomingHeader";
 import { IncomingFilters } from "./IncomingFilters";
 import IncomingTable from "./IncomingTable";
@@ -29,7 +29,7 @@ export function IncomingSubmissions() {
 
       <IncomingHeader />
 
-      <DashboardStats stats={stats} />
+      <IncomingSummary stats={stats} />
 
       <IncomingFilters />
 
