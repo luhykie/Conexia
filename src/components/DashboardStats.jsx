@@ -2,7 +2,7 @@ import React from "react";
 import { CheckCircle2, ClipboardList, FileInput, Gavel } from "lucide-react";
 
 // Figma-aligned dashboard KPI card row.
-export function DashboardStats({ stats = {}, onCardClick }) {
+export function DashboardStats({ stats = {}, onCardClick, showLoggedToday = true }) {
   const cards = [
     {
       value: stats.incoming ?? 0,
@@ -31,9 +31,11 @@ export function DashboardStats({ stats = {}, onCardClick }) {
     },
   ];
 
+  const visibleCards = cards.filter(c => !(c.label === 'Logged Today' && !showLoggedToday));
+
   return (
     <div className="iro-stat-grid">
-      {cards.map(({ value, label, detail, icon: Icon, dark }) => (
+      {visibleCards.map(({ value, label, detail, icon: Icon, dark }) => (
         <article
           key={label}
           className={`iro-stat-card ${dark ? "dark" : ""}`}

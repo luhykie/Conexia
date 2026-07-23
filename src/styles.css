@@ -179,19 +179,6 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 
 /* Modified: consistent card padding and content spacing. */
 
-/* Incoming summary chips (compact stats for Incoming Submissions page) */
-.incoming-summary { display: flex; gap: var(--space-4); align-items: center; margin: calc(var(--space-4)) 0 var(--space-6); }
-.incoming-summary .chip { display: flex; align-items: center; gap: var(--space-3); background: var(--panel); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; box-shadow: none; color: var(--ink); font-weight: 700; font-size: 14px; }
-.incoming-summary .chip .icon { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; background: #c8f8df; color: #004d32; }
-.incoming-summary .chip .label { margin-left: 6px; margin-right: 10px; font-weight: 600; color: #4f5a57; font-size: 13px; }
-.incoming-summary .chip .value { background: #eafaf1; color: #004d32; padding: 4px 8px; border-radius: 6px; font-weight: 800; font-size: 13px; min-width: 28px; text-align: center; }
-
-/* Make the chips visually lighter and less prominent than the table */
-.incoming-summary .chip { height: 40px; font-size: 13px; }
-@media (max-width: 900px) {
-  .incoming-summary { flex-direction: column; align-items: stretch; }
-  .incoming-summary .chip { justify-content: space-between; }
-}
 
 .summary-card, .form-card, .review-panel, .review-sidebar { padding: var(--space-6); display: grid; gap: var(--space-5); }
 .summary-card { background: #d7e8ff; border-color: #a8c7ef; position: sticky; top: 88px; }
