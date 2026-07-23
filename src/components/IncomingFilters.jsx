@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { RefreshCw, Download, Sliders } from "lucide-react";
 
-import React, { useState } from "react";
 
 export function IncomingFilters({ onApply, onReset, initial = {} }) {
   const [docType, setDocType] = useState(initial.docType || "");
