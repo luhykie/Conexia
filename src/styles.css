@@ -1303,7 +1303,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .auth-card { width: min(520px, calc(100vw - 32px)); }
   .staff-shell .topbar { height: auto; min-height: 76px; flex-wrap: wrap; justify-content: flex-start; padding: 16px; }
   .staff-shell .topbar .search { order: 3; width: 100%; }
-  .iro-staff-dashboard { max-width: none; padding: 6px var(--space-10) var(--space-12); }
+  .iro-staff-dashboard { max-width: none; padding: 24px 16px; }
   .iro-dashboard-header { display: grid; }
   .iro-dashboard-actions { justify-content: flex-start; }
   .iro-stat-grid, .iro-dashboard-grid { grid-template-columns: 1fr; }
