@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { DashboardStats } from "./DashboardStats";
 import { IncomingHeader } from "./IncomingHeader";
 import { IncomingFilters } from "./IncomingFilters";
@@ -24,6 +24,43 @@ export function IncomingSubmissions() {
     routedToLegal: 24,
   };
 
+  const [filters, setFilters] = useState(null);
+
+  const filteredRows = useMemo(() => {
+    if (!filters) return mockRows;
+
+    return mockRows.filter((row) => {
+      // Document Type
+      if (filters.docType && filters.docType !== '' && row.type !== filters.docType) return false;
+      // Department
+      if (filters.department && filters.department !== 'All Departments' && row.department !== filters.department) return false;
+      // Partner search
+      if (filters.partner && !row.partner.toLowerCase().includes(filters.partner.toLowerCase())) return false;
+      // Reference ID - mockRows don't have reference IDs, skip
+      // Date range - try to parse dateSubmitted like 'Oct 24, 2023'
+      if (filters.dateFrom) {
+        const from = new Date(filters.dateFrom);
+        const rowDate = new Date(row.dateSubmitted);
+        if (isFinite(from) && rowDate < from) return false;
+      }
+      if (filters.dateTo) {
+        const to = new Date(filters.dateTo);
+        const rowDate = new Date(row.dateSubmitted);
+        if (isFinite(to) && rowDate > to) return false;
+      }
+
+      return true;
+    });
+  }, [filters]);
+
+  function handleApply(filtersObj) {
+    setFilters(filtersObj);
+  }
+
+  function handleReset() {
+    setFilters(null);
+  }
+
   return (
     <section className="page iro-staff-page incoming-page">
 
@@ -31,11 +68,11 @@ export function IncomingSubmissions() {
 
       <DashboardStats stats={stats} showLoggedToday={false} />
 
-      <IncomingFilters />
+      <IncomingFilters onApply={handleApply} onReset={handleReset} initial={{}} />
 
       <div className="panel">
         <h2>Active Incoming Submissions</h2>
-        <IncomingTable rows={mockRows} />
+        <IncomingTable rows={filteredRows} />
         <Pagination />
       </div>
 
