@@ -115,6 +115,7 @@ export const navItems = {
     ["notarization", "Notarization Tracker", FileText],
     ["expiry", "Expiry", CalendarClock],
     ["history", "My Action History", History],
+    ["notifications", "Notifications", Bell],
   ],
 
   super: [

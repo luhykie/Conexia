@@ -1,6 +1,18 @@
-export const supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL || "https://oqxcokxpyoxsgxbxyema.supabase.co",
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
-};
+import { createClient } from "@supabase/supabase-js";
 
-export const isSupabaseConfigured = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL;
+
+const supabasePublishableKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !supabasePublishableKey) {
+  throw new Error(
+    "Missing Supabase environment variables.",
+  );
+}
+
+export const supabase = createClient(
+  supabaseUrl,
+  supabasePublishableKey,
+);

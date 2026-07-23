@@ -180,6 +180,189 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .notice.danger, .notice.new { border-left-color: var(--red); background: #fff5f5; }
 .wide-inline { width: calc(100% - 32px); margin: 16px; }
 
+/* ==========================================================================
+   Notifications Page
+   Notification cards, unread states, document details, and actions.
+   ========================================================================== */
+
+.notification-list {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6)
+    var(--space-6);
+}
+
+.notification-card {
+  min-height: 120px;
+  display: grid;
+  grid-template-columns:
+    46px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-left: 4px solid transparent;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.notification-card:hover {
+  transform: translateY(-1px);
+  border-color: #9eb9aa;
+}
+
+.notification-card.unread {
+  background: #f1fbf6;
+  border-left-color: var(--green-700);
+}
+
+.notification-card.read {
+  background: #ffffff;
+  opacity: 0.82;
+}
+
+.notification-icon {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green-800);
+  background: #dff8eb;
+  border-radius: var(--radius-control);
+}
+
+.notification-card.read .notification-icon {
+  color: var(--muted);
+  background: #edf1ef;
+}
+
+.notification-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.notification-content {
+  min-width: 0;
+}
+
+.notification-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.notification-heading h3 {
+  margin: 0;
+  color: var(--green-950);
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.notification-content > p {
+  margin: 0 0 var(--space-3);
+  color: #55605c;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.notification-content > small {
+  display: block;
+  margin-top: var(--space-3);
+  color: #78817e;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notification-document {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: #eef4ff;
+  border: 1px solid #d3deed;
+  border-radius: var(--radius-control);
+}
+
+.notification-document b {
+  color: var(--green-950);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  font-size: 13px;
+}
+
+.notification-document > span:not(.badge) {
+  min-width: 0;
+  flex: 1;
+  color: #53605c;
+  font-size: 14px;
+}
+
+.notification-card > .table-action {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.notification-card > .table-action:disabled {
+  color: #8b9490;
+  background: #eef1ef;
+  border-color: #d5dbd7;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.notifications-page .panel > header .table-action {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .notification-card {
+    grid-template-columns:
+      46px minmax(0, 1fr);
+  }
+
+  .notification-card > .table-action {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 650px) {
+  .notification-list {
+    padding: var(--space-4);
+  }
+
+  .notification-card {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .notification-card > .table-action {
+    grid-column: 1;
+    width: 100%;
+  }
+
+  .notification-document {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Modified: filter controls share the same 44px baseline and control radius. */
 .filter-bar { min-height: 76px; display: flex; gap: var(--space-3); align-items: center; border: 1px solid var(--line); border-radius: var(--radius-card); background: white; padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6); box-shadow: var(--shadow-card); }
 .filter-bar button { height: 44px; border: 1px solid var(--line); background: #f5f8fe; color: var(--ink); }
@@ -2125,4 +2308,31 @@ width:100%;
 justify-content:center;
 }
 
+}
+
+.sidebar nav button {
+  position: relative;
+}
+
+.sidebar-label {
+  flex: 1;
+  text-align: left;
+}
+
+.sidebar-notification-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+  background: #c9181d;
+  color: #ffffff;
+
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }

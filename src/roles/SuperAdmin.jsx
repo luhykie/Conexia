@@ -1511,35 +1511,6 @@ function SystemMonitoring() {
             "Last Activity",
             "Status",
           ]}
-          rows={[
-            [
-              "System Administrator",
-              "Super Admin",
-              "192.168.1.11",
-              "Windows / Chrome",
-              "Today, 8:30 AM",
-              "2 minutes ago",
-              "Active",
-            ],
-            [
-              "IRO Administrator",
-              "IRO Admin",
-              "192.168.1.18",
-              "Windows / Edge",
-              "Today, 8:42 AM",
-              "5 minutes ago",
-              "Active",
-            ],
-            [
-              "SCS Department Staff",
-              "Department Staff",
-              "192.168.1.25",
-              "Android / Chrome",
-              "Today, 9:05 AM",
-              "1 minute ago",
-              "Active",
-            ],
-          ]}
         />
       </Panel>
 
@@ -1552,24 +1523,6 @@ function SystemMonitoring() {
             "Failure Reason",
             "Attempts",
             "Status",
-          ]}
-          rows={[
-            [
-              "unknown@conexia.com",
-              "192.168.1.41",
-              "Today, 7:14 AM",
-              "Invalid password",
-              "5",
-              "Temporarily blocked",
-            ],
-            [
-              "staff@conexia.com",
-              "192.168.1.52",
-              "Yesterday, 6:32 PM",
-              "Inactive account",
-              "2",
-              "Access denied",
-            ],
           ]}
         />
       </Panel>
@@ -2009,22 +1962,6 @@ function SystemSettings() {
               "Size",
               "Created By",
               "Status",
-            ]}
-            rows={[
-              [
-                "July 19, 2026 - 2:00 AM",
-                "Automatic",
-                "428 MB",
-                "System",
-                "Completed",
-              ],
-              [
-                "July 18, 2026 - 4:35 PM",
-                "Manual",
-                "421 MB",
-                "System Administrator",
-                "Completed",
-              ],
             ]}
           />
         </SettingsSection>

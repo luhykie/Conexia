@@ -81,12 +81,6 @@ function ValidationQueue() {
       <Panel title="Validation Queue">
         <DataTable
           headers={["ID / Case Ref", "Submission Date", "Department", "Entity Name", "Priority", "Status", "Actions"]}
-          rows={[
-            ["#VAL-98231", "24 Oct 2023, 09:12", "Global Compliance", "Nexus Logistics Ltd", "Urgent", "New Submission", "Validate"],
-            ["#VAL-98228", "23 Oct 2023, 16:45", "Institutional Finance", "Apex Capital Partners", "High", "Under Review", "Validate"],
-            ["#VAL-98225", "23 Oct 2023, 14:10", "Legal Affairs", "Stellar Biotech", "Medium", "New Submission", "Validate"],
-            ["#VAL-98220", "23 Oct 2023, 11:30", "Legal Affairs", "Horizon Ventures", "Urgent", "Escalated", "Validate"],
-          ]}
         />
       </Panel>
     </section>
@@ -102,11 +96,6 @@ function ReassignSubmissions() {
         <Panel title="Pending Submissions">
           <DataTable
             headers={["Submission ID", "Requester", "Current Assignee", "Priority"]}
-            rows={[
-              ["IRO-2023-9081", "Global Logistics Corp", "Jane Doe", "High"],
-              ["IRO-2023-9095", "Apex Tech Solutions", "Marcus Smith", "Normal"],
-              ["IRO-2023-9112", "City Health Group", "Jane Doe", "Medium"],
-            ]}
           />
         </Panel>
         <aside className="form-card">
@@ -141,11 +130,9 @@ function PerformanceReports() {
         <Panel title="Agreement Volume Trends"><div className="bars">{[46, 58, 66, 82, 62, 50].map((height, index) => <span style={{ height: `${height}%` }} key={index} />)}</div></Panel>
       </div>
       <Panel title="Departmental Breakdown">
-        <DataTable headers={["Department / Office", "Total Requests", "Approved", "Returned", "Avg. Turnaround", "Success Rate"]} rows={[
-          ["College of Law", "412", "390", "22", "4.2 Days", "94.6%"],
-          ["Engineering & Tech", "285", "240", "45", "6.8 Days", "84.2%"],
-          ["Medicine & Health", "354", "342", "12", "3.1 Days", "96.6%"],
-        ]} />
+        <DataTable headers={["Department / Office", "Total Requests", "Approved", "Returned", "Avg. Turnaround", "Success Rate"]} 
+        
+        />
       </Panel>
     </section>
   );
@@ -158,11 +145,9 @@ function ArchivePage() {
       <PageTitle title="Records Archive" subtitle="Secure workspace for finalizing agreement distribution and archival." action="Export Registry" />
       <StatGrid stats={archiveStats} />
       <Panel title="Archive Records">
-        <DataTable headers={["Tracking ID", "Partner Name", "Type", "Distribution Date", "Completion", "Status", "Actions"]} rows={[
-          ["#2024-AG-9102", "Global Tech Solutions Inc.", "MOA", "Oct 12, 2024", "100%", "Distributed", "Mark as Archived"],
-          ["#2024-AG-8841", "Sovereign Logistics Ltd.", "MOU", "Sep 28, 2024", "100%", "Archived", "View Vault"],
-          ["#2024-AG-7922", "Emerald Heritage Foundation", "MOF", "Oct 05, 2024", "65%", "In Distribution", "Locked"],
-        ]} />
+        <DataTable headers={["Tracking ID", "Partner Name", "Type", "Distribution Date", "Completion", "Status", "Actions"]} 
+        
+        />
       </Panel>
     </section>
   );
@@ -176,11 +161,9 @@ function EngagementsPage() {
         <PageTitle title="Partner Engagements" subtitle="Global view of institutional partnerships." action="New Engagement" />
         <FilterBar labels={["All Departments", "All Agreement Types"]} />
         <Panel title="Engagement Registry" tools={<ExportButton label="Export" />}>
-          <DataTable headers={["Partner Organization", "Type / Department", "Validity Period", "Status", "Action"]} rows={[
-            ["Global Health Alliance", "Research Collaboration", "Jan 12, 2024 - Jan 11, 2027", "Active", "Open"],
-            ["Nordic Tech University", "Student Exchange", "Expires in 14 days", "Expiring", "Renew Now"],
-            ["Quantum Dynamics Ltd.", "Strategic MOU", "Approval In Progress", "Pending", "Edit"],
-          ]} />
+          <DataTable headers={["Partner Organization", "Type / Department", "Validity Period", "Status", "Action"]} 
+          
+          />
         </Panel>
       </div>
       <aside className="detail-drawer">

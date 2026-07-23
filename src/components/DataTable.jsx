@@ -19,7 +19,7 @@ export function DataTable({ headers, rows }) {
         </div>
       ))}
       <footer>
-        Showing 1-{rows.length} of 128 records
+        Showing {rows.length === 0 ? 0 : 1}-{rows.length} of {rows.length} records
         <div>
           <button>&lt;</button>
           <button className="active-page">1</button>

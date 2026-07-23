@@ -14,7 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import "./styles.css";
-import { authenticateDevAccount, DEV_PASSWORD } from "./auth/devAccounts";
+import { loginWithSupabase, logoutFromSupabase } from "./auth/supabaseAuth";
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
 import { Shell } from "./components/Shell";
 import { DepartmentStaff } from "./roles/DepartmentStaff";
@@ -51,7 +51,9 @@ function App() {
     setAccount(nextAccount);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    await logoutFromSupabase();
+
     localStorage.removeItem(AUTH_STORAGE_KEY);
     setAccount(null);
   }
@@ -152,8 +154,8 @@ function WorkspaceRoute({ account, onLogout }) {
     navigate(`/app/${nextPage}`);
   }
 
-  function handleLogout() {
-    onLogout();
+  async function handleLogout() {
+    await onLogout();
     navigate("/", { replace: true });
   }
 
@@ -301,28 +303,56 @@ function FooterColumn({ title, items }) {
 // Development login validates known emails and infers each user's role automatically.
 function LoginScreen({ onBack, onLogin }) {
   const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState(DEV_PASSWORD);
+  const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    const result = authenticateDevAccount(email, password);
 
-    if (!result.ok) {
-      setError(result.message);
+    if (!email.trim() || !password) {
+      setError("Please enter your email and password.");
       return;
     }
 
-    onLogin(result.account);
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const result = await loginWithSupabase(
+        email,
+        password,
+      );
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      onLogin(result.account);
+    } catch (loginError) {
+      console.error("Login failed:", loginError);
+
+      setError(
+        "Unable to sign in. Please check your connection and try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <main className="auth-screen">
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <form
+        className="auth-card"
+        onSubmit={handleSubmit}
+      >
         <h1>CONEXIA</h1>
         <p>INTELLIGENT DOCUMENT SYSTEMS</p>
+
         <label>
           Email
+
           <input
             value={email}
             onChange={(event) => {
@@ -330,11 +360,22 @@ function LoginScreen({ onBack, onLogin }) {
               setError("");
             }}
             placeholder="role@conexia.edu"
+            type="email"
             autoComplete="email"
+            disabled={isLoading}
+            required
           />
         </label>
+
         <label>
-          <span className="password-label">Password <button type="button">Forgot Password?</button></span>
+          <span className="password-label">
+            Password
+
+            <button type="button">
+              Forgot Password?
+            </button>
+          </span>
+
           <input
             value={password}
             onChange={(event) => {
@@ -343,12 +384,36 @@ function LoginScreen({ onBack, onLogin }) {
             }}
             type="password"
             autoComplete="current-password"
+            disabled={isLoading}
+            required
           />
         </label>
-        {error && <div className="auth-error">{error}</div>}
-        <button type="submit">Sign In <ChevronRight /></button>
-        <button type="button" className="text-action" onClick={onBack}>Back to welcome page</button>
+
+        {error && (
+          <div className="auth-error">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+        >
+          {isLoading ? "Signing In..." : "Sign In"}
+
+          {!isLoading && <ChevronRight />}
+        </button>
+
+        <button
+          type="button"
+          className="text-action"
+          onClick={onBack}
+          disabled={isLoading}
+        >
+          Back to welcome page
+        </button>
       </form>
+
       <footer>
         <span>2024 CONEXIA University Systems</span>
         <span>Secure Institutional Portal</span>
