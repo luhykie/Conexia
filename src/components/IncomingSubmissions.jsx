@@ -8,11 +8,66 @@ import { useNavigate } from "react-router-dom";
 
 // Mock rows tailored to the requested columns
 const mockRows = [
-  { department: "School of Education", partner: "Global Relief Initiative", type: "MOA", dateSubmitted: "Oct 24, 2023", daysWaiting: 3 },
-  { department: "College of Law", partner: "Vertex Logistics Corp.", type: "MOU", dateSubmitted: "Oct 23, 2023", daysWaiting: 5 },
-  { department: "Engineering", partner: "Apex Manufacturing", type: "MOF", dateSubmitted: "Oct 22, 2023", daysWaiting: 10 },
-  { department: "Business School", partner: "Starlight Foundation", type: "MOA", dateSubmitted: "Oct 21, 2023", daysWaiting: 1 },
-  { department: "Medicine", partner: "Oceanic Blue LLC", type: "MOU", dateSubmitted: "Oct 20, 2023", daysWaiting: 12 },
+  {
+    department: "School of Education",
+    partner: "Global Relief Initiative",
+    type: "MOA",
+    collab: "International",
+    status: "unlogged",
+    completeness: "missing",
+    priority: "high",
+    referenceId: "LEX-2024-0001",
+    dateSubmitted: "Oct 24, 2023",
+    daysWaiting: 3,
+  },
+  {
+    department: "College of Law",
+    partner: "Vertex Logistics Corp.",
+    type: "MOU",
+    collab: "Local",
+    status: "awaiting",
+    completeness: "complete",
+    priority: "normal",
+    referenceId: "LEX-2024-0002",
+    dateSubmitted: "Oct 23, 2023",
+    daysWaiting: 5,
+  },
+  {
+    department: "Engineering",
+    partner: "Apex Manufacturing",
+    type: "MOF",
+    collab: "Local",
+    status: "ready-legal",
+    completeness: "complete",
+    priority: "urgent",
+    referenceId: "LEX-2024-0003",
+    dateSubmitted: "Oct 22, 2023",
+    daysWaiting: 10,
+  },
+  {
+    department: "Business School",
+    partner: "Starlight Foundation",
+    type: "MOA",
+    collab: "International",
+    status: "returned",
+    completeness: "correction",
+    priority: "low",
+    referenceId: "LEX-2024-0004",
+    dateSubmitted: "Oct 21, 2023",
+    daysWaiting: 1,
+  },
+  {
+    department: "Medicine",
+    partner: "Oceanic Blue LLC",
+    type: "MOU",
+    collab: "International",
+    status: "routed",
+    completeness: "complete",
+    priority: "normal",
+    referenceId: "LEX-2024-0005",
+    dateSubmitted: "Oct 20, 2023",
+    daysWaiting: 12,
+  },
 ];
 
 export function IncomingSubmissions() {
@@ -32,11 +87,24 @@ export function IncomingSubmissions() {
     return mockRows.filter((row) => {
       // Document Type
       if (filters.docType && filters.docType !== '' && row.type !== filters.docType) return false;
+      // Collaboration Type
+      if (filters.collab && filters.collab !== '' && row.collab !== filters.collab) return false;
       // Department
       if (filters.department && filters.department !== 'All Departments' && row.department !== filters.department) return false;
       // Partner search
       if (filters.partner && !row.partner.toLowerCase().includes(filters.partner.toLowerCase())) return false;
-      // Reference ID - mockRows don't have reference IDs, skip
+      // Reference ID
+      if (filters.referenceId && !row.referenceId?.toLowerCase().includes(filters.referenceId.toLowerCase())) return false;
+
+      // Statuses
+      if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes(row.status)) return false;
+
+      // Completeness
+      if (filters.completeness && filters.completeness.length > 0 && !filters.completeness.includes(row.completeness)) return false;
+
+      // Priority
+      if (filters.priority && filters.priority !== '' && row.priority !== filters.priority) return false;
+
       // Date range - try to parse dateSubmitted like 'Oct 24, 2023'
       if (filters.dateFrom) {
         const from = new Date(filters.dateFrom);
