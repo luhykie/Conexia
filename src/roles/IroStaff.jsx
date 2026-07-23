@@ -1,5 +1,6 @@
 import React from "react";
 import { Download, FileText, Folder } from "lucide-react";
+
 import { DataTable } from "../components/DataTable";
 import { DashboardHeader } from "../components/DashboardHeader";
 import { DashboardStats } from "../components/DashboardStats";
@@ -11,23 +12,69 @@ import { QueuePreview } from "../components/QueuePreview";
 import { WorkflowActivity } from "../components/WorkflowActivity";
 import IncomingSubmissions from "../components/IncomingSubmissions";
 import { incomingRows } from "../data/mockData";
+import LogReviewPage from "../components/LogReviewPage";
+import { useNavigate } from "react-router-dom";
+
 
 // Routes all IRO Staff pages through one role-owned component.
 export function IroStaff({ page }) {
   if (page === "incoming") return <IncomingSubmissions />;
   if (page === "log-review") return <LogReview />;
   if (page === "status") return <StatusTracker />;
-  if (page === "expiry") return <ExpiryView title="Global Expiry List" action="Bulk Notify Offices" />;
+  if (page === "expiry")
+    return (
+      <ExpiryView
+        title="Global Expiry List"
+        action="Bulk Notify Offices"
+      />
+    );
+
   if (page === "notifications") return <NotificationsView />;
 
+  // Default page = Dashboard
   return <IroStaffDashboard />;
 }
 
 function IroStaffDashboard() {
+  const navigate = useNavigate();
+
+  const stats = {
+    incoming: 12,
+    loggedToday: 9,
+    awaitingCheck: 3,
+    routedToLegal: 24,
+  };
+
+  function handleCardClick(label){
+    switch (label) {
+      case "Unlogged":
+      navigate("/app/incoming");
+      break;
+
+      case "Logged Today":
+        navigate("/app/log-review");
+        break;
+
+      case "Awaiting Check":
+          navigate("/app/log-review");
+          break;
+
+      case "Routed to Legal":
+        navigate("/app/status");
+        break;
+
+        default:
+        break;
+    }
+  }
+
   return (
     <section className="page iro-staff-dashboard">
       <DashboardHeader />
-      <DashboardStats />
+
+      <DashboardStats stats={stats}
+      onCardClick={handleCardClick}/>
+
       <div className="iro-dashboard-grid">
         <QueuePreview />
         <WorkflowActivity />
@@ -35,10 +82,6 @@ function IroStaffDashboard() {
     </section>
   );
 }
-
-// IncomingSubmissions moved to components/IncomingSubmissions.jsx
-
-import LogReviewPage from "../components/LogReviewPage";
 
 // Gives IRO Staff a document preview plus administrative completeness checklist.
 function LogReview() {

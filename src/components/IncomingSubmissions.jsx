@@ -4,6 +4,7 @@ import { IncomingHeader } from "./IncomingHeader";
 import { IncomingFilters } from "./IncomingFilters";
 import IncomingTable from "./IncomingTable";
 import Pagination from "./Pagination";
+import { useNavigate } from "react-router-dom"; 
 
 // Mock rows tailored to the requested columns
 const mockRows = [
@@ -15,11 +16,20 @@ const mockRows = [
 ];
 
 export function IncomingSubmissions() {
+
+  const stats = {
+    incoming: 12,
+    loggedToday: 9,
+    awaitingCheck: 3,
+    routedToLegal: 24,
+  };
+
   return (
     <section className="page iro-staff-page incoming-page">
+
       <IncomingHeader />
 
-      <DashboardStats />
+      <DashboardStats stats={stats} />
 
       <IncomingFilters />
 
@@ -28,6 +38,7 @@ export function IncomingSubmissions() {
         <IncomingTable rows={mockRows} />
         <Pagination />
       </div>
+
     </section>
   );
 }
