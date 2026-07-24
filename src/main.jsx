@@ -42,7 +42,7 @@ function getSavedAccount() {
 }
 
 function App() {
-  const [account, setAccount] = React.useState(null);
+  const [account, setAccount] = React.useState(() => getSavedAccount());
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -52,7 +52,9 @@ function App() {
 
       if (data.session) {
         const profile = await fetchProfile(data.session.user.id);
-        setAccount(profile);
+        if (profile) {
+          setAccount(profile);
+        }
       }
 
       setLoading(false);
@@ -64,6 +66,7 @@ function App() {
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
         setAccount(null);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
         return;
       }
 
@@ -76,6 +79,11 @@ function App() {
 
   function handleLogin(nextAccount) {
     setAccount(nextAccount);
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAccount));
+    } catch (error) {
+      console.warn("Unable to save account locally", error);
+    }
   }
 
   async function handleLogout() {
