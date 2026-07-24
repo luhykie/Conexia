@@ -6,22 +6,36 @@ import {
   FileText,
   Folder,
 } from "lucide-react";
+
 import { supabase } from "../supabaseConfig";
+import { createNotification } from "../utils/notifications";
+
 import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
 import {
   DashboardView,
+  Dropzone,
+  ExpiryView,
   ExportButton,
   FilterBar,
 } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 
-// Routes all IRO Staff pages through one role-owned component.
+// Routes every IRO Staff sidebar page to its matching component.
 export function IroStaff({ page }) {
-  if (page === "incoming") return <IncomingSubmissions />;
-  if (page === "log-review") return <LogReview />;
-  if (page === "status") return <StatusTracker />;
+  if (page === "incoming") {
+    return <IncomingSubmissions />;
+  }
+
+  if (page === "log-review") {
+    return <LogReview />;
+  }
+
+  if (page === "status") {
+    return <StatusTracker />;
+  }
+
   if (page === "expiry") {
     return (
       <ExpiryView
@@ -41,22 +55,38 @@ export function IroStaff({ page }) {
   );
 }
 
-// Shows all newly received submissions requiring IRO Staff processing.
+// Displays incoming submissions and allows IRO Staff to log and route them.
 function IncomingSubmissions() {
-  const [documents, setDocuments] = React.useState([]);
-  const [legalUsers, setLegalUsers] = React.useState([]);
-  const [selectedLegal, setSelectedLegal] = React.useState({});
+  const [documents, setDocuments] =
+    React.useState([]);
 
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-  const [success, setSuccess] = React.useState("");
-  const [processingId, setProcessingId] = React.useState(null);
+  const [legalUsers, setLegalUsers] =
+    React.useState([]);
 
+  const [selectedLegal, setSelectedLegal] =
+    React.useState({});
+
+  const [loading, setLoading] =
+    React.useState(true);
+
+  const [error, setError] =
+    React.useState("");
+
+  const [success, setSuccess] =
+    React.useState("");
+
+  const [processingId, setProcessingId] =
+    React.useState(null);
+
+  // Loads documents together with their related department information.
   async function loadDocuments() {
     setLoading(true);
     setError("");
 
-    const { data, error: queryError } = await supabase
+    const {
+      data,
+      error: queryError,
+    } = await supabase
       .from("documents")
       .select(`
         id,
@@ -66,40 +96,65 @@ function IncomingSubmissions() {
         partner_institution,
         partner_email,
         description,
+        department_id,
+        submitted_by,
         assigned_legal_counsel,
         status,
         legal_notes,
         submitted_at,
-        updated_at
+        updated_at,
+        department:departments!documents_department_id_fkey (
+          id,
+          name,
+          code
+        )
       `)
       .order("submitted_at", {
         ascending: false,
       });
 
     if (queryError) {
-      console.error("Unable to load documents:", queryError);
+      console.error(
+        "Unable to load documents:",
+        queryError
+      );
+
       setError(queryError.message);
       setDocuments([]);
-    } else {
-      setDocuments(data ?? []);
+      setLoading(false);
+      return;
     }
 
+    setDocuments(data ?? []);
     setLoading(false);
   }
 
+  // Loads all active Legal Counsel accounts for document assignment.
   async function loadLegalUsers() {
-    const { data, error: legalError } = await supabase
+    const {
+      data,
+      error: legalError,
+    } = await supabase
       .from("profiles")
       .select(`
         id,
         full_name,
         email,
-        role
+        role,
+        is_active
       `)
-      .eq("role", "legal_counsel");
+      .eq("role", "legal_counsel")
+      .eq("is_active", true)
+      .order("full_name", {
+        ascending: true,
+      });
 
     if (legalError) {
-      console.error("Unable to load Legal Counsel users:", legalError);
+      console.error(
+        "Unable to load Legal Counsel users:",
+        legalError
+      );
+
       setLegalUsers([]);
       return;
     }
@@ -107,62 +162,105 @@ function IncomingSubmissions() {
     setLegalUsers(data ?? []);
   }
 
+  // Loads the page data when Incoming Submissions opens.
   React.useEffect(() => {
     async function loadPage() {
-      await Promise.all([loadDocuments(), loadLegalUsers()]);
+      await Promise.all([
+        loadDocuments(),
+        loadLegalUsers(),
+      ]);
     }
 
     loadPage();
   }, []);
 
+  // Changes a newly submitted document to Logged.
   async function markAsLogged(documentId) {
     const confirmed = window.confirm(
       "Are you sure you want to mark this document as Logged?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setProcessingId(documentId);
     setError("");
     setSuccess("");
 
-    const { error: updateError } = await supabase
+    const {
+      data: updatedDocument,
+      error: updateError,
+    } = await supabase
       .from("documents")
       .update({
         status: "Logged",
         updated_at: new Date().toISOString(),
       })
       .eq("id", documentId)
-      .eq("status", "Submitted");
+      .eq("status", "Submitted")
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       console.error(
-        "Unable to mark the document as Logged:",
+        "Unable to mark document as Logged:",
         updateError
       );
+
       setError(updateError.message);
       setProcessingId(null);
       return;
-    } 
+    }
+
+    if (!updatedDocument) {
+      setError(
+        "The document was not logged. Refresh the page and check its current status."
+      );
+
+      setProcessingId(null);
+      return;
+    }
 
     setSuccess("Document marked as Logged.");
+
     await loadDocuments();
+
     setProcessingId(null);
   }
 
+  // Assigns a logged document to the selected Legal Counsel.
   async function assignLegal(documentId) {
-    const legalCounselId = selectedLegal[documentId];
+    const legalCounselId =
+      selectedLegal[documentId];
 
     if (!legalCounselId) {
       setError(
         "Select a Legal Counsel account before assigning the document."
       );
+
       return;
     }
 
-    const selectedCounsel = legalUsers.find(
-      (user) => user.id === legalCounselId
-    );
+    const documentToAssign =
+      documents.find(
+        (document) =>
+          document.id === documentId
+      );
+
+    if (!documentToAssign) {
+      setError(
+        "The selected document could not be found."
+      );
+
+      return;
+    }
+
+    const selectedCounsel =
+      legalUsers.find(
+        (user) =>
+          user.id === legalCounselId
+      );
 
     const confirmed = window.confirm(
       `Assign this document to ${
@@ -172,27 +270,76 @@ function IncomingSubmissions() {
       }?`
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setProcessingId(documentId);
     setError("");
     setSuccess("");
 
-    const { error: updateError } = await supabase
+    const {
+      data: updatedDocument,
+      error: updateError,
+    } = await supabase
       .from("documents")
       .update({
-        assigned_legal_counsel: legalCounselId,
+        assigned_legal_counsel:
+          legalCounselId,
+
         status: "Under Legal Review",
-        updated_at: new Date().toISOString(),
+
+        // Clears remarks from the previous correction cycle.
+        legal_notes: null,
+
+        updated_at:
+          new Date().toISOString(),
       })
       .eq("id", documentId)
-      .eq("status", "Logged");
+      .eq("status", "Logged")
+      .select(`
+        id,
+        tracking_number,
+        submitted_by
+      `)
+      .maybeSingle();
 
     if (updateError) {
-      console.error("Unable to assign Legal Counsel:", updateError);
+      console.error(
+        "Unable to assign Legal Counsel:",
+        updateError
+      );
+
       setError(updateError.message);
       setProcessingId(null);
       return;
+    }
+
+    if (!updatedDocument) {
+      setError(
+        "The document was not assigned. Refresh the page and check its current status."
+      );
+
+      setProcessingId(null);
+      return;
+    }
+
+    // Sends the assignment notification to Legal Counsel.
+    const notificationResult =
+      await createNotification({
+        userId: legalCounselId,
+        documentId,
+        title: "New Document Assigned",
+        message:
+          `${documentToAssign.tracking_number} has been assigned to you for legal review.`,
+        type: "legal_assignment",
+      });
+
+    if (!notificationResult.success) {
+      console.error(
+        "The document was assigned, but the notification failed:",
+        notificationResult.error
+      );
     }
 
     setSuccess(
@@ -203,20 +350,37 @@ function IncomingSubmissions() {
       }.`
     );
 
-    setSelectedLegal((current) => {
-      const updatedSelection = { ...current };
-      delete updatedSelection[documentId];
-      return updatedSelection;
-    });
+    setSelectedLegal(
+      (currentSelection) => {
+        const updatedSelection = {
+          ...currentSelection,
+        };
+
+        delete updatedSelection[documentId];
+
+        return updatedSelection;
+      }
+    );
 
     await loadDocuments();
+
     setProcessingId(null);
   }
 
+  // Returns the name of the Legal Counsel assigned to a document.
   function getAssignedLegalName(document) {
-    const assignedUser = legalUsers.find(
-      (user) => user.id === document.assigned_legal_counsel
-    );
+    if (
+      !document.assigned_legal_counsel
+    ) {
+      return "Not assigned";
+    }
+
+    const assignedUser =
+      legalUsers.find(
+        (user) =>
+          user.id ===
+          document.assigned_legal_counsel
+      );
 
     return (
       assignedUser?.full_name ||
@@ -225,119 +389,174 @@ function IncomingSubmissions() {
     );
   }
 
-  const pendingCount = documents.filter(
-    (document) => document.status === "Submitted"
-  ).length;
+  const pendingCount =
+    documents.filter(
+      (document) =>
+        document.status === "Submitted"
+    ).length;
 
-  const loggedCount = documents.filter(
-    (document) => document.status === "Logged"
-  ).length;
+  const loggedCount =
+    documents.filter(
+      (document) =>
+        document.status === "Logged"
+    ).length;
 
-  const legalReviewCount = documents.filter(
-    (document) => document.status === "Under Legal Review"
-  ).length;
+  const legalReviewCount =
+    documents.filter(
+      (document) =>
+        document.status ===
+        "Under Legal Review"
+    ).length;
 
-  const rows = documents.map((document) => {
-    let actionContent;
+  // Converts each document into one row for the data table.
+  const rows = documents.map(
+    (document) => {
+      let actionContent;
 
-    if (document.status === "Submitted") {
-      actionContent = (
-        <button
-          key={`log-${document.id}`}
-          type="button"
-          className="table-action"
-          disabled={processingId === document.id}
-          onClick={() => markAsLogged(document.id)}
-        >
-          <CheckCircle2 size={15} />
-          {processingId === document.id
-            ? "Logging..."
-            : "Mark as Logged"}
-        </button>
-      );
-    } else if (document.status === "Logged") {
-      actionContent = (
-        <div
-          key={`assign-${document.id}`}
-          className="table-action-group"
-        >
-          <select
-            value={selectedLegal[document.id] || ""}
-            disabled={
-              processingId === document.id || legalUsers.length === 0
-            }
-            onChange={(event) =>
-              setSelectedLegal((current) => ({
-                ...current,
-                [document.id]: event.target.value,
-              }))
-            }
-          >
-            <option value="">Select Legal Counsel</option>
-            {legalUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.full_name || user.email}
-              </option>
-            ))}
-          </select>
-
+      if (
+        document.status === "Submitted"
+      ) {
+        actionContent = (
           <button
+            key={`log-${document.id}`}
             type="button"
             className="table-action"
             disabled={
-              processingId === document.id || !selectedLegal[document.id]
+              processingId === document.id
             }
-            onClick={() => assignLegal(document.id)}
+            onClick={() =>
+              markAsLogged(document.id)
+            }
           >
-            {processingId === document.id ? "Assigning..." : "Assign"}
-          </button>
-        </div>
-      );
-    } else if (document.status === "Under Legal Review") {
-      actionContent = (
-        <span
-          key={`assigned-${document.id}`}
-          className="badge active"
-        >
-          {getAssignedLegalName(document)}
-        </span>
-      );
-    } else {
-      actionContent = (
-        <span
-          key={`completed-${document.id}`}
-          className="badge"
-        >
-          No IRO Action
-        </span>
-      );
-    }
+            <CheckCircle2 size={15} />
 
-    return [
-      document.tracking_number,
-      document.departments?.code ||
-        document.departments?.name ||
-        document.department_id ||
-        "-",
-      document.document_type || "-",
-      document.submitted_at
-        ? new Date(document.submitted_at).toLocaleDateString()
-        : "-",
-      <span
-        key={`status-${document.id}`}
-        className={`badge ${
-          document.status === "Submitted"
-            ? "pending"
-            : document.status === "Corrections Needed"
-              ? "danger"
-              : "active"
-        }`}
-      >
-        {document.status}
-      </span>,
-      actionContent,
-    ];
-  });
+            {processingId === document.id
+              ? "Logging..."
+              : "Mark as Logged"}
+          </button>
+        );
+      } else if (
+        document.status === "Logged"
+      ) {
+        actionContent = (
+          <div
+            key={`assign-${document.id}`}
+            className="table-action-group"
+          >
+            <select
+              value={
+                selectedLegal[
+                  document.id
+                ] || ""
+              }
+              disabled={
+                processingId === document.id ||
+                legalUsers.length === 0
+              }
+              onChange={(event) =>
+                setSelectedLegal(
+                  (currentSelection) => ({
+                    ...currentSelection,
+                    [document.id]:
+                      event.target.value,
+                  })
+                )
+              }
+            >
+              <option value="">
+                Select Legal Counsel
+              </option>
+
+              {legalUsers.map((user) => (
+                <option
+                  key={user.id}
+                  value={user.id}
+                >
+                  {user.full_name ||
+                    user.email}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              className="table-action"
+              disabled={
+                processingId ===
+                  document.id ||
+                !selectedLegal[
+                  document.id
+                ]
+              }
+              onClick={() =>
+                assignLegal(document.id)
+              }
+            >
+              {processingId === document.id
+                ? "Assigning..."
+                : "Assign"}
+            </button>
+          </div>
+        );
+      } else if (
+        document.status ===
+        "Under Legal Review"
+      ) {
+        actionContent = (
+          <span
+            key={`assigned-${document.id}`}
+            className="badge active"
+          >
+            {getAssignedLegalName(
+              document
+            )}
+          </span>
+        );
+      } else {
+        actionContent = (
+          <span
+            key={`completed-${document.id}`}
+            className="badge"
+          >
+            No IRO Action
+          </span>
+        );
+      }
+
+      return [
+        document.tracking_number,
+
+        // Shows SCS, SBM, SED, and other department codes.
+        document.department?.code ||
+          document.department?.name ||
+          "-",
+
+        document.document_type || "-",
+
+        document.submitted_at
+          ? new Date(
+              document.submitted_at
+            ).toLocaleDateString()
+          : "-",
+
+        <span
+          key={`status-${document.id}`}
+          className={`badge ${
+            document.status === "Submitted"
+              ? "pending"
+              : document.status ===
+                  "Corrections Needed"
+                ? "danger"
+                : "active"
+          }`}
+        >
+          {document.status}
+        </span>,
+
+        actionContent,
+      ];
+    }
+  );
 
   return (
     <section className="page iro-staff-page">
@@ -349,20 +568,28 @@ function IncomingSubmissions() {
       <StatGrid
         stats={[
           [
-            String(pendingCount).padStart(2, "0"),
+            String(
+              pendingCount
+            ).padStart(2, "0"),
             "Pending Logging",
             Folder,
             "Needs Action",
           ],
+
           [
-            String(loggedCount).padStart(2, "0"),
+            String(
+              loggedCount
+            ).padStart(2, "0"),
             "Needs Assignment",
             FileText,
             "Route to Legal",
             "warn",
           ],
+
           [
-            String(legalReviewCount).padStart(2, "0"),
+            String(
+              legalReviewCount
+            ).padStart(2, "0"),
             "Under Legal Review",
             CheckCircle2,
             "Assigned",
@@ -386,37 +613,55 @@ function IncomingSubmissions() {
 
       <Panel
         title="Active Submissions"
-        tools={<ExportButton label="Export CSV" />}
+        tools={
+          <ExportButton label="Export CSV" />
+        }
       >
-        {loading && <p>Loading submissions...</p>}
-
-        {error && <p className="auth-error">{error}</p>}
-
-        {success && <p className="success-message">{success}</p>}
-
-        {!loading && !error && documents.length === 0 && (
-          <p>No incoming submissions are available.</p>
+        {loading && (
+          <p>Loading submissions...</p>
         )}
 
-        {!loading && documents.length > 0 && (
-          <DataTable
-            headers={[
-              "Tracking #",
-              "Department",
-              "Document Type",
-              "Date Submitted",
-              "Status",
-              "Action",
-            ]}
-            rows={rows}
-          />
+        {error && (
+          <p className="auth-error">
+            {error}
+          </p>
         )}
+
+        {success && (
+          <p className="success-message">
+            {success}
+          </p>
+        )}
+
+        {!loading &&
+          !error &&
+          documents.length === 0 && (
+            <p>
+              No incoming submissions are
+              available.
+            </p>
+          )}
+
+        {!loading &&
+          documents.length > 0 && (
+            <DataTable
+              headers={[
+                "Tracking #",
+                "Department",
+                "Document Type",
+                "Date Submitted",
+                "Status",
+                "Action",
+              ]}
+              rows={rows}
+            />
+          )}
       </Panel>
     </section>
   );
 }
 
-// Gives IRO Staff a document preview plus administrative completeness checklist.
+// Displays the IRO administrative review form.
 function LogReview() {
   return (
     <section className="page iro-staff-page">
@@ -430,14 +675,24 @@ function LogReview() {
         <div>
           <Panel title="Document Preview: DRAFT_MOA_V2.1.PDF">
             <div className="doc-preview">
-              <h3>MEMORANDUM OF AGREEMENT</h3>
-              <p>Standard Institutional Template v4.0</p>
-              <p>KNOW ALL MEN BY THESE PRESENTS:</p>
+              <h3>
+                MEMORANDUM OF AGREEMENT
+              </h3>
+
               <p>
-                This Agreement made and entered into this 24th day of
-                October 2023 by and between the Department of
-                Institutional Relations and Global Logistics Solutions
-                Inc.
+                Standard Institutional
+                Template v4.0
+              </p>
+
+              <p>
+                KNOW ALL MEN BY THESE
+                PRESENTS:
+              </p>
+
+              <p>
+                This Agreement is entered
+                into by the institution and
+                its external partner.
               </p>
             </div>
           </Panel>
@@ -451,20 +706,32 @@ function LogReview() {
             "Signatory Identified",
             "Standard Template Used",
           ].map((item) => (
-            <label className="checkline" key={item}>
-              <input type="checkbox" /> {item}
+            <label
+              className="checkline"
+              key={item}
+            >
+              <input type="checkbox" />
+
+              {item}
             </label>
           ))}
 
           <label>
             Internal Staff Notes
-            <textarea placeholder="Any initial observations for the reviewer..." />
+
+            <textarea
+              placeholder="Any initial observations for the reviewer..."
+            />
           </label>
 
           <Panel title="Routing & Automation">
-            <button className="primary wide-inline">
+            <button
+              type="button"
+              className="primary wide-inline"
+            >
               Auto-Generate Review Form
             </button>
+
             <Dropzone
               label="Attach supporting document"
               detail="Optional supporting PDF or DOCX"
@@ -476,25 +743,46 @@ function LogReview() {
   );
 }
 
-// Tracks submission stage history from receipt through archiving.
+// Displays the complete workflow status for every document.
 function StatusTracker() {
-  const [documents, setDocuments] = React.useState([]);
-  const [legalUsers, setLegalUsers] = React.useState([]);
-  const [selectedDocument, setSelectedDocument] =
-    React.useState(null);
+  const [documents, setDocuments] =
+    React.useState([]);
 
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-  const [processing, setProcessing] = React.useState(false);
-  const [success, setSuccess] = React.useState("");
+  const [legalUsers, setLegalUsers] =
+    React.useState([]);
 
+  const [
+    selectedDocument,
+    setSelectedDocument,
+  ] = React.useState(null);
+
+  const [loading, setLoading] =
+    React.useState(true);
+
+  const [error, setError] =
+    React.useState("");
+
+  const [processing, setProcessing] =
+    React.useState(false);
+
+  const [success, setSuccess] =
+    React.useState("");
+
+  // Loads documents and Legal Counsel accounts for the tracker.
   async function loadStatusTracker() {
     setLoading(true);
     setError("");
 
     const [
-      { data: documentData, error: documentError },
-      { data: legalData, error: legalError },
+      {
+        data: documentData,
+        error: documentError,
+      },
+
+      {
+        data: legalData,
+        error: legalError,
+      },
     ] = await Promise.all([
       supabase
         .from("documents")
@@ -515,7 +803,8 @@ function StatusTracker() {
           notary_signature_code,
           archived_at,
           archived_by,
-          departments (
+          department:departments!documents_department_id_fkey (
+            id,
             code,
             name
           )
@@ -531,7 +820,10 @@ function StatusTracker() {
           full_name,
           email
         `)
-        .eq("role", "legal_counsel"),
+        .eq(
+          "role",
+          "legal_counsel"
+        ),
     ]);
 
     if (documentError) {
@@ -539,10 +831,15 @@ function StatusTracker() {
         "Unable to load status tracker:",
         documentError
       );
-      setError(documentError.message);
+
+      setError(
+        documentError.message
+      );
+
       setDocuments([]);
       setSelectedDocument(null);
       setLoading(false);
+
       return;
     }
 
@@ -553,41 +850,60 @@ function StatusTracker() {
       );
     }
 
-    const loadedDocuments = documentData ?? [];
+    const loadedDocuments =
+      documentData ?? [];
 
     setDocuments(loadedDocuments);
     setLegalUsers(legalData ?? []);
 
-    setSelectedDocument((current) => {
-      if (!loadedDocuments.length) return null;
+    setSelectedDocument(
+      (currentDocument) => {
+        if (!loadedDocuments.length) {
+          return null;
+        }
 
-      return (
-        loadedDocuments.find(
-          (document) => document.id === current?.id
-        ) || loadedDocuments[0]
-      );
-    });
+        return (
+          loadedDocuments.find(
+            (document) =>
+              document.id ===
+              currentDocument?.id
+          ) || loadedDocuments[0]
+        );
+      }
+    );
 
     setLoading(false);
   }
 
+  // Loads the tracker when the page opens.
   React.useEffect(() => {
     loadStatusTracker();
   }, []);
 
+  // Clears messages when another document is selected.
   React.useEffect(() => {
     setError("");
     setSuccess("");
   }, [selectedDocument]);
 
+  // Archives a completed notarized document.
   async function archiveDocument() {
-    if (!selectedDocument) {
-      setError("Select a document first.");
+    if (!selectedDocument?.id) {
+      setError(
+        "Select a valid document first."
+      );
+
       return;
     }
 
-    if (selectedDocument.status !== "Notarized") {
-      setError("Only notarized documents can be archived.");
+    if (
+      selectedDocument.status !==
+      "Notarized"
+    ) {
+      setError(
+        "Only notarized documents can be archived."
+      );
+
       return;
     }
 
@@ -595,44 +911,63 @@ function StatusTracker() {
       `Archive ${selectedDocument.tracking_number}?`
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setProcessing(true);
     setError("");
     setSuccess("");
 
-    const { data: authData, error: authError } =
-      await supabase.auth.getUser();
+    const {
+      data: authData,
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (authError || !authData.user) {
+    if (
+      authError ||
+      !authData.user
+    ) {
       setError(
         authError?.message ||
           "Unable to identify the signed-in IRO Staff."
       );
+
       setProcessing(false);
       return;
     }
 
-    const archivedAt = new Date().toISOString();
+    const archivedAt =
+      new Date().toISOString();
 
-    const { data: archivedDocument, error: updateError } =
-      await supabase
-        .from("documents")
-        .update({
-          status: "Archived",
-          archived_at: archivedAt,
-          archived_by: authData.user.id,
-          updated_at: archivedAt,
-        })
-        .eq("id", selectedDocument.id)
-        .eq("status", "Notarized")
-        .select()
-        .maybeSingle();
+    const {
+      data: archivedDocument,
+      error: updateError,
+    } = await supabase
+      .from("documents")
+      .update({
+        status: "Archived",
+        archived_at: archivedAt,
+        archived_by: authData.user.id,
+        updated_at: archivedAt,
+      })
+      .eq(
+        "id",
+        selectedDocument.id
+      )
+      .eq("status", "Notarized")
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
-      console.error("Unable to archive document:", updateError);
+      console.error(
+        "Unable to archive document:",
+        updateError
+      );
+
       setError(updateError.message);
       setProcessing(false);
+
       return;
     }
 
@@ -640,23 +975,34 @@ function StatusTracker() {
       setError(
         "The document was not archived. Refresh the page and check its current status."
       );
+
       setProcessing(false);
       return;
     }
 
-    setSuccess("Document archived successfully.");
+    setSuccess(
+      "Document archived successfully."
+    );
+
     await loadStatusTracker();
+
     setProcessing(false);
   }
 
+  // Returns the assigned Legal Counsel name.
   function getLegalCounselName(document) {
-    if (!document.assigned_legal_counsel) {
+    if (
+      !document.assigned_legal_counsel
+    ) {
       return "Not assigned";
     }
 
-    const assignedCounsel = legalUsers.find(
-      (user) => user.id === document.assigned_legal_counsel
-    );
+    const assignedCounsel =
+      legalUsers.find(
+        (user) =>
+          user.id ===
+          document.assigned_legal_counsel
+      );
 
     return (
       assignedCounsel?.full_name ||
@@ -665,19 +1011,31 @@ function StatusTracker() {
     );
   }
 
+  // Calculates the time since the last status update.
   function getElapsedTime(dateValue) {
-    if (!dateValue) return "-";
+    if (!dateValue) {
+      return "-";
+    }
 
-    const startTime = new Date(dateValue).getTime();
-    const currentTime = Date.now();
-    const difference = Math.max(currentTime - startTime, 0);
+    const startTime =
+      new Date(dateValue).getTime();
 
-    const totalHours = Math.floor(
-      difference / (1000 * 60 * 60)
+    const difference = Math.max(
+      Date.now() - startTime,
+      0
     );
 
-    const days = Math.floor(totalHours / 24);
-    const hours = totalHours % 24;
+    const totalHours = Math.floor(
+      difference /
+        (1000 * 60 * 60)
+    );
+
+    const days = Math.floor(
+      totalHours / 24
+    );
+
+    const hours =
+      totalHours % 24;
 
     if (days > 0) {
       return `${days}d ${hours}h`;
@@ -697,8 +1055,15 @@ function StatusTracker() {
     "Archived",
   ];
 
-  function isStepDone(documentStatus, step) {
-    if (documentStatus === "Corrections Needed") {
+  // Checks which workflow steps should appear completed.
+  function isStepDone(
+    documentStatus,
+    step
+  ) {
+    if (
+      documentStatus ===
+      "Corrections Needed"
+    ) {
       return [
         "Submitted",
         "Logged",
@@ -707,8 +1072,13 @@ function StatusTracker() {
       ].includes(step);
     }
 
-    const currentIndex = workflowSteps.indexOf(documentStatus);
-    const stepIndex = workflowSteps.indexOf(step);
+    const currentIndex =
+      workflowSteps.indexOf(
+        documentStatus
+      );
+
+    const stepIndex =
+      workflowSteps.indexOf(step);
 
     return (
       currentIndex !== -1 &&
@@ -717,38 +1087,55 @@ function StatusTracker() {
     );
   }
 
-  const rows = documents.map((document) => [
-    document.tracking_number,
-    document.departments?.code ||
-      document.departments?.name ||
-      "-",
-    document.partner_institution || "-",
-    document.document_type || "-",
-    <span
-      key={`status-${document.id}`}
-      className={`badge ${
-        document.status === "Corrections Needed"
-          ? "danger"
-          : document.status === "Submitted"
-            ? "pending"
-            : "active"
-      }`}
-    >
-      {document.status}
-    </span>,
-    getLegalCounselName(document),
-    document.updated_at
-      ? new Date(document.updated_at).toLocaleDateString()
-      : "-",
-    <button
-      key={`view-${document.id}`}
-      type="button"
-      className="table-action"
-      onClick={() => setSelectedDocument(document)}
-    >
-      View
-    </button>,
-  ]);
+  const rows = documents.map(
+    (document) => [
+      document.tracking_number,
+
+      document.department?.code ||
+        document.department?.name ||
+        "-",
+
+      document.partner_institution ||
+        "-",
+
+      document.document_type ||
+        "-",
+
+      <span
+        key={`status-${document.id}`}
+        className={`badge ${
+          document.status ===
+          "Corrections Needed"
+            ? "danger"
+            : document.status ===
+                "Submitted"
+              ? "pending"
+              : "active"
+        }`}
+      >
+        {document.status}
+      </span>,
+
+      getLegalCounselName(document),
+
+      document.updated_at
+        ? new Date(
+            document.updated_at
+          ).toLocaleDateString()
+        : "-",
+
+      <button
+        key={`view-${document.id}`}
+        type="button"
+        className="table-action"
+        onClick={() =>
+          setSelectedDocument(document)
+        }
+      >
+        View
+      </button>,
+    ]
+  );
 
   return (
     <section className="page split-page iro-staff-page">
@@ -761,15 +1148,19 @@ function StatusTracker() {
         <StatGrid
           stats={[
             [
-              String(documents.length).padStart(2, "0"),
+              String(
+                documents.length
+              ).padStart(2, "0"),
               "Total Submissions",
               Folder,
             ],
+
             [
               String(
                 documents.filter(
                   (document) =>
-                    document.status === "Under Legal Review"
+                    document.status ===
+                    "Under Legal Review"
                 ).length
               ).padStart(2, "0"),
               "Under Legal Review",
@@ -777,15 +1168,19 @@ function StatusTracker() {
               "",
               "blue",
             ],
+
             [
               String(
-                documents.filter((document) =>
-                  [
-                    "Approved",
-                    "Pending Notarization",
-                    "Notarized",
-                    "Archived",
-                  ].includes(document.status)
+                documents.filter(
+                  (document) =>
+                    [
+                      "Approved",
+                      "Pending Notarization",
+                      "Notarized",
+                      "Archived",
+                    ].includes(
+                      document.status
+                    )
                 ).length
               ).padStart(2, "0"),
               "Approved or Later",
@@ -796,33 +1191,47 @@ function StatusTracker() {
 
         <Panel
           title="Submission Status Tracker"
-          tools={<ExportButton label="Export CSV" />}
+          tools={
+            <ExportButton label="Export CSV" />
+          }
         >
-          {loading && <p>Loading submission statuses...</p>}
-
-          {error && !selectedDocument && (
-            <p className="auth-error">{error}</p>
+          {loading && (
+            <p>
+              Loading submission statuses...
+            </p>
           )}
 
-          {!loading && !error && documents.length === 0 && (
-            <p>No submissions are available.</p>
-          )}
+          {error &&
+            !selectedDocument && (
+              <p className="auth-error">
+                {error}
+              </p>
+            )}
 
-          {!loading && documents.length > 0 && (
-            <DataTable
-              headers={[
-                "Tracking #",
-                "Department",
-                "Partner",
-                "Document Type",
-                "Current Status",
-                "Legal Counsel",
-                "Last Updated",
-                "Action",
-              ]}
-              rows={rows}
-            />
-          )}
+          {!loading &&
+            !error &&
+            documents.length === 0 && (
+              <p>
+                No submissions are available.
+              </p>
+            )}
+
+          {!loading &&
+            documents.length > 0 && (
+              <DataTable
+                headers={[
+                  "Tracking #",
+                  "Department",
+                  "Partner",
+                  "Document Type",
+                  "Current Status",
+                  "Legal Counsel",
+                  "Last Updated",
+                  "Action",
+                ]}
+                rows={rows}
+              />
+            )}
         </Panel>
       </div>
 
@@ -830,14 +1239,19 @@ function StatusTracker() {
         <h2>Submission Details</h2>
 
         {!selectedDocument ? (
-          <p>Select a submission to view its progression.</p>
+          <p>
+            Select a submission to view
+            its progression.
+          </p>
         ) : (
           <>
             <span
               className={`badge ${
-                selectedDocument.status === "Corrections Needed"
+                selectedDocument.status ===
+                "Corrections Needed"
                   ? "danger"
-                  : selectedDocument.status === "Submitted"
+                  : selectedDocument.status ===
+                      "Submitted"
                     ? "pending"
                     : "active"
               }`}
@@ -845,56 +1259,79 @@ function StatusTracker() {
               {selectedDocument.status}
             </span>
 
-            <h2>{selectedDocument.title}</h2>
+            <h2>
+              {selectedDocument.title}
+            </h2>
 
             <p>
               <b>Tracking Number:</b>{" "}
-              {selectedDocument.tracking_number}
+              {
+                selectedDocument.tracking_number
+              }
             </p>
 
             <p>
               <b>Partner:</b>{" "}
-              {selectedDocument.partner_institution}
+              {
+                selectedDocument.partner_institution
+              }
             </p>
 
             <p>
               <b>Department:</b>{" "}
-              {selectedDocument.departments?.code ||
-                selectedDocument.departments?.name ||
+              {selectedDocument.department
+                ?.code ||
+                selectedDocument.department
+                  ?.name ||
                 "-"}
             </p>
 
             <p>
               <b>Document Type:</b>{" "}
-              {selectedDocument.document_type}
+              {
+                selectedDocument.document_type
+              }
             </p>
 
             <p>
               <b>Legal Counsel:</b>{" "}
-              {getLegalCounselName(selectedDocument)}
+              {getLegalCounselName(
+                selectedDocument
+              )}
             </p>
 
             <p>
-              <b>Time in Current Status:</b>{" "}
-              {getElapsedTime(selectedDocument.updated_at)}
+              <b>
+                Time in Current Status:
+              </b>{" "}
+              {getElapsedTime(
+                selectedDocument.updated_at
+              )}
             </p>
 
             {[
               "Pending Notarization",
               "Notarized",
               "Archived",
-            ].includes(selectedDocument.status) && (
+            ].includes(
+              selectedDocument.status
+            ) && (
               <div className="notice">
-                <b>Notarization Details</b>
+                <b>
+                  Notarization Details
+                </b>
 
                 <p>
                   Reference Number:{" "}
-                  {selectedDocument.notarial_reference_number || "-"}
+                  {selectedDocument
+                    .notarial_reference_number ||
+                    "-"}
                 </p>
 
                 <p>
                   Notarization Date:{" "}
-                  {selectedDocument.notarization_date
+                  {selectedDocument
+                    .notarization_date
                     ? new Date(
                         `${selectedDocument.notarization_date}T00:00:00`
                       ).toLocaleDateString()
@@ -903,7 +1340,9 @@ function StatusTracker() {
 
                 <p>
                   Signature Code:{" "}
-                  {selectedDocument.notary_signature_code || "-"}
+                  {selectedDocument
+                    .notary_signature_code ||
+                    "-"}
                 </p>
               </div>
             )}
@@ -911,27 +1350,40 @@ function StatusTracker() {
             <h3>Workflow Progress</h3>
 
             <div className="progress-steps">
-              {workflowSteps.map((step) => (
-                <span
-                  key={step}
-                  className={
-                    isStepDone(selectedDocument.status, step)
-                      ? "done"
-                      : ""
-                  }
-                >
-                  {step}
-                </span>
-              ))}
+              {workflowSteps.map(
+                (step) => (
+                  <span
+                    key={step}
+                    className={
+                      isStepDone(
+                        selectedDocument.status,
+                        step
+                      )
+                        ? "done"
+                        : ""
+                    }
+                  >
+                    {step}
+                  </span>
+                )
+              )}
             </div>
 
             <h3>Activity</h3>
 
             <div className="timeline-item">
-              <b>Current status: {selectedDocument.status}</b>
+              <b>
+                Current status:{" "}
+                {
+                  selectedDocument.status
+                }
+              </b>
+
               <p>
-                The submission record was most recently updated.
+                The submission was most
+                recently updated.
               </p>
+
               <small>
                 {selectedDocument.updated_at
                   ? new Date(
@@ -943,9 +1395,12 @@ function StatusTracker() {
 
             <div className="timeline-item">
               <b>Initial Submission</b>
+
               <p>
-                The department submitted the agreement to IRO.
+                The department submitted the
+                agreement to IRO.
               </p>
+
               <small>
                 {selectedDocument.submitted_at
                   ? new Date(
@@ -958,17 +1413,25 @@ function StatusTracker() {
             {selectedDocument.legal_notes && (
               <div className="timeline-item">
                 <b>Legal Findings</b>
-                <p>{selectedDocument.legal_notes}</p>
+
+                <p>
+                  {
+                    selectedDocument.legal_notes
+                  }
+                </p>
               </div>
             )}
 
-            {selectedDocument.status === "Archived" && (
+            {selectedDocument.status ===
+              "Archived" && (
               <div className="notice">
                 <b>Document Archived</b>
+
                 <p>
-                  This document has completed the full agreement
-                  lifecycle.
+                  This document has completed
+                  the full agreement lifecycle.
                 </p>
+
                 <p>
                   Archived on:{" "}
                   {selectedDocument.archived_at
@@ -980,27 +1443,38 @@ function StatusTracker() {
               </div>
             )}
 
-            {error && <p className="auth-error">{error}</p>}
-
-            {success && (
-              <p className="success-message">{success}</p>
+            {error && (
+              <p className="auth-error">
+                {error}
+              </p>
             )}
 
-            {selectedDocument.status === "Notarized" && (
+            {success && (
+              <p className="success-message">
+                {success}
+              </p>
+            )}
+
+            {selectedDocument.status ===
+              "Notarized" && (
               <button
                 type="button"
                 className="primary wide-inline"
                 disabled={processing}
                 onClick={archiveDocument}
               >
-                {processing ? "Archiving..." : "Archive Document"}
+                {processing
+                  ? "Archiving..."
+                  : "Archive Document"}
               </button>
             )}
 
             <button
               type="button"
               className="primary wide-inline"
-              onClick={() => window.print()}
+              onClick={() =>
+                window.print()
+              }
             >
               <Download size={18} />
               Generate Export Log

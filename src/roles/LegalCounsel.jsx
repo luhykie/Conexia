@@ -171,7 +171,9 @@ function ReviewQueue() {
 
   React.useEffect(() => {
     setLegalNotes(
-      selectedDocument?.legal_notes || ""
+      selectedDocument?.status === "Corrections Needed"
+        ? selectedDocument?.legal_notes || ""
+        : ""
     );
 
     setComplianceVerified(false);
@@ -180,6 +182,11 @@ function ReviewQueue() {
   }, [selectedDocument]);
 
   async function submitDecision(newStatus) {
+    if (!selectedDocument?.id) {
+      setError("Invalid document.");
+      return;
+    }
+
     if (!selectedDocument) {
       setError("Select a document first.");
       return;
@@ -222,24 +229,25 @@ function ReviewQueue() {
     setSuccess("");
 
     const { error: updateError } =
-      await supabase
-        .from("documents")
-        .update({
-          status: newStatus,
-          legal_notes: notes || null,
-          updated_at:
-            new Date().toISOString(),
-        })
-  if (updateError) {
-      console.error(
-        "Unable to save the Legal decision:",
-        updateError
-      );
+        await supabase
+          .from("documents")
+          .update({
+            status: newStatus,
+            legal_notes: notes || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", selectedDocument.id);
 
-      setError(updateError.message);
-      setProcessing(false);
-      return;
-    }
+      if (updateError) {
+        console.error(
+          "Unable to save the Legal decision:",
+          updateError
+        );
+
+        setError(updateError.message);
+        setProcessing(false);
+        return;
+      }
 
     if (selectedDocument.submitted_by) {
       const notificationResult =
@@ -278,11 +286,6 @@ function ReviewQueue() {
     );
 
     setLegalNotes("");
-setComplianceVerified(false);
-
-await loadDocuments();
-
-setProcessing(false);
     setComplianceVerified(false);
 
     await loadDocuments();

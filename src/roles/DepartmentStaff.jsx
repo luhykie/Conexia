@@ -442,32 +442,29 @@ function MySubmissionsPage() {
     </button>,
   ]);
 
+  // Resubmits a corrected document and clears the old Legal remarks.
   async function resubmitDocument() {
-    if (!selectedDocument) return;
+    if (!selectedDocument?.id) {
+      setError("Select a valid document first.");
+      return;
+    }
 
     setProcessing(true);
     setError("");
     setSuccess("");
 
-    const { error } = await supabase
+    const {
+      data: updatedDocument,
+      error: updateError,
+    } = await supabase
       .from("documents")
       .update({
         status: "Submitted",
         legal_notes: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", selectedDocument.id);
-
-    if (error) {
-      setError(error.message);
-      setProcessing(false);
-      return;
-    }
-
-    setSuccess("Document successfully resubmitted.");
-
-    const { data } = await supabase
-      .from("documents")
+      .eq("id", selectedDocument.id)
+      .eq("status", "Corrections Needed")
       .select(`
         id,
         tracking_number,
@@ -481,21 +478,37 @@ function MySubmissionsPage() {
         submitted_at,
         updated_at
       `)
-      .order("submitted_at", {
-        ascending: false,
-      });
+      .maybeSingle();
 
-    const loadedDocuments = data ?? [];
+    if (updateError) {
+      console.error(
+        "Unable to resubmit document:",
+        updateError
+      );
 
-    setDocuments(loadedDocuments);
+      setError(updateError.message);
+      setProcessing(false);
+      return;
+    }
 
-    setSelectedDocument(
-      loadedDocuments.find(
-        (document) =>
-          document.id === selectedDocument.id
-      ) || null
+    if (!updatedDocument) {
+      setError(
+        "No document was updated. Refresh the page and verify that its status is still Corrections Needed."
+      );
+      setProcessing(false);
+      return;
+    }
+
+    setDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === updatedDocument.id
+          ? updatedDocument
+          : document
+      )
     );
 
+    setSelectedDocument(updatedDocument);
+    setSuccess("Document successfully resubmitted.");
     setProcessing(false);
   }
 
