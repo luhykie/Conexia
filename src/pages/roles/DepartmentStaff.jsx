@@ -37,16 +37,21 @@ function SubmissionPage({ account }) {
   const [file, setFile] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [success, setSuccess] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState("");
 
   function updateField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
-    setSuccess(false);
+    setSuccessMessage("");
   }
 
-  async function handleSubmit() {
-    if (!form.partnerInstitutionName || !form.partnerContactEmail) {
-      setError("Partner institution name and contact email are required.");
+  async function handleSubmit(saveAsDraft = false) {
+    if (!saveAsDraft && (!form.partnerInstitutionName || !form.partnerContactEmail)) {
+      setError("Partner institution name and contact email are required for review submission.");
+      return;
+    }
+
+    if (!saveAsDraft && !file) {
+      setError("Please attach a document before submitting for review.");
       return;
     }
 
@@ -77,7 +82,7 @@ function SubmissionPage({ account }) {
         partner_contact_email: form.partnerContactEmail,
         storage_path: storagePath,
         file_name: fileName,
-        status: "submitted",
+        status: saveAsDraft ? "draft" : "submitted",
       });
 
       if (insertError) {
@@ -85,7 +90,7 @@ function SubmissionPage({ account }) {
         return;
       }
 
-      setSuccess(true);
+      setSuccessMessage(saveAsDraft ? "Draft saved. You can finish and submit later." : "Submission sent for review.");
       setForm({
         partnerInstitutionName: "",
         agreementType: "Memorandum of Agreement (MOA)",
@@ -115,14 +120,23 @@ function SubmissionPage({ account }) {
           </div>
           <DepartmentForm form={form} onChange={updateField} />
           <Panel title="Document Upload Section">
-            <Dropzone label="Drag and drop agreement draft here" detail="PDF, DOCX, ODT - MAX 25MB" />
-            <div style={{ marginTop: 12 }}>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.odt"
-                onChange={(e) => setFile(e.target.files && e.target.files[0])}
-              />
-              {file && <p style={{ marginTop: 8 }}>Selected file: {file.name}</p>}
+            <Dropzone
+              label="Drag, drop, or click to choose your agreement draft"
+              detail="PDF, DOCX, ODT - MAX 25MB"
+              selectedFile={file}
+              onFileChange={setFile}
+            />
+            <div className="action-strip" style={{ marginTop: "24px", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 100%" }}>
+                {error && <div className="auth-error">{error}</div>}
+                {successMessage && <div className="auth-status ready">{successMessage}</div>}
+              </div>
+              <button onClick={() => handleSubmit(false)} disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit for Review"} <UploadCloud size={18} />
+              </button>
+              <button className="outline" onClick={() => handleSubmit(true)} disabled={submitting}>
+                {submitting ? "Saving..." : "Save as Draft"}
+              </button>
             </div>
           </Panel>
         </div>
@@ -131,12 +145,6 @@ function SubmissionPage({ account }) {
           <p>Intended Partner: {form.partnerInstitutionName || "---"}</p>
           <p>Agreement Class: <b>{form.agreementType}</b></p>
           <p>Processing Office: <b>{account.office}</b></p>
-          {error && <div className="auth-error">{error}</div>}
-          {success && <div className="auth-status ready">Submission saved.</div>}
-          <button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Submitting..." : "Submit for Review"} <UploadCloud size={18} />
-          </button>
-          <button className="outline">Save as Draft</button>
         </aside>
       </div>
     </section>
