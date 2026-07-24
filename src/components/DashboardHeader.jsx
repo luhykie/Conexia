@@ -1,5 +1,5 @@
 import React from "react";
-import { Filter, Plus } from "lucide-react";
+import { Filter } from "lucide-react";
 
 // IRO Staff dashboard greeting and primary actions.
 export function DashboardHeader() {
@@ -12,9 +12,6 @@ export function DashboardHeader() {
       <div className="iro-dashboard-actions">
         <button className="outline">
           <Filter size={18} /> Advanced Filters
-        </button>
-        <button className="primary">
-          <Plus size={18} /> New Submission
         </button>
       </div>
     </header>
