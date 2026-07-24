@@ -6,6 +6,18 @@ import { authenticateDevAccount } from "./devAccounts";
 export async function signInWithEmail(email, password) {
   const normalizedEmail = email.trim().toLowerCase();
 
+  if (!supabase) {
+    const devResult = authenticateDevAccount(normalizedEmail, password);
+    if (devResult.ok) {
+      return { ok: true, account: devResult.account };
+    }
+
+    return {
+      ok: false,
+      message: "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your local env or use a seeded development account.",
+    };
+  }
+
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
     password,
@@ -37,6 +49,8 @@ export async function signInWithEmail(email, password) {
 // Fetches the profiles row for a given auth user id and reshapes it
 // into the account object the rest of the app already relies on.
 export async function fetchProfile(userId) {
+  if (!supabase) return null;
+
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, role, role_key, office, department, status")
@@ -57,5 +71,6 @@ export async function fetchProfile(userId) {
 }
 
 export async function signOut() {
+  if (!supabase) return;
   await supabase.auth.signOut();
 }

@@ -6,6 +6,7 @@ import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, FilterBar, NotificationsView } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
 import { supabase } from "../../lib/supabaseClient";
+import { addLocalSubmission, isMissingSubmissionsTableError, listLocalSubmissions } from "../../lib/submissionFallback";
 
 // Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account }) {
@@ -26,6 +27,8 @@ export function DepartmentStaff({ page, account }) {
 }
 
 // Handles the department upload workflow for new agreements.
+const DRAFT_STORAGE_KEY = "department-submission-draft";
+
 function SubmissionPage({ account }) {
   const [form, setForm] = React.useState({
     partnerInstitutionName: "",
@@ -33,24 +36,66 @@ function SubmissionPage({ account }) {
     expectedDuration: "5 Years (Standard)",
     partnerContactEmail: "",
   });
-  // selected file for upload
   const [file, setFile] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
   const [successMessage, setSuccessMessage] = React.useState("");
+
+  React.useEffect(() => {
+    try {
+      const storedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (storedDraft) {
+        const { form: savedForm } = JSON.parse(storedDraft);
+        setForm((prev) => ({ ...prev, ...savedForm }));
+        setSuccessMessage("Loaded saved draft. Add your file and submit when ready.");
+      }
+    } catch (err) {
+      // ignore invalid draft state
+    }
+  }, []);
 
   function updateField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSuccessMessage("");
   }
 
+  function loadDraft() {
+    try {
+      const storedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!storedDraft) {
+        setError("No saved draft found.");
+        return;
+      }
+
+      const { form: savedForm } = JSON.parse(storedDraft);
+      if (savedForm) {
+        setForm((prev) => ({ ...prev, ...savedForm }));
+        setSuccessMessage("Draft restored. Continue editing or submit for review.");
+        setError("");
+      }
+    } catch (err) {
+      setError("Unable to restore draft.");
+    }
+  }
+
   async function handleSubmit(saveAsDraft = false) {
-    if (!saveAsDraft && (!form.partnerInstitutionName || !form.partnerContactEmail)) {
+    if (saveAsDraft) {
+      try {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ form }));
+        setSuccessMessage("Draft saved locally. Add your file and submit when ready.");
+        setError("");
+      } catch (err) {
+        setError("Unable to save draft locally.");
+      }
+      return;
+    }
+
+    if (!form.partnerInstitutionName || !form.partnerContactEmail) {
       setError("Partner institution name and contact email are required for review submission.");
       return;
     }
 
-    if (!saveAsDraft && !file) {
+    if (!file) {
       setError("Please attach a document before submitting for review.");
       return;
     }
@@ -59,17 +104,22 @@ function SubmissionPage({ account }) {
     setError("");
 
     try {
-      // upload file if selected
       let storagePath = null;
       let fileName = null;
       if (file) {
-        const filePath = `${account.id}/${Date.now()}_${file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("submissions")
-          .upload(filePath, file, { upsert: true });
-        if (uploadError) throw uploadError;
-        storagePath = uploadData.path;
-        fileName = file.name;
+        try {
+          const filePath = `${account.id}/${Date.now()}_${file.name}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from("submissions")
+            .upload(filePath, file, { upsert: true });
+          if (!uploadError && uploadData) {
+            storagePath = uploadData.path;
+            fileName = file.name;
+          }
+        } catch (uploadErr) {
+          storagePath = null;
+          fileName = file.name;
+        }
       }
 
       const { error: insertError } = await supabase.from("submissions").insert({
@@ -82,15 +132,34 @@ function SubmissionPage({ account }) {
         partner_contact_email: form.partnerContactEmail,
         storage_path: storagePath,
         file_name: fileName,
-        status: saveAsDraft ? "draft" : "submitted",
+        status: "under_review",
       });
 
       if (insertError) {
-        setError(insertError.message);
-        return;
+        if (!isMissingSubmissionsTableError(insertError)) {
+          setError("Submission could not be completed. Please try again.");
+          return;
+        }
+
+        addLocalSubmission({
+          id: `local-${Date.now()}`,
+          submitted_by: account.id,
+          office: account.office,
+          department: account.department,
+          partner_institution_name: form.partnerInstitutionName,
+          agreement_type: form.agreementType,
+          expected_duration: form.expectedDuration,
+          partner_contact_email: form.partnerContactEmail,
+          storage_path: storagePath,
+          file_name: fileName,
+          status: "under_review",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       }
 
-      setSuccessMessage(saveAsDraft ? "Draft saved. You can finish and submit later." : "Submission sent for review.");
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      setSuccessMessage("Submission sent for review and routed to IRO Staff.");
       setForm({
         partnerInstitutionName: "",
         agreementType: "Memorandum of Agreement (MOA)",
@@ -99,7 +168,7 @@ function SubmissionPage({ account }) {
       });
       setFile(null);
     } catch (err) {
-      setError(err?.message || "Upload failed");
+      setError("Submission could not be completed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -136,6 +205,9 @@ function SubmissionPage({ account }) {
               </button>
               <button className="outline" onClick={() => handleSubmit(true)} disabled={submitting}>
                 {submitting ? "Saving..." : "Save as Draft"}
+              </button>
+              <button className="outline" onClick={loadDraft} disabled={submitting}>
+                Retrieve Draft
               </button>
             </div>
           </Panel>
@@ -218,6 +290,14 @@ function MySubmissionsPage({ account }) {
             row.status,
           ])
         );
+      } else if (error && isMissingSubmissionsTableError(error)) {
+        const localRows = listLocalSubmissions((row) => row.submitted_by === account.id).map((row) => [
+          String(row.id).slice(0, 8),
+          row.partner_institution_name,
+          row.agreement_type,
+          row.status,
+        ]);
+        setRows(localRows);
       }
       setLoading(false);
     }

@@ -93,12 +93,59 @@ export function FilterBar({ labels }) {
 }
 
 // Shared upload dropzone used by submission and log/review pages.
-export function Dropzone({ label = "Drag and drop file here", detail = "PDF, DOCX up to 25MB" }) {
+export function Dropzone({ label = "Drag and drop file here", detail = "PDF, DOCX up to 25MB", selectedFile, onFileChange }) {
+  const fileInputRef = React.useRef(null);
+
+  function handleClick() {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }
+
+  function handleFileSelect(event) {
+    const nextFile = event.target?.files?.[0];
+    if (nextFile && onFileChange) {
+      onFileChange(nextFile);
+    }
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    const nextFile = event.dataTransfer?.files?.[0];
+    if (nextFile && onFileChange) {
+      onFileChange(nextFile);
+    }
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault();
+  }
+
   return (
-    <div className="dropzone">
+    <div
+      className="dropzone"
+      onClick={onFileChange ? handleClick : undefined}
+      onDrop={onFileChange ? handleDrop : undefined}
+      onDragOver={onFileChange ? handleDragOver : undefined}
+      style={onFileChange ? { cursor: "pointer" } : undefined}
+    >
       <UploadCloud size={42} />
       <b>{label}</b>
       <p>{detail}</p>
+      {onFileChange && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.odt"
+          onChange={handleFileSelect}
+          style={{ display: "none" }}
+        />
+      )}
+      {selectedFile && (
+        <div className="dropzone-file-info">
+          <strong>Selected file:</strong> {selectedFile.name}
+        </div>
+      )}
     </div>
   );
 }

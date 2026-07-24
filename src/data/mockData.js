@@ -66,10 +66,10 @@ export const expiryRows = [
 ];
 
 export const incomingRows = [
-  ["#IRO-2024-0012", "College of Law", "MOU - Legal Internship", "Oct 24, 2023 09:45 AM", "Submitted"],
+  ["#IRO-2024-0012", "College of Law", "MOU - Legal Internship", "Oct 24, 2023 09:45 AM", "Under Review"],
   ["#IRO-2024-0013", "Engineering", "MOA - Tech Exchange", "Oct 23, 2023 02:15 PM", "Logged"],
   ["#IRO-2024-0015", "Business School", "MOF - Corporate Funding", "Oct 22, 2023 11:30 AM", "Under Review"],
-  ["#IRO-2024-0018", "College of Law", "MOU - Research Collab", "Oct 21, 2023 04:50 PM", "Submitted"],
+  ["#IRO-2024-0018", "College of Law", "MOU - Research Collab", "Oct 21, 2023 04:50 PM", "Under Review"],
 ];
 
 export const archiveStats = [

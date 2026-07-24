@@ -1,11 +1,11 @@
 import React from "react";
 import { CalendarClock, FileText, Lock, Settings, ShieldCheck, UserPlus } from "lucide-react";
-import { DataTable } from "../components/DataTable";
-import { PageTitle } from "../components/PageTitle";
-import { Panel } from "../components/Panel";
-import { DashboardView, ExportButton, FilterBar } from "../components/SharedViews";
-import { departments } from "../data/departments";
-import { seedUsers } from "../data/seedUsers";
+import { DataTable } from "../../components/DataTable";
+import { PageTitle } from "../../components/PageTitle";
+import { Panel } from "../../components/Panel";
+import { DashboardView, ExportButton, FilterBar } from "../../components/SharedViews";
+import { departments } from "../../data/departments";
+import { seedUsers } from "../../data/seedUsers";
 
 // Routes all Super Admin pages through one role-owned component.
 export function SuperAdmin({ page }) {

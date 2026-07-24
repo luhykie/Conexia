@@ -48,6 +48,11 @@ function App() {
   React.useEffect(() => {
     // On first load, check if a Supabase session already exists (page refresh case).
     async function restoreSession() {
+      if (!isSupabaseConfigured || !supabase) {
+        setLoading(false);
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
 
       if (data.session) {
@@ -63,18 +68,26 @@ function App() {
     restoreSession();
 
     // Keep account in sync if the session changes elsewhere (e.g. token refresh, logout in another tab).
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session) {
-        setAccount(null);
-        localStorage.removeItem(AUTH_STORAGE_KEY);
-        return;
+    let listener = null;
+    if (isSupabaseConfigured && supabase) {
+      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (!session) {
+          setAccount(null);
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          return;
+        }
+
+        const profile = await fetchProfile(session.user.id);
+        setAccount(profile);
+      });
+      listener = data;
+    }
+
+    return () => {
+      if (listener?.subscription) {
+        listener.subscription.unsubscribe();
       }
-
-      const profile = await fetchProfile(session.user.id);
-      setAccount(profile);
-    });
-
-    return () => listener.subscription.unsubscribe();
+    };
   }, []);
 
   function handleLogin(nextAccount) {
@@ -198,20 +211,47 @@ function WorkspaceRoute({ account, onLogout }) {
   }
 
   return (
-    <Shell
-      roleKey={account.roleKey}
-      page={safePage}
-      setPage={navigateToPage}
-      account={account}
-      onLogout={handleLogout}
-    >
-      <RolePage
+    <WorkspaceErrorBoundary>
+      <Shell
         roleKey={account.roleKey}
         page={safePage}
+        setPage={navigateToPage}
         account={account}
-      />
-    </Shell>
+        onLogout={handleLogout}
+      >
+        <RolePage
+          roleKey={account.roleKey}
+          page={safePage}
+          account={account}
+          setPage={navigateToPage}
+        />
+      </Shell>
+    </WorkspaceErrorBoundary>
   );
+}
+
+class WorkspaceErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 32, fontFamily: "sans-serif" }}>
+          <h2 style={{ color: "#b00020" }}>This workspace hit an error</h2>
+          <p>The page failed to render. Refreshing after a clean reload usually helps reveal the exact module causing it.</p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 // Public welcome page matched to the supplied Conexia Figma export.
@@ -407,10 +447,10 @@ function LoginScreen({ onBack, onLogin }) {
 }
 
 // Selects the correct role module after RBAC has allowed the page.
-function RolePage({ roleKey, page, account }) {
+function RolePage({ roleKey, page, account, setPage }) {
   if (roleKey === "super") return <SuperAdmin page={page} account={account} />;
   if (roleKey === "admin") return <IroAdmin page={page} account={account} />;
-  if (roleKey === "staff") return <IroStaff page={page} account={account} />;
+  if (roleKey === "staff") return <IroStaff page={page} account={account} setPage={setPage} />;
   if (roleKey === "legal") return <LegalCounsel page={page} account={account} />;
   return <DepartmentStaff page={page} account={account} />;
 }

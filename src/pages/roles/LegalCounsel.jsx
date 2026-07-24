@@ -1,10 +1,10 @@
 import React from "react";
 import { CalendarClock, CheckCircle2, FileText, Gavel, ShieldCheck } from "lucide-react";
-import { DataTable } from "../components/DataTable";
-import { PageTitle } from "../components/PageTitle";
-import { Panel } from "../components/Panel";
-import { DashboardView, ExpiryView, FilterBar } from "../components/SharedViews";
-import { StatGrid } from "../components/StatGrid";
+import { DataTable } from "../../components/DataTable";
+import { PageTitle } from "../../components/PageTitle";
+import { Panel } from "../../components/Panel";
+import { DashboardView, ExpiryView, FilterBar } from "../../components/SharedViews";
+import { StatGrid } from "../../components/StatGrid";
 
 // Routes all Legal Counsel pages through one role-owned component.
 export function LegalCounsel({ page }) {

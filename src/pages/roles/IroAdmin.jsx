@@ -1,11 +1,12 @@
 import React from "react";
 import { Archive, CalendarClock, CheckCircle2, FileCheck2, FileText, Info, RefreshCw, Shield } from "lucide-react";
-import { DataTable } from "../components/DataTable";
-import { PageTitle } from "../components/PageTitle";
-import { Panel } from "../components/Panel";
-import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from "../components/SharedViews";
-import { StatGrid } from "../components/StatGrid";
-import { archiveStats, reportStats } from "../data/mockData";
+import { DataTable } from "../../components/DataTable";
+import { PageTitle } from "../../components/PageTitle";
+import { Panel } from "../../components/Panel";
+import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from "../../components/SharedViews";
+import { StatGrid } from "../../components/StatGrid";
+import { supabase } from "../../lib/supabaseClient";
+import { archiveStats, reportStats } from "../../data/mockData";
 
 // Routes all IRO Admin pages through one role-owned component.
 export function IroAdmin({ page }) {
