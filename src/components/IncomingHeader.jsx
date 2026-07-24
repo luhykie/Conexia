@@ -1,5 +1,5 @@
 import React from "react";
-import { Filter, Plus } from "lucide-react";
+import { Filter } from "lucide-react";
 
 export function IncomingHeader() {
   return (
@@ -12,9 +12,6 @@ export function IncomingHeader() {
       <div className="header-actions">
         <button className="outline">
           <Filter size={16} /> Advanced Filters
-        </button>
-        <button className="primary">
-          <Plus size={16} /> New Submission
         </button>
       </div>
     </header>
