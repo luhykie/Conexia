@@ -1,5 +1,12 @@
 node_modules/
 dist/
+backend/vendor/
+backend/node_modules/
+backend/public/build/
+backend/storage/*.key
+backend/.env
+backend/.env.*
+!backend/.env.example
 .env
 .env.*
 !.env.example
