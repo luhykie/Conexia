@@ -782,6 +782,10 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .staff-remarks textarea { width: 100%; min-height: 110px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04); background: rgba(0,0,0,0.12); color: #eaf7ee; padding: 12px; }
 
 .review-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.review-status { margin: 0; color: #cfe6d5; font-size: 13px; line-height: 1.4; }
+.workflow-message, .empty-state { margin: 16px 24px; color: #4f5957; font-size: 14px; line-height: 1.4; }
+.summary-card .workflow-message { margin: 0; color: var(--green-950); font-weight: 800; }
+.legal-message { color: var(--green-950); }
 .btn.large { height: 48px; font-size: 16px; }
 .btn.outline { background: transparent; color: #d6efe1; border: 1px solid rgba(255,255,255,0.06); }
 
@@ -1389,12 +1393,13 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   white-space: nowrap;
 }
 
-.iro-stat-card {
+.iro-stat-card.clickable {
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.iro-stat-card:hover {
+.iro-stat-card.clickable:hover,
+.iro-stat-card.clickable:focus-visible {
   transform: translateY(-4px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }

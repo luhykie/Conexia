@@ -1,6 +1,9 @@
-export const supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL || "https://oqxcokxpyoxsgxbxyema.supabase.co",
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
-};
+import { createClient } from "@supabase/supabase-js";
 
-export const isSupabaseConfigured = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(
+  supabaseUrl,
+  supabaseAnonKey
+);

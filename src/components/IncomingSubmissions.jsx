@@ -1,44 +1,137 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { DashboardStats } from "./DashboardStats";
 import { IncomingHeader } from "./IncomingHeader";
 import { IncomingFilters } from "./IncomingFilters";
 import IncomingTable from "./IncomingTable";
 import Pagination from "./Pagination";
-import { useNavigate } from "react-router-dom"; 
 
-// Mock rows tailored to the requested columns
-const mockRows = [
-  { department: "School of Education", partner: "Global Relief Initiative", type: "MOA", dateSubmitted: "Oct 24, 2023", daysWaiting: 3 },
-  { department: "College of Law", partner: "Vertex Logistics Corp.", type: "MOU", dateSubmitted: "Oct 23, 2023", daysWaiting: 5 },
-  { department: "Engineering", partner: "Apex Manufacturing", type: "MOF", dateSubmitted: "Oct 22, 2023", daysWaiting: 10 },
-  { department: "Business School", partner: "Starlight Foundation", type: "MOA", dateSubmitted: "Oct 21, 2023", daysWaiting: 1 },
-  { department: "Medicine", partner: "Oceanic Blue LLC", type: "MOU", dateSubmitted: "Oct 20, 2023", daysWaiting: 12 },
-];
+import { getIncomingDocuments } from "../services/documentService";
+
+const AGREEMENT_TYPES = new Set(["MOA", "MOU", "MOF"]);
 
 export function IncomingSubmissions() {
+  const navigate = useNavigate();
+
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  async function loadDocuments() {
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const data = await getIncomingDocuments();
+
+      const validDocuments = (data ?? []).filter((document) =>
+        AGREEMENT_TYPES.has(
+          document.document_type?.toUpperCase()
+        )
+      );
+
+      setDocuments(validDocuments);
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
+      setErrorMessage("Unable to load incoming submissions.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const submittedDocuments = documents.filter(
+    (document) => document.status === "Submitted"
+  );
+
+  const loggedDocuments = documents.filter(
+    (document) => document.status === "Logged"
+  );
+
+  const routedDocuments = documents.filter(
+    (document) => document.status === "Under Legal Review"
+  );
+
+  const today = new Date().toDateString();
 
   const stats = {
-    incoming: 12,
-    loggedToday: 9,
-    awaitingCheck: 3,
-    routedToLegal: 24,
+    incoming: submittedDocuments.length,
+
+    loggedToday: loggedDocuments.filter((document) => {
+      if (!document.updated_at) return false;
+
+      return (
+        new Date(document.updated_at).toDateString() === today
+      );
+    }).length,
+
+    awaitingCheck: loggedDocuments.length,
+
+    routedToLegal: routedDocuments.length,
   };
+
+  function handleCardClick(label) {
+    switch (label) {
+      case "Unlogged":
+        navigate("/app/incoming");
+        break;
+
+      case "Awaiting Check":
+        navigate("/app/log-review", {
+          state: { filterStatus: "awaiting" },
+        });
+        break;
+
+      case "Routed to Legal":
+        navigate("/app/status", {
+          state: { filterStatus: "routed" },
+        });
+        break;
+
+      default:
+        break;
+    }
+  }
 
   return (
     <section className="page iro-staff-page incoming-page">
-
       <IncomingHeader />
 
-      <DashboardStats stats={stats} showLoggedToday={false} />
+      <DashboardStats
+        stats={stats}
+        showLoggedToday={false}
+        onCardClick={handleCardClick}
+      />
 
-      <IncomingFilters />
+      <IncomingFilters onRefresh={loadDocuments} />
 
       <div className="panel">
         <h2>Active Incoming Submissions</h2>
-        <IncomingTable rows={mockRows} />
+
+        {loading && <p>Loading documents...</p>}
+
+        {!loading && errorMessage && (
+          <p className="error-message">{errorMessage}</p>
+        )}
+
+        {!loading &&
+          !errorMessage &&
+          submittedDocuments.length === 0 && (
+            <p>No submitted documents found.</p>
+          )}
+
+        {!loading &&
+          !errorMessage &&
+          submittedDocuments.length > 0 && (
+            <IncomingTable rows={submittedDocuments} />
+          )}
+
         <Pagination />
       </div>
-
     </section>
   );
 }

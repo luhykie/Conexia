@@ -15,9 +15,13 @@ export function IncomingTable({ rows }) {
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
-          {rows.map((r, idx) => (
-            <IncomingRow key={idx} row={r} />
+          {rows.map((row) => (
+            <IncomingRow
+              key={row.id}
+              row={row}
+            />
           ))}
         </tbody>
       </table>

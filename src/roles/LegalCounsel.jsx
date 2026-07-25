@@ -5,6 +5,8 @@ import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
 import { DashboardView, ExpiryView, FilterBar } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
+import { approveDocument, requestCorrections } from "../services/documentService";
+import { getWorkflowDocuments } from "../services/workflowStore";
 
 // Routes all Legal Counsel pages through one role-owned component.
 export function LegalCounsel({ page }) {
@@ -25,30 +27,95 @@ export function LegalCounsel({ page }) {
 
 // Provides a legal review queue with a side panel for findings and decisions.
 function ReviewQueue() {
+  const [documents, setDocuments] = React.useState(() =>
+    getWorkflowDocuments().filter((document) => document.status === "Under Legal Review")
+  );
+  const [selectedDocumentId, setSelectedDocumentId] = React.useState(documents[0]?.id || null);
+  const [remarks, setRemarks] = React.useState("");
+  const [message, setMessage] = React.useState("");
+
+  const selectedDocument = documents.find((document) => document.id === selectedDocumentId) || documents[0];
+
+  function refreshQueue() {
+    const routedDocuments = getWorkflowDocuments().filter((document) => document.status === "Under Legal Review");
+    setDocuments(routedDocuments);
+    setSelectedDocumentId(routedDocuments[0]?.id || null);
+  }
+
+  async function handleApprove() {
+    if (!selectedDocument) return;
+
+    await approveDocument(selectedDocument.id);
+    setMessage(`${selectedDocument.tracking_number} approved by legal counsel.`);
+    refreshQueue();
+  }
+
+  async function handleReturn() {
+    if (!selectedDocument) return;
+
+    await requestCorrections(
+      selectedDocument.id,
+      remarks || "Please revise the document according to legal counsel comments."
+    );
+    setMessage(`${selectedDocument.tracking_number} returned for corrections.`);
+    setRemarks("");
+    refreshQueue();
+  }
+
+  const rows = documents.map((document) => [
+    document.tracking_number,
+    document.partner_institution,
+    document.document_type,
+    new Date(document.updated_at || document.submitted_at).toLocaleDateString(),
+    document.status,
+  ]);
+
   return (
     <section className="page split-page legal-page">
       <div>
         <PageTitle title="Review Queue" subtitle="Manage and audit documents explicitly routed for your counsel." />
         <FilterBar labels={["All Routed", "Urgent"]} />
         <Panel title="Routed Documents">
-          <DataTable headers={["Tracking #", "Partner", "Document Type", "Route Date", "Status"]} rows={[
-            ["#CX-88219", "Global Logistics Corp", "Draft MOA", "Oct 12, 2023", "Pending Review"],
-            ["#CX-88224", "Artemis Ventures", "MOU Amendment", "Oct 14, 2023", "Pending Review"],
-            ["#CX-88231", "Pacific Energy", "ND Agreement", "Oct 15, 2023", "Pending Review"],
-            ["#CX-88240", "Standard Bank Ltd", "Loan Framework", "Oct 16, 2023", "Pending Review"],
-          ]} />
+          {rows.length ? (
+            <DataTable headers={["Tracking #", "Partner", "Document Type", "Route Date", "Status"]} rows={rows} />
+          ) : (
+            <p className="empty-state">No documents are currently routed to legal counsel.</p>
+          )}
         </Panel>
       </div>
       <aside className="review-sidebar">
         <h2>Review Sidebar</h2>
+        {selectedDocument ? (
+          <select
+            value={selectedDocument.id}
+            onChange={(event) => setSelectedDocumentId(event.target.value)}
+          >
+            {documents.map((document) => (
+              <option value={document.id} key={document.id}>
+                {document.tracking_number} - {document.partner_institution}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <div className="dropzone">
           <FileText />
-          <b>Draft MOA_v2.pdf</b>
-          <p>1.4 MB - Generated Oct 12</p>
+          <b>{selectedDocument?.title || "No routed document"}</b>
+          <p>{selectedDocument?.description || "IRO Staff routed documents appear here."}</p>
         </div>
-        <label>Liability Assessment<textarea placeholder="Enter findings on indemnity clauses..." /></label>
+        <label>
+          Liability Assessment
+          <textarea
+            onChange={(event) => setRemarks(event.target.value)}
+            placeholder="Enter findings on indemnity clauses..."
+            value={remarks}
+          />
+        </label>
         <label className="checkline"><input type="checkbox" /> Compliance Verified</label>
-        <footer><button className="outline danger">Return</button><button>Approve</button></footer>
+        <footer>
+          <button className="outline danger" disabled={!selectedDocument} onClick={handleReturn}>Return</button>
+          <button disabled={!selectedDocument} onClick={handleApprove}>Approve</button>
+        </footer>
+        {message && <p className="review-status legal-message">{message}</p>}
       </aside>
     </section>
   );

@@ -38,9 +38,17 @@ export function DashboardStats({ stats = {}, onCardClick, showLoggedToday = true
       {visibleCards.map(({ value, label, detail, icon: Icon, dark }) => (
         <article
           key={label}
-          className={`iro-stat-card ${dark ? "dark" : ""}`}
+          className={`iro-stat-card ${dark ? "dark" : ""} ${onCardClick ? "clickable" : ""}`}
           onClick={() => onCardClick?.(label)}
-          style={{ cursor: "pointer" }}
+          onKeyDown={(event) => {
+            if (!onCardClick) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onCardClick(label);
+            }
+          }}
+          role={onCardClick ? "button" : undefined}
+          tabIndex={onCardClick ? 0 : undefined}
         >
           <Icon size={24} />
           <span>{label}</span>

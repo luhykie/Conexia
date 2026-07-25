@@ -1,16 +1,13 @@
 import React from "react";
 
-export function RouteDropdown({ value = "Legal Counsel" }) {
+export function RouteDropdown({ value = "iro_admin", onChange }) {
   return (
-    <div className="route-dropdown">
-      <label className="sr-only">Route To</label>
-      <select defaultValue={value} className="select">
-        <option>IRO Admin</option>
-        <option>Compliance</option>
-        <option>Finance</option>
-        <option>Department Staff</option>
-      </select>
-    </div>
+    <select
+      value={value}
+      onChange={(event) => onChange?.(event.target.value)}
+    >
+      <option value="iro_admin">IRO Admin</option>
+    </select>
   );
 }
 

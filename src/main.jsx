@@ -9,12 +9,25 @@ import {
   Network,
   Shield,
   ShieldCheck,
-  Sparkles,
   WandSparkles,
   Zap,
 } from "lucide-react";
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
 import "./styles.css";
-import { authenticateDevAccount, DEV_PASSWORD } from "./auth/devAccounts";
+
+import {
+  signInWithSupabase,
+  signOutFromSupabase,
+} from "./services/authService";
+
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
 import { Shell } from "./components/Shell";
 import { DepartmentStaff } from "./roles/DepartmentStaff";
@@ -22,9 +35,7 @@ import { IroAdmin } from "./roles/IroAdmin";
 import { IroStaff } from "./roles/IroStaff";
 import { LegalCounsel } from "./roles/LegalCounsel";
 import { SuperAdmin } from "./roles/SuperAdmin";
-import {BrowserRouter, Navigate, Route, Routes, useNavigate, useParams,} from "react-router-dom";
 
-// Main controller for the public welcome page, development login, and RBAC page dispatch.
 const AUTH_STORAGE_KEY = "conexia-account";
 
 function getSavedAccount() {
@@ -51,9 +62,15 @@ function App() {
     setAccount(nextAccount);
   }
 
-  function handleLogout() {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setAccount(null);
+  async function handleLogout() {
+    try {
+      await signOutFromSupabase();
+    } catch (error) {
+      console.error("Supabase logout failed:", error);
+    } finally {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setAccount(null);
+    }
   }
 
   return (
@@ -61,32 +78,42 @@ function App() {
       <Route
         path="/"
         element={
-          account
-            ? <Navigate to={`/app/${getDefaultPage(account.roleKey)}`} replace />
-            : <WelcomeRoute />
+          account ? (
+            <Navigate
+              to={`/app/${getDefaultPage(account.roleKey)}`}
+              replace
+            />
+          ) : (
+            <WelcomeRoute />
+          )
         }
       />
 
       <Route
         path="/login"
         element={
-          account
-            ? <Navigate to={`/app/${getDefaultPage(account.roleKey)}`} replace />
-            : <LoginRoute onLogin={handleLogin} />
+          account ? (
+            <Navigate
+              to={`/app/${getDefaultPage(account.roleKey)}`}
+              replace
+            />
+          ) : (
+            <LoginRoute onLogin={handleLogin} />
+          )
         }
       />
 
       <Route
         path="/app/:page"
         element={
-          account
-            ? (
-              <WorkspaceRoute
-                account={account}
-                onLogout={handleLogout}
-              />
-            )
-            : <Navigate to="/login" replace />
+          account ? (
+            <WorkspaceRoute
+              account={account}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
         }
       />
 
@@ -135,7 +162,9 @@ function WorkspaceRoute({ account, onLogout }) {
 
   React.useEffect(() => {
     if (page !== safePage) {
-      navigate(`/app/${safePage}`, { replace: true });
+      navigate(`/app/${safePage}`, {
+        replace: true,
+      });
     }
   }, [page, safePage, navigate]);
 
@@ -152,8 +181,8 @@ function WorkspaceRoute({ account, onLogout }) {
     navigate(`/app/${nextPage}`);
   }
 
-  function handleLogout() {
-    onLogout();
+  async function handleWorkspaceLogout() {
+    await onLogout();
     navigate("/", { replace: true });
   }
 
@@ -163,7 +192,7 @@ function WorkspaceRoute({ account, onLogout }) {
       page={safePage}
       setPage={navigateToPage}
       account={account}
-      onLogout={handleLogout}
+      onLogout={handleWorkspaceLogout}
     >
       <RolePage
         roleKey={account.roleKey}
@@ -174,91 +203,232 @@ function WorkspaceRoute({ account, onLogout }) {
   );
 }
 
-// Public welcome page matched to the supplied Conexia Figma export.
 function WelcomePage({ onLogin }) {
   return (
     <main className="welcome-page">
       <header className="welcome-nav">
         <strong>CONEXIA</strong>
+
         <nav>
-          <a className="active-link" href="#product">Product</a>
+          <a className="active-link" href="#product">
+            Product
+          </a>
           <a href="#solutions">Solutions</a>
           <a href="#security">Security</a>
           <a href="#pricing">Pricing</a>
         </nav>
-        <button className="nav-login" onClick={onLogin}>Login</button>
-        <button className="nav-cta" onClick={onLogin}>Get Started</button>
+
+        <button
+          className="nav-login"
+          onClick={onLogin}
+        >
+          Login
+        </button>
+
+        <button
+          className="nav-cta"
+          onClick={onLogin}
+        >
+          Get Started
+        </button>
       </header>
 
-      <section className="welcome-hero" id="product">
+      <section
+        className="welcome-hero"
+        id="product"
+      >
         <div className="hero-copy">
-          <span className="trusted-pill"><ShieldCheck size={15} /> Trusted by 500+ universities</span>
-          <h1>Connecting Institutions,<br /><em>Simplifying Partnerships</em></h1>
-          <p>The definitive OS for global academic document management. Automate workflows with impenetrable security and real-time compliance.</p>
+          <span className="trusted-pill">
+            <ShieldCheck size={15} />
+            Trusted by 500+ universities
+          </span>
+
+          <h1>
+            Connecting Institutions,
+            <br />
+            <em>Simplifying Partnerships</em>
+          </h1>
+
+          <p>
+            The definitive OS for global academic document
+            management. Automate workflows with impenetrable
+            security and real-time compliance.
+          </p>
+
           <div className="hero-actions">
-            <button onClick={onLogin}>Get Started</button>
-            <button className="hero-link">Explore Platform <ChevronRight size={18} /></button>
+            <button onClick={onLogin}>
+              Get Started
+            </button>
+
+            <button className="hero-link">
+              Explore Platform
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
+
         <CampusIllustration />
       </section>
 
-      <section className="welcome-features" id="solutions">
+      <section
+        className="welcome-features"
+        id="solutions"
+      >
         <h2>Streamlined Institutional Management</h2>
-        <p>A unified platform for secure academic document management and global partnership scaling.</p>
+
+        <p>
+          A unified platform for secure academic document
+          management and global partnership scaling.
+        </p>
+
         <div className="feature-grid welcome-grid">
-          <FeatureCard icon={WandSparkles} title="Smart Workflows" />
-          <FeatureCard icon={Globe2} title="Global Compliance" />
-          <FeatureCard icon={Shield} title="Secure Vault" />
+          <FeatureCard
+            icon={WandSparkles}
+            title="Smart Workflows"
+          />
+          <FeatureCard
+            icon={Globe2}
+            title="Global Compliance"
+          />
+          <FeatureCard
+            icon={Shield}
+            title="Secure Vault"
+          />
         </div>
       </section>
 
-      <section className="security-band" id="security">
+      <section
+        className="security-band"
+        id="security"
+      >
         <div>
           <h3>Institutional-Grade Security</h3>
-          <p>Protecting sensitive data with the world's most rigorous security certifications.</p>
+
+          <p>
+            Protecting sensitive data with the world's most
+            rigorous security certifications.
+          </p>
         </div>
+
         <div className="cert-row">
-          <span><ShieldCheck /> SOC2 TYPE II</span>
-          <span><Shield /> ISO 27001</span>
-          <span><ShieldCheck /> HIPAA READY</span>
-          <span><Shield /> FERPA COMPLIANT</span>
+          <span>
+            <ShieldCheck />
+            SOC2 TYPE II
+          </span>
+          <span>
+            <Shield />
+            ISO 27001
+          </span>
+          <span>
+            <ShieldCheck />
+            HIPAA READY
+          </span>
+          <span>
+            <Shield />
+            FERPA COMPLIANT
+          </span>
         </div>
       </section>
 
       <section className="metric-row">
-        <MetricCard value="1.4k" label="Daily Processed Logs" icon={BarChart3} />
-        <MetricCard value="98.2%" label="Workflow Efficiency" icon={Zap} tone="green" />
-        <MetricCard value="8.4k" label="Archived Documents" icon={Archive} tone="gold" />
+        <MetricCard
+          value="1.4k"
+          label="Daily Processed Logs"
+          icon={BarChart3}
+        />
+
+        <MetricCard
+          value="98.2%"
+          label="Workflow Efficiency"
+          icon={Zap}
+          tone="green"
+        />
+
+        <MetricCard
+          value="8.4k"
+          label="Archived Documents"
+          icon={Archive}
+          tone="gold"
+        />
       </section>
 
       <section className="welcome-cta">
         <h2>Modernize Your Partnership Management</h2>
-        <p>Join the world's leading universities in streamlining documentation and scaling global academic cooperation effortlessly.</p>
+
+        <p>
+          Join the world's leading universities in
+          streamlining documentation and scaling global
+          academic cooperation effortlessly.
+        </p>
+
         <div>
-          <button onClick={onLogin}>Get Started Today</button>
+          <button onClick={onLogin}>
+            Get Started Today
+          </button>
         </div>
       </section>
 
       <footer className="welcome-footer">
         <div>
-          <h3><Network size={22} /> CONEXIA</h3>
-          <p>Secure and compliant document management for the global higher education ecosystem.</p>
-          <div className="footer-icons"><Globe2 /><AtSign /></div>
+          <h3>
+            <Network size={22} />
+            CONEXIA
+          </h3>
+
+          <p>
+            Secure and compliant document management for the
+            global higher education ecosystem.
+          </p>
+
+          <div className="footer-icons">
+            <Globe2 />
+            <AtSign />
+          </div>
         </div>
-        <FooterColumn title="Platform" items={["Solutions", "Resources", "Accessibility"]} />
-        <FooterColumn title="Company" items={["Company", "Contact", "Careers"]} />
-        <FooterColumn title="Legal" items={["Compliance", "Legal", "Privacy Policy"]} />
-        <small>© 2024 CONEXIA University Document Systems. All rights reserved. Secure and Compliant Document Management.</small>
+
+        <FooterColumn
+          title="Platform"
+          items={[
+            "Solutions",
+            "Resources",
+            "Accessibility",
+          ]}
+        />
+
+        <FooterColumn
+          title="Company"
+          items={[
+            "Company",
+            "Contact",
+            "Careers",
+          ]}
+        />
+
+        <FooterColumn
+          title="Legal"
+          items={[
+            "Compliance",
+            "Legal",
+            "Privacy Policy",
+          ]}
+        />
+
+        <small>
+          © 2024 CONEXIA University Document Systems. All
+          rights reserved. Secure and Compliant Document
+          Management.
+        </small>
       </footer>
     </main>
   );
 }
 
-// Decorative campus scene used to mirror the Figma welcome hero without external assets.
 function CampusIllustration() {
   return (
-    <div className="campus-art" aria-hidden="true">
+    <div
+      className="campus-art"
+      aria-hidden="true"
+    >
       <div className="orbit" />
       <div className="book-tower" />
       <div className="arch" />
@@ -279,7 +449,12 @@ function FeatureCard({ icon: Icon, title }) {
   );
 }
 
-function MetricCard({ value, label, icon: Icon, tone = "" }) {
+function MetricCard({
+  value,
+  label,
+  icon: Icon,
+  tone = "",
+}) {
   return (
     <article className={`metric-card ${tone}`}>
       <strong>{value}</strong>
@@ -293,34 +468,55 @@ function FooterColumn({ title, items }) {
   return (
     <div>
       <h4>{title}</h4>
-      {items.map((item) => <a href="#product" key={item}>{item}</a>)}
+
+      {items.map((item) => (
+        <a href="#product" key={item}>
+          {item}
+        </a>
+      ))}
     </div>
   );
 }
 
-// Development login validates known emails and infers each user's role automatically.
 function LoginScreen({ onBack, onLogin }) {
   const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState(DEV_PASSWORD);
+  const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    const result = authenticateDevAccount(email, password);
 
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const account = await signInWithSupabase(
+        email,
+        password
+      );
+
+      onLogin(account);
+    } catch (error) {
+      console.error("Login failed:", error);
+
+      setError(
+        error.message || "Unable to sign in."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    onLogin(result.account);
   }
 
   return (
     <main className="auth-screen">
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <form
+        className="auth-card"
+        onSubmit={handleSubmit}
+      >
         <h1>CONEXIA</h1>
         <p>INTELLIGENT DOCUMENT SYSTEMS</p>
+
         <label>
           Email
           <input
@@ -331,10 +527,18 @@ function LoginScreen({ onBack, onLogin }) {
             }}
             placeholder="role@conexia.edu"
             autoComplete="email"
+            required
           />
         </label>
+
         <label>
-          <span className="password-label">Password <button type="button">Forgot Password?</button></span>
+          <span className="password-label">
+            Password
+            <button type="button">
+              Forgot Password?
+            </button>
+          </span>
+
           <input
             value={password}
             onChange={(event) => {
@@ -343,12 +547,35 @@ function LoginScreen({ onBack, onLogin }) {
             }}
             type="password"
             autoComplete="current-password"
+            required
           />
         </label>
-        {error && <div className="auth-error">{error}</div>}
-        <button type="submit">Sign In <ChevronRight /></button>
-        <button type="button" className="text-action" onClick={onBack}>Back to welcome page</button>
+
+        {error && (
+          <div className="auth-error">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+        >
+          {loading
+            ? "Signing In..."
+            : "Sign In"}
+          <ChevronRight />
+        </button>
+
+        <button
+          type="button"
+          className="text-action"
+          onClick={onBack}
+        >
+          Back to welcome page
+        </button>
       </form>
+
       <footer>
         <span>2024 CONEXIA University Systems</span>
         <span>Secure Institutional Portal</span>
@@ -360,19 +587,57 @@ function LoginScreen({ onBack, onLogin }) {
   );
 }
 
-// Selects the correct role module after RBAC has allowed the page.
 function RolePage({ roleKey, page, account }) {
-  if (roleKey === "super") return <SuperAdmin page={page} account={account} />;
-  if (roleKey === "admin") return <IroAdmin page={page} account={account} />;
-  if (roleKey === "staff") return <IroStaff page={page} account={account} />;
-  if (roleKey === "legal") return <LegalCounsel page={page} account={account} />;
-  return <DepartmentStaff page={page} account={account} />;
+  if (roleKey === "super") {
+    return (
+      <SuperAdmin
+        page={page}
+        account={account}
+      />
+    );
+  }
+
+  if (roleKey === "admin") {
+    return (
+      <IroAdmin
+        page={page}
+        account={account}
+      />
+    );
+  }
+
+  if (roleKey === "staff") {
+    return (
+      <IroStaff
+        page={page}
+        account={account}
+      />
+    );
+  }
+
+  if (roleKey === "legal") {
+    return (
+      <LegalCounsel
+        page={page}
+        account={account}
+      />
+    );
+  }
+
+  return (
+    <DepartmentStaff
+      page={page}
+      account={account}
+    />
+  );
 }
 
-createRoot(document.getElementById("root")).render(
+createRoot(
+  document.getElementById("root")
+).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <HashRouter>
       <App />
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>
 );
