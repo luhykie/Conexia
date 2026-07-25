@@ -16,10 +16,9 @@ import { StatGrid } from "../components/StatGrid";
 
 import {
   getDepartmentDocuments,
-  submitDocumentToSupabase,
+  submitDocument,
 } from "../services/documentService";
 
-// Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account }) {
   if (page === "submission") {
     return <SubmissionPage account={account} />;
@@ -62,7 +61,6 @@ function DepartmentDashboard({ account }) {
   );
 }
 
-// Handles the department upload workflow for new agreements.
 function SubmissionPage({ account }) {
   const navigate = useNavigate();
 
@@ -73,13 +71,18 @@ function SubmissionPage({ account }) {
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
-    if (!partnerInstitution.trim()) {
+    const normalizedPartner = partnerInstitution.trim();
+    const normalizedEmail = partnerEmail.trim();
+
+    if (!normalizedPartner) {
       setMessage("Please enter the partner institution.");
       return;
     }
 
     if (!account?.id) {
-      setMessage("Authenticated user ID is missing. Please log in again.");
+      setMessage(
+        "Authenticated user ID is missing. Please log in again."
+      );
       return;
     }
 
@@ -96,34 +99,36 @@ function SubmissionPage({ account }) {
     try {
       const trackingNumber = `CONEXIA-${Date.now()}`;
 
-      const createdDocument = await submitDocumentToSupabase({
+      const createdDocument = await submitDocument({
         tracking_number: trackingNumber,
-        title: `${partnerInstitution.trim()} ${documentType}`,
+        title: `${normalizedPartner} ${documentType}`,
         document_type: documentType,
-        partner_institution: partnerInstitution.trim(),
-        partner_email: partnerEmail.trim() || null,
+        partner_institution: normalizedPartner,
+        partner_email: normalizedEmail || null,
         description: `${documentType} submitted by ${
-          account.office || account.fullName
+          account.office || account.fullName || "Department Staff"
         }.`,
         department_id: account.departmentId,
         submitted_by: account.id,
       });
 
       setMessage(
-        `${createdDocument.tracking_number} was submitted to IRO Staff.`
+        `${
+          createdDocument.tracking_number || trackingNumber
+        } was submitted to IRO Staff.`
       );
 
       setPartnerInstitution("");
       setPartnerEmail("");
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         navigate("/app/submissions");
       }, 700);
     } catch (error) {
       console.error("Document submission failed:", error);
 
       setMessage(
-        error.message || "Unable to submit the document."
+        error?.message || "Unable to submit the document."
       );
     } finally {
       setSubmitting(false);
@@ -195,8 +200,8 @@ function SubmissionPage({ account }) {
           </p>
 
           <button
-            onClick={handleSubmit}
             type="button"
+            onClick={handleSubmit}
             disabled={submitting}
           >
             {submitting
@@ -209,6 +214,7 @@ function SubmissionPage({ account }) {
           <button
             className="outline"
             type="button"
+            disabled={submitting}
           >
             Save as Draft
           </button>
@@ -224,7 +230,6 @@ function SubmissionPage({ account }) {
   );
 }
 
-// Collects partner metadata before the upload moves to review.
 function DepartmentForm({
   documentType,
   onDocumentTypeChange,
@@ -240,11 +245,13 @@ function DepartmentForm({
           Partner Institution Name
 
           <input
+            type="text"
+            value={partnerInstitution}
+            placeholder="e.g. Global Tech University"
             onChange={(event) =>
               onPartnerChange(event.target.value)
             }
-            placeholder="e.g. Global Tech University"
-            value={partnerInstitution}
+            required
           />
         </label>
 
@@ -252,10 +259,10 @@ function DepartmentForm({
           Agreement Type
 
           <select
+            value={documentType}
             onChange={(event) =>
               onDocumentTypeChange(event.target.value)
             }
-            value={documentType}
           >
             <option value="MOA">
               Memorandum of Agreement (MOA)
@@ -275,9 +282,11 @@ function DepartmentForm({
           Expected Duration
 
           <select defaultValue="5 Years (Standard)">
-            <option>5 Years (Standard)</option>
-            <option>3 Years</option>
-            <option>1 Year</option>
+            <option value="5 Years (Standard)">
+              5 Years (Standard)
+            </option>
+            <option value="3 Years">3 Years</option>
+            <option value="1 Year">1 Year</option>
           </select>
         </label>
 
@@ -286,8 +295,8 @@ function DepartmentForm({
 
           <input
             type="email"
-            placeholder="contact@partner.edu"
             value={partnerEmail}
+            placeholder="contact@partner.edu"
             onChange={(event) =>
               onPartnerEmailChange(event.target.value)
             }
@@ -298,14 +307,20 @@ function DepartmentForm({
   );
 }
 
-// Shows department-owned submissions from Supabase.
 function MySubmissionsPage({ account }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    loadSubmissions();
+    if (account?.departmentId) {
+      loadSubmissions();
+    } else {
+      setLoading(false);
+      setErrorMessage(
+        "This account has no assigned department."
+      );
+    }
   }, [account?.departmentId]);
 
   async function loadSubmissions() {
@@ -313,17 +328,11 @@ function MySubmissionsPage({ account }) {
     setErrorMessage("");
 
     try {
-      if (!account?.departmentId) {
-        throw new Error(
-          "This account has no assigned department."
-        );
-      }
-
       const data = await getDepartmentDocuments(
         account.departmentId
       );
 
-      setDocuments(data ?? []);
+      setDocuments(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(
         "Unable to load department submissions:",
@@ -331,7 +340,8 @@ function MySubmissionsPage({ account }) {
       );
 
       setErrorMessage(
-        error.message || "Unable to load your submissions."
+        error?.message ||
+          "Unable to load your submissions."
       );
     } finally {
       setLoading(false);
@@ -339,10 +349,10 @@ function MySubmissionsPage({ account }) {
   }
 
   const rows = documents.map((document) => [
-    document.tracking_number,
-    document.partner_institution,
-    document.document_type,
-    document.status,
+    document.tracking_number || "N/A",
+    document.partner_institution || "N/A",
+    document.document_type || "N/A",
+    document.status || "Unknown",
   ]);
 
   const activeCount = documents.filter((document) =>
@@ -439,7 +449,6 @@ function MySubmissionsPage({ account }) {
   );
 }
 
-// Lists external partnerships visible to the department.
 function EngagementsPage() {
   return (
     <section className="page split-page department-page">
@@ -535,10 +544,15 @@ function EngagementsPage() {
           <p>Pending</p>
         </div>
 
-        <button className="primary wide-inline">
+        <button
+          className="primary wide-inline"
+          type="button"
+        >
           Renew Agreement
         </button>
       </aside>
     </section>
   );
 }
+
+export default DepartmentStaff;

@@ -1,290 +1,139 @@
-import { supabase } from "../supabaseConfig";
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
-/**
- * Department Staff submits a new MOA/MOU/MOF document.
- */
-export async function submitDocumentToSupabase(formData) {
-  const now = new Date().toISOString();
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    ...options,
+  });
 
-  const payload = {
-    tracking_number:
-      formData.tracking_number || formData.trackingNumber,
-    title: formData.title,
-    document_type:
-      formData.document_type || formData.documentType,
-    partner_institution:
-      formData.partner_institution || formData.partnerInstitution,
-    partner_email:
-      formData.partner_email || formData.partnerEmail || null,
-    description: formData.description || null,
-    department_id:
-      formData.department_id || formData.departmentId,
-    submitted_by:
-      formData.submitted_by || formData.submittedBy,
-    status: "Submitted",
-    submitted_at: now,
-    updated_at: now,
-  };
+  const result = await response.json().catch(() => null);
 
- const { data, error } = await supabase
-  .from("documents")
-  .insert(payload)
-  .select()
-  .maybeSingle();
-
-if (error) {
-  console.error("Document submission failed:", error);
-  throw error;
-}
-
-if (!data) {
-  throw new Error(
-    "The document was inserted, but Supabase did not return the new record. Check the documents SELECT RLS policy."
-  );
-}
-
-return data;
-}
-
-export async function getProfileByEmail(email) {
-  if (!email) {
-    throw new Error("The logged-in account has no email address.");
-  }
-
-  const normalizedEmail = email.trim().toLowerCase();
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, email, role, department_id")
-    .eq("email", normalizedEmail)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Profile lookup failed:", error);
-    throw error;
-  }
-
-  if (!data) {
+  if (!response.ok) {
     throw new Error(
-      `No Supabase profile was found for ${normalizedEmail}.`
+      result?.message || `Request failed with status ${response.status}.`
     );
   }
 
-  if (!data.department_id) {
-    throw new Error(
-      "The Department Staff profile has no assigned department."
-    );
-  }
+  return result;
+}
 
-  return data;
+export async function getDocuments() {
+  const result = await apiRequest("/documents");
+  return result.data ?? result;
+}
+
+export async function getIncomingDocuments() {
+  const result = await apiRequest("/iro-staff/incoming");
+  return result.data ?? result;
+}
+
+export async function getLoggedDocuments() {
+  const result = await apiRequest("/iro-admin/manage-submissions");
+  return result.data ?? result;
 }
 
 export async function getDepartmentDocuments(departmentId) {
-  const { data, error } = await supabase
-    .from("documents")
-    .select(`
-      *,
-      departments(name)
-    `)
-    .eq("department_id", departmentId)
-    .order("submitted_at", { ascending: false });
-
-  if (error) {
-    console.error("Unable to fetch department documents:", error);
-    throw error;
+  if (!departmentId) {
+    throw new Error("Department ID is required.");
   }
 
-  return data ?? [];
+  const result = await apiRequest(
+    `/departments/${departmentId}/documents`
+  );
+
+  return result.data ?? result;
 }
 
-/**
- * Fetch every workflow document.
- */
-export async function getDocuments() {
-  const { data, error } = await supabase
-    .from("documents")
-    .select(`
-      *,
-      departments(name)
-    `)
-    .order("submitted_at", { ascending: false });
-
-  if (error) {
-    console.error("Unable to fetch documents:", error);
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-/**
- * Fetch documents waiting for IRO Staff.
- */
-export async function getIncomingDocuments() {
-  const { data, error } = await supabase
-    .from("documents")
-    .select(`
-      *,
-      departments(name)
-    `)
-    .eq("status", "Submitted")
-    .order("submitted_at", { ascending: false });
-
-  if (error) {
-    console.error("Unable to fetch incoming documents:", error);
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-/**
- * Fetch documents waiting for IRO Admin validation.
- */
-export async function getLoggedDocuments() {
-  const { data, error } = await supabase
-    .from("documents")
-    .select(`
-      *,
-      departments(name)
-    `)
-    .eq("status", "Logged")
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error("Unable to fetch logged documents:", error);
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-/**
- * Fetch one selected document.
- */
 export async function getDocumentById(documentId) {
-  const { data, error } = await supabase
-    .from("documents")
-    .select(`
-      *,
-      departments(name)
-    `)
-    .eq("id", documentId)
-    .single();
-
-  if (error) {
-    console.error("Unable to fetch selected document:", error);
-    throw error;
+  if (!documentId) {
+    throw new Error("Document ID is required.");
   }
 
-  return data;
+  const result = await apiRequest(`/documents/${documentId}`);
+  return result.data ?? result;
 }
 
-/**
- * IRO Staff logs the document and submits it to IRO Admin.
- */
+export async function submitDocument(formData) {
+  const result = await apiRequest("/documents", {
+    method: "POST",
+    body: JSON.stringify({
+      tracking_number:
+        formData.tracking_number || formData.trackingNumber,
+      title: formData.title,
+      document_type:
+        formData.document_type || formData.documentType,
+      partner_institution:
+        formData.partner_institution ||
+        formData.partnerInstitution,
+      partner_email:
+        formData.partner_email ||
+        formData.partnerEmail ||
+        null,
+      description: formData.description || null,
+      department_id:
+        formData.department_id || formData.departmentId,
+      submitted_by:
+        formData.submitted_by || formData.submittedBy,
+    }),
+  });
+
+  return result.data ?? result;
+}
+
 export async function logDocument(documentId, iroStaffId) {
-  const updates = {
-    status: "Logged",
-    updated_at: new Date().toISOString(),
-  };
+  const result = await apiRequest(
+    `/documents/${documentId}/log`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        iro_staff_id: iroStaffId,
+      }),
+    }
+  );
 
-  if (iroStaffId) {
-    updates.assigned_iro_staff = iroStaffId;
-  }
-
-  const { data, error } = await supabase
-    .from("documents")
-    .update(updates)
-    .eq("id", documentId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Unable to log document:", error);
-    throw error;
-  }
-
-  return data;
+  return result.data ?? result;
 }
 
-/**
- * IRO Admin assigns Legal Counsel and routes the document.
- */
-export async function routeToLegal(
-  documentId,
-  legalCounselId
-) {
-  if (!legalCounselId) {
-    throw new Error(
-      "A Legal Counsel must be selected before routing."
-    );
-  }
+export async function routeToLegal(documentId, legalCounselId) {
+  const result = await apiRequest(
+    `/documents/${documentId}/route-to-legal`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        legal_counsel_id: legalCounselId,
+      }),
+    }
+  );
 
-  const { data, error } = await supabase
-    .from("documents")
-    .update({
-      assigned_legal_counsel: legalCounselId,
-      status: "Under Legal Review",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", documentId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Unable to route document:", error);
-    throw error;
-  }
-
-  return data;
+  return result.data ?? result;
 }
 
-/**
- * Legal Counsel approves a document.
- */
 export async function approveDocument(documentId) {
-  const { data, error } = await supabase
-    .from("documents")
-    .update({
-      status: "Approved",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", documentId)
-    .select()
-    .single();
+  const result = await apiRequest(
+    `/documents/${documentId}/approve`,
+    {
+      method: "PATCH",
+    }
+  );
 
-  if (error) {
-    console.error("Unable to approve document:", error);
-    throw error;
-  }
-
-  return data;
+  return result.data ?? result;
 }
 
-/**
- * Legal Counsel returns a document for corrections.
- */
-export async function requestCorrections(
-  documentId,
-  remarks
-) {
-  const { data, error } = await supabase
-    .from("documents")
-    .update({
-      status: "Corrections Needed",
-      legal_notes: remarks,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", documentId)
-    .select()
-    .single();
+export async function requestCorrections(documentId, remarks) {
+  const result = await apiRequest(
+    `/documents/${documentId}/request-corrections`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        remarks,
+      }),
+    }
+  );
 
-  if (error) {
-    console.error("Unable to return document:", error);
-    throw error;
-  }
-
-  return data;
+  return result.data ?? result;
 }

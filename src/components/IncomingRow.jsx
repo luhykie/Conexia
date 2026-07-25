@@ -2,39 +2,47 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 
 function Badge({ children, className = "" }) {
-  return <span className={`badge ${className}`}>{children}</span>;
+  return (
+    <span className={`badge ${className}`}>
+      {children}
+    </span>
+  );
 }
 
 export function IncomingRow({ row }) {
   const navigate = useNavigate();
 
-  // Data from Supabase
-  const department = row.departments?.name || "N/A";
-  const partner = row.partner_institution;
-  const type = row.document_type;
+  const partner = row.partner_institution || "Not provided";
+  const type = row.document_type || "N/A";
+  const department =
+    row.departments?.name ||
+    row.department_name ||
+    row.department_id ||
+    "Unknown department";
 
-  // Format submitted date
-  const submittedDate = new Date(row.submitted_at);
-  const dateSubmitted = submittedDate.toLocaleDateString();
+  const submittedDate = row.submitted_at
+    ? new Date(row.submitted_at)
+    : null;
 
-  // Compute days waiting
-  const daysWaiting = Math.floor(
-    (new Date() - submittedDate) / (1000 * 60 * 60 * 24)
-  );
+  const dateSubmitted = submittedDate
+    ? submittedDate.toLocaleDateString()
+    : "N/A";
+
+  const daysWaiting = submittedDate
+    ? Math.max(
+        0,
+        Math.floor(
+          (Date.now() - submittedDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
+    : 0;
 
   const typeClass = type
-    ? type.toLowerCase().replace(/[^a-z0-9]+/g, "")
-    : "";
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 
   function handleStartLogging() {
-    navigate("/app/log-review", {
-      state: {
-        documentId: row.id,
-      },
-    });
-  }
-
-  function handleViewDetails() {
     navigate("/app/log-review", {
       state: {
         documentId: row.id,
@@ -65,8 +73,8 @@ export function IncomingRow({ row }) {
             daysWaiting > 7
               ? "danger"
               : daysWaiting > 3
-              ? "warn"
-              : ""
+                ? "warn"
+                : ""
           }
         >
           {daysWaiting} Days
@@ -76,13 +84,15 @@ export function IncomingRow({ row }) {
       <td className="actions">
         <button
           className="btn small"
-          onClick={handleViewDetails}
+          type="button"
+          onClick={handleStartLogging}
         >
           View Details
         </button>
 
         <button
           className="btn primary small"
+          type="button"
           onClick={handleStartLogging}
         >
           Start Logging
