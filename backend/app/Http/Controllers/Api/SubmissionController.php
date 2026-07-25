@@ -83,4 +83,72 @@ class SubmissionController extends Controller
             'data' => $updated,
         ]);
     }
+    public function generateReviewForm(Request $request, Submission $submission): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->attributes->get('auth_profile');
+
+        $result = $this->workflowService->generateReviewForm($profile, $submission);
+
+        return response()->json([
+            'message' => 'Review Form generated successfully.',
+            'data' => $result,
+        ], 201);
+    }
+
+    public function generateNotarizationForm(Request $request, Submission $submission): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->attributes->get('auth_profile');
+
+        $result = $this->workflowService->generateNotarizationForm($profile, $submission);
+
+        return response()->json([
+            'message' => 'Notarization Form generated successfully.',
+            'data' => $result,
+        ], 201);
+    }
 }
+
+    public function recordNotarization(Request $request, Submission $submission): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->attributes->get('auth_profile');
+
+        $updated = $this->workflowService->recordNotarization(
+            $profile,
+            $submission,
+            $request->only(['notarial_reference', 'notarial_date', 'signing_date', 'signing_mode', 'copies_for_notarization'])
+        );
+
+        return response()->json([
+            'message' => 'Notarization recorded successfully.',
+            'data' => $updated,
+        ]);
+    }
+
+    public function archiveSubmission(Request $request, Submission $submission): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->attributes->get('auth_profile');
+
+        $updated = $this->workflowService->archiveSubmission($profile, $submission);
+
+        return response()->json([
+            'message' => 'Submission archived successfully.',
+            'data' => $updated,
+        ]);
+    }
+
+    public function distributeSubmission(Request $request, Submission $submission): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->attributes->get('auth_profile');
+
+        $updated = $this->workflowService->distributeSubmission($profile, $submission);
+
+        return response()->json([
+            'message' => 'Submission distributed successfully.',
+            'data' => $updated,
+        ]);
+    }

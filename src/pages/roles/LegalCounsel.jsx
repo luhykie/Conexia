@@ -5,6 +5,7 @@ import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, ExpiryView, FilterBar } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
+import { supabase } from "../../lib/supabaseClient";
 
 // Routes all Legal Counsel pages through one role-owned component.
 export function LegalCounsel({ page }) {
@@ -25,30 +26,194 @@ export function LegalCounsel({ page }) {
 
 // Provides a legal review queue with a side panel for findings and decisions.
 function ReviewQueue() {
+  const [submissions, setSubmissions] = React.useState([]);
+  const [selectedSubmission, setSelectedSubmission] = React.useState(null);
+  const [legalComments, setLegalComments] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const [message, setMessage] = React.useState("");
+
+  React.useEffect(() => {
+    async function loadSubmissions() {
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("*")
+        .in("status", ["review_form_generated", "under_review", "resubmitted"])
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setSubmissions(data);
+        if (data.length > 0) setSelectedSubmission(data[0]);
+      }
+      setLoading(false);
+    }
+
+    loadSubmissions();
+  }, []);
+
+    async function handleApprove() {
+    if (!selectedSubmission) return;
+
+    try {
+      const token = localStorage.getItem("sb-access-token");
+      
+      // First update status to approved
+      const statusResponse = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "approved",
+          notes: "Document approved by Legal Counsel",
+        }),
+      });
+
+      if (!statusResponse.ok) {
+        setMessage("Failed to approve document. Please try again.");
+        return;
+      }
+
+      // Then generate notarization form
+      const notarizationResponse = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/notarization-form`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (notarizationResponse.ok) {
+        setMessage("Document approved. Notarization Form generated successfully.");
+        setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
+        setSelectedSubmission(null);
+      } else {
+        setMessage("Document approved. Notarization Form generation pending.");
+        setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
+        setSelectedSubmission(null);
+      }
+    } catch (error) {
+      setMessage("Failed to approve document. Please try again.");
+    }
+  }/status`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "approved",
+          notes: "Document approved by Legal Counsel",
+        }),
+      });
+
+      if (response.ok) {
+        setMessage("Document approved. Notarization Form will be generated.");
+        setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
+        setSelectedSubmission(null);
+      } else {
+        setMessage("Failed to approve document. Please try again.");
+      }
+    } catch (error) {
+      setMessage("Failed to approve document. Please try again.");
+    }
+  }
+
+  async function handleReturnForCorrections() {
+    if (!selectedSubmission || !legalComments) {
+      setMessage("Please provide legal comments before returning for corrections.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("sb-access-token");
+      const response = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "corrections_needed",
+          notes: legalComments,
+          metadata: { legal_comments: legalComments },
+        }),
+      });
+
+      if (response.ok) {
+        setMessage("Document returned to Department Staff for corrections.");
+        setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
+        setSelectedSubmission(null);
+        setLegalComments("");
+      } else {
+        setMessage("Failed to return document. Please try again.");
+      }
+    } catch (error) {
+      setMessage("Failed to return document. Please try again.");
+    }
+  }
+
   return (
     <section className="page split-page legal-page">
       <div>
         <PageTitle title="Review Queue" subtitle="Manage and audit documents explicitly routed for your counsel." />
         <FilterBar labels={["All Routed", "Urgent"]} />
         <Panel title="Routed Documents">
-          <DataTable headers={["Tracking #", "Partner", "Document Type", "Route Date", "Status"]} rows={[
-            ["#CX-88219", "Global Logistics Corp", "Draft MOA", "Oct 12, 2023", "Pending Review"],
-            ["#CX-88224", "Artemis Ventures", "MOU Amendment", "Oct 14, 2023", "Pending Review"],
-            ["#CX-88231", "Pacific Energy", "ND Agreement", "Oct 15, 2023", "Pending Review"],
-            ["#CX-88240", "Standard Bank Ltd", "Loan Framework", "Oct 16, 2023", "Pending Review"],
-          ]} />
+          {loading ? (
+            <p style={{ padding: "24px" }}>Loading submissions...</p>
+          ) : (
+            <DataTable 
+              headers={["Tracking #", "Partner", "Document Type", "Route Date", "Status"]} 
+              rows={submissions.map(s => [
+                s.tracking_number || s.id.slice(0, 8),
+                s.partner_institution_name,
+                s.agreement_type,
+                new Date(s.created_at).toLocaleDateString(),
+                s.status,
+                <button 
+                  className="outline" 
+                  onClick={() => setSelectedSubmission(s)}
+                >
+                  Review
+                </button>
+              ])} 
+            />
+          )}
         </Panel>
       </div>
       <aside className="review-sidebar">
         <h2>Review Sidebar</h2>
-        <div className="dropzone">
-          <FileText />
-          <b>Draft MOA_v2.pdf</b>
-          <p>1.4 MB - Generated Oct 12</p>
-        </div>
-        <label>Liability Assessment<textarea placeholder="Enter findings on indemnity clauses..." /></label>
-        <label className="checkline"><input type="checkbox" /> Compliance Verified</label>
-        <footer><button className="outline danger">Return</button><button>Approve</button></footer>
+        {selectedSubmission ? (
+          <>
+            <div className="dropzone">
+              <FileText />
+              <b>{selectedSubmission.file_name || "Document.pdf"}</b>
+              <p>{selectedSubmission.agreement_type} - {new Date(selectedSubmission.created_at).toLocaleDateString()}</p>
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <p><strong>Partner:</strong> {selectedSubmission.partner_institution_name}</p>
+              <p><strong>Agreement:</strong> {selectedSubmission.agreement_title || selectedSubmission.agreement_type}</p>
+              <p><strong>Office:</strong> {selectedSubmission.office}</p>
+              <p><strong>Urgency:</strong> {selectedSubmission.urgency_level}</p>
+            </div>
+            <label>Legal Comments
+              <textarea 
+                placeholder="Enter findings and required corrections..." 
+                value={legalComments}
+                onChange={(e) => setLegalComments(e.target.value)}
+                rows={6}
+              />
+            </label>
+            <label className="checkline"><input type="checkbox" /> Compliance Verified</label>
+            {message && <p style={{ marginTop: "16px", color: message.includes("Failed") ? "red" : "green" }}>{message}</p>}
+            <footer>
+              <button className="outline danger" onClick={handleReturnForCorrections}>Return for Corrections</button>
+              <button onClick={handleApprove}>Approve</button>
+            </footer>
+          </>
+        ) : (
+          <p style={{ padding: "24px" }}>Select a submission to review.</p>
+        )}
       </aside>
     </section>
   );

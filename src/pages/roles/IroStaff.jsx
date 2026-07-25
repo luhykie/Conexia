@@ -176,7 +176,7 @@ function LogReview({ setPage }) {
     loadSubmission();
   }, []);
 
-  async function handleMarkLogged() {
+    async function handleMarkLogged() {
     if (!submission) return;
 
     if (!supabase) {
@@ -185,6 +185,52 @@ function LogReview({ setPage }) {
         status: "logged",
         updated_at: new Date().toISOString(),
       }));
+      setMessage("Submission marked logged and routed to IRO Admin.");
+      setSubmission({ ...submission, status: "logged" });
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("submissions")
+      .update({ status: "logged" })
+      .eq("id", submission.id);
+
+    if (updateError) {
+      if (!isMissingSubmissionsTableError(updateError)) {
+        setMessage("Unable to mark logged. Please try again.");
+        return;
+      }
+
+      updateLocalSubmission(submission.id, (row) => ({
+        ...row,
+        status: "logged",
+        updated_at: new Date().toISOString(),
+      }));
+    }
+
+    // Generate Review Form after logging
+    try {
+      const token = localStorage.getItem("sb-access-token");
+      const response = await fetch(`http://localhost:8000/api/submissions/${submission.id}/review-form`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        setMessage("Submission marked logged and Review Form generated. Routed to Legal Counsel.");
+        setSubmission({ ...submission, status: "review_form_generated" });
+      } else {
+        setMessage("Submission marked logged. Review Form generation pending.");
+        setSubmission({ ...submission, status: "logged" });
+      }
+    } catch (apiError) {
+      setMessage("Submission marked logged. Review Form generation pending.");
+      setSubmission({ ...submission, status: "logged" });
+    }
+  }));
       setMessage("Submission marked logged and routed to IRO Admin.");
       setSubmission({ ...submission, status: "logged" });
       return;

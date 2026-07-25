@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Profile;
+use App\Models\ReviewForm;
+use App\Models\NotarizationForm;
 use App\Models\Submission;
 use App\Models\SubmissionVersion;
 use App\Models\WorkflowEvent;
@@ -167,6 +169,200 @@ class SubmissionWorkflowService
         ]);
     }
 
+    
+    public function generateReviewForm(Profile $profile, Submission $submission): array
+    {
+        if (! in_array($profile->role_key, ['staff', 'admin'], true)) {
+            throw ValidationException::withMessages([
+                'role' => ['Only IRO Staff and Admin can generate review forms.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($profile, $submission) {
+            $formData = [
+                'tracking_number' => $submission->tracking_number,
+                'office' => $submission->office,
+                'department' => $submission->department,
+                'partner_institution_name' => $submission->partner_institution_name,
+                'agreement_type' => $submission->agreement_type,
+                'agreement_title' => $submission->agreement_title,
+                'expected_duration' => $submission->expected_duration,
+                'partner_contact_email' => $submission->partner_contact_email,
+                'contact_person' => $submission->contact_person,
+                'contact_position' => $submission->contact_position,
+                'contact_email' => $submission->contact_email,
+                'contact_number' => $submission->contact_number,
+                'requested_completion_date' => $submission->requested_completion_date,
+                'urgency_level' => $submission->urgency_level,
+                'requested_by_name' => $submission->requested_by_name,
+                'requested_by_date' => $submission->requested_by_date,
+                'noted_by_name' => $submission->noted_by_name,
+                'noted_by_date' => $submission->noted_by_date,
+                'date_received' => $submission->date_received,
+                'received_by' => $submission->received_by,
+                'generated_at' => now()->toIso8601String(),
+            ];
+
+            $reviewForm = ReviewForm::query()->create([
+                'submission_id' => $submission->id,
+                'generated_by' => $profile->id,
+                'form_data' => $formData,
+            ]);
+
+            $submission->update([
+                'status' => 'review_form_generated',
+                'review_form_generated_at' => now(),
+            ]);
+
+            $this->recordEvent(
+                submission: $submission,
+                actorId: $profile->id,
+                fromStatus: 'logged',
+                toStatus: 'review_form_generated',
+                action: 'review_form_generated',
+                notes: 'Review Form automatically generated after logging.',
+            );
+
+            return [
+                'review_form' => $reviewForm,
+                'submission' => $submission->fresh(['versions', 'workflowEvents']),
+            ];
+        });
+    }
+
+    public function generateNotarizationForm(Profile $profile, Submission $submission): array
+    {
+        if (! in_array($profile->role_key, ['staff', 'admin'], true)) {
+            throw ValidationException::withMessages([
+                'role' => ['Only IRO Staff and Admin can generate notarization forms.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($profile, $submission) {
+            $formData = [
+                'tracking_number' => $submission->tracking_number,
+                'office' => $submission->office,
+                'department' => $submission->department,
+                'partner_institution_name' => $submission->partner_institution_name,
+                'agreement_type' => $submission->agreement_type,
+                'agreement_title' => $submission->agreement_title,
+                'signing_date' => $submission->signing_date,
+                'signing_mode' => $submission->signing_mode,
+                'copies_for_notarization' => $submission->copies_for_notarization,
+                'notarial_reference' => $submission->notarial_reference,
+                'notarial_date' => $submission->notarial_date,
+                'generated_at' => now()->toIso8601String(),
+            ];
+
+            $notarizationForm = NotarizationForm::query()->create([
+                'submission_id' => $submission->id,
+                'generated_by' => $profile->id,
+                'form_data' => $formData,
+            ]);
+
+            $submission->update([
+                'status' => 'notarization_form_generated',
+                'notarization_form_generated_at' => now(),
+            ]);
+
+            $this->recordEvent(
+                submission: $submission,
+                actorId: $profile->id,
+                fromStatus: 'approved',
+                toStatus: 'notarization_form_generated',
+                action: 'notarization_form_generated',
+                notes: 'Notarization Form automatically generated after legal approval.',
+            );
+
+            return [
+                'notarization_form' => $notarizationForm,
+                'submission' => $submission->fresh(['versions', 'workflowEvents']),
+            ];
+        });
+    }    
+    public function recordNotarization(Profile $profile, Submission $submission, array $notarizationData): Submission
+    {
+        if (! in_array($profile->role_key, ['staff', 'admin'], true)) {
+            throw ValidationException::withMessages([
+                'role' => ['Only IRO Staff and Admin can record notarization details.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($profile, $submission, $notarizationData) {
+            $submission->update([
+                'notarial_reference' => $notarizationData['notarial_reference'] ?? null,
+                'notarial_date' => $notarizationData['notarial_date'] ?? null,
+                'signing_date' => $notarizationData['signing_date'] ?? null,
+                'signing_mode' => $notarizationData['signing_mode'] ?? 'in_person',
+                'copies_for_notarization' => $notarizationData['copies_for_notarization'] ?? 1,
+                'status' => 'notarized',
+            ]);
+
+            $this->recordEvent(
+                submission: $submission,
+                actorId: $profile->id,
+                fromStatus: 'pending_notarization',
+                toStatus: 'notarized',
+                action: 'notarization_recorded',
+                notes: 'Notarization details recorded by IRO Staff.',
+                metadata: $notarizationData,
+            );
+
+            return $submission->fresh(['versions', 'workflowEvents']);
+        });
+    }
+
+    public function archiveSubmission(Profile $profile, Submission $submission): Submission
+    {
+        if (! in_array($profile->role_key, ['staff', 'admin'], true)) {
+            throw ValidationException::withMessages([
+                'role' => ['Only IRO Staff and Admin can archive submissions.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($profile, $submission) {
+            $submission->update([
+                'status' => 'archived',
+            ]);
+
+            $this->recordEvent(
+                submission: $submission,
+                actorId: $profile->id,
+                fromStatus: 'notarized',
+                toStatus: 'archived',
+                action: 'submission_archived',
+                notes: 'Submission archived after completion.',
+            );
+
+            return $submission->fresh(['versions', 'workflowEvents']);
+        });
+    }
+
+    public function distributeSubmission(Profile $profile, Submission $submission): Submission
+    {
+        if (! in_array($profile->role_key, ['staff', 'admin'], true)) {
+            throw ValidationException::withMessages([
+                'role' => ['Only IRO Staff and Admin can distribute submissions.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($profile, $submission) {
+            $submission->update([
+                'status' => 'distributed',
+            ]);
+
+            $this->recordEvent(
+                submission: $submission,
+                actorId: $profile->id,
+                fromStatus: 'archived',
+                toStatus: 'distributed',
+                action: 'submission_distributed',
+                notes: 'Submission distributed to stakeholders.',
+            );
+
+            return $submission->fresh(['versions', 'workflowEvents']);
+        });
+    }
     private function generateTrackingNumber(): string
     {
         return 'CTX-'.now()->format('Y').'-'.Str::upper(Str::random(6));

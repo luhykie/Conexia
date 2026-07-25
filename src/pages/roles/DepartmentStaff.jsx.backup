@@ -35,16 +35,7 @@ function SubmissionPage({ account }) {
     agreementType: "Memorandum of Agreement (MOA)",
     expectedDuration: "5 Years (Standard)",
     partnerContactEmail: "",
-        contactPerson: "",
-        contactPosition: "",
-        contactNumber: "",
-        requestedCompletionDate: "",
-        urgencyLevel: "normal",
-        requestedByName: account.fullName || "",
-        requestedByDate: new Date().toISOString().split("T")[0],
-        notedByName: "",
-        notedByDate: "",
-      });
+  });
   const [file, setFile] = React.useState(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -139,15 +130,6 @@ function SubmissionPage({ account }) {
         agreement_type: form.agreementType,
         expected_duration: form.expectedDuration,
         partner_contact_email: form.partnerContactEmail,
-        contact_person: form.contactPerson,
-        contact_position: form.contactPosition,
-        contact_number: form.contactNumber,
-        requested_completion_date: form.requestedCompletionDate,
-        urgency_level: form.urgencyLevel,
-        requested_by_name: form.requestedByName,
-        requested_by_date: form.requestedByDate,
-        noted_by_name: form.notedByName,
-        noted_by_date: form.notedByDate,
         storage_path: storagePath,
         file_name: fileName,
         status: "under_review",
@@ -168,16 +150,7 @@ function SubmissionPage({ account }) {
           agreement_type: form.agreementType,
           expected_duration: form.expectedDuration,
           partner_contact_email: form.partnerContactEmail,
-        contact_person: form.contactPerson,
-        contact_position: form.contactPosition,
-        contact_number: form.contactNumber,
-        requested_completion_date: form.requestedCompletionDate,
-        urgency_level: form.urgencyLevel,
-        requested_by_name: form.requestedByName,
-        requested_by_date: form.requestedByDate,
-        noted_by_name: form.notedByName,
-        noted_by_date: form.notedByDate,
-        storage_path: storagePath,
+          storage_path: storagePath,
           file_name: fileName,
           status: "under_review",
           created_at: new Date().toISOString(),
@@ -192,15 +165,6 @@ function SubmissionPage({ account }) {
         agreementType: "Memorandum of Agreement (MOA)",
         expectedDuration: "5 Years (Standard)",
         partnerContactEmail: "",
-        contactPerson: "",
-        contactPosition: "",
-        contactNumber: "",
-        requestedCompletionDate: "",
-        urgencyLevel: "normal",
-        requestedByName: account.fullName || "",
-        requestedByDate: new Date().toISOString().split("T")[0],
-        notedByName: "",
-        notedByDate: "",
       });
       setFile(null);
     } catch (err) {
@@ -278,15 +242,7 @@ function DepartmentForm({ form, onChange }) {
           >
             <option>Memorandum of Agreement (MOA)</option>
             <option>Memorandum of Understanding (MOU)</option>
-            <option>Memorandum of Funding (MOF)</option>
           </select>
-        </label>
-        <label>Agreement Title
-          <input
-            value={form.agreementTitle}
-            onChange={(e) => onChange("agreementTitle", e.target.value)}
-            placeholder="e.g. Academic Exchange Program 2024"
-          />
         </label>
         <label>Expected Duration
           <select
@@ -305,212 +261,21 @@ function DepartmentForm({ form, onChange }) {
             placeholder="contact@partner.edu"
           />
         </label>
-        <label>Contact Person
-          <input
-            value={form.contactPerson}
-            onChange={(e) => onChange("contactPerson", e.target.value)}
-            placeholder="Full name of contact person"
-          />
-        </label>
-        <label>Contact Position
-          <input
-            value={form.contactPosition}
-            onChange={(e) => onChange("contactPosition", e.target.value)}
-            placeholder="e.g. Department Head"
-          />
-        </label>
-        <label>Contact Number
-          <input
-            value={form.contactNumber}
-            onChange={(e) => onChange("contactNumber", e.target.value)}
-            placeholder="e.g. +63 912 345 6789"
-          />
-        </label>
-        <label>Requested Completion Date
-          <input
-            type="date"
-            value={form.requestedCompletionDate}
-            onChange={(e) => onChange("requestedCompletionDate", e.target.value)}
-          />
-        </label>
-        <label>Urgency Level
-          <select
-            value={form.urgencyLevel}
-            onChange={(e) => onChange("urgencyLevel", e.target.value)}
-          >
-            <option value="normal">Normal</option>
-            <option value="urgent">Urgent</option>
-            <option value="highly_urgent">Highly Urgent</option>
-          </select>
-        </label>
-        <label>Requested By
-          <input
-            value={form.requestedByName}
-            onChange={(e) => onChange("requestedByName", e.target.value)}
-            placeholder="Name of requesting official"
-          />
-        </label>
-        <label>Requested By Date
-          <input
-            type="date"
-            value={form.requestedByDate}
-            onChange={(e) => onChange("requestedByDate", e.target.value)}
-          />
-        </label>
-        <label>Noted By
-          <input
-            value={form.notedByName}
-            onChange={(e) => onChange("notedByName", e.target.value)}
-            placeholder="Name of noting official (optional)"
-          />
-        </label>
-        <label>Noted By Date
-          <input
-            type="date"
-            value={form.notedByDate}
-            onChange={(e) => onChange("notedByDate", e.target.value)}
-          />
-        </label>
       </div>
     </Panel>
   );
-}
 }
 
 // Shows department-owned submissions and legal comments.
 function MySubmissionsPage({ account }) {
   const [rows, setRows] = React.useState([]);
-  const [selectedSubmission, setSelectedSubmission] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  const [message, setMessage] = React.useState("");
 
   React.useEffect(() => {
     let channel = null;
 
     async function loadSubmissions() {
       const { data, error } = await supabase
-        .from("submissions")
-        .select("id, partner_institution_name, agreement_type, status, created_at, legal_comments")
-        .eq("submitted_by", account.id)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setRows(
-          data.map((row) => [
-            row.tracking_number || row.id.slice(0, 8),
-            row.partner_institution_name,
-            row.agreement_type,
-            row.status,
-            <button 
-              className="outline" 
-              onClick={() => setSelectedSubmission(row)}
-            >
-              View
-            </button>
-          ])
-        );
-      } else if (error && isMissingSubmissionsTableError(error)) {
-        const localRows = listLocalSubmissions((row) => row.submitted_by === account.id).map((row) => [
-          String(row.id).slice(0, 8),
-          row.partner_institution_name,
-          row.agreement_type,
-          row.status,
-        ]);
-        setRows(localRows);
-      }
-      setLoading(false);
-    }
-
-    loadSubmissions();
-
-    if (account?.id) {
-      channel = supabase
-        .channel(`public:submissions:submitted_by=eq.${account.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `submitted_by=eq.${account.id}` }, (payload) => {
-          loadSubmissions();
-        })
-        .subscribe();
-    }
-
-    return () => {
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
-      }
-    };
-  }, [account?.id]);
-
-  async function handleResubmit() {
-    if (!selectedSubmission) return;
-
-    try {
-      const token = localStorage.getItem("sb-access-token");
-      const response = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "resubmitted",
-          notes: "Document resubmitted after corrections",
-        }),
-      });
-
-      if (response.ok) {
-        setMessage("Document resubmitted for legal review.");
-        setSelectedSubmission(null);
-        loadSubmissions();
-      } else {
-        setMessage("Failed to resubmit document. Please try again.");
-      }
-    } catch (error) {
-      setMessage("Failed to resubmit document. Please try again.");
-    }
-  }
-
-  return (
-    <section className="page split-page department-page">
-      <div>
-        <PageTitle title="My Submissions" subtitle="Real-time tracking of institutional documents and partner agreements." />
-        <Panel title="Submission Records">
-          {loading ? (
-            <p style={{ padding: "24px" }}>Loading submissions...</p>
-          ) : (
-            <DataTable headers={["Tracking #", "Partner", "Type", "Status", "Action"]} rows={rows} />
-          )}
-        </Panel>
-      </div>
-      <aside className="detail-drawer">
-        <h2>Submission Details</h2>
-        {selectedSubmission ? (
-          <>
-            <p><strong>Partner:</strong> {selectedSubmission.partner_institution_name}</p>
-            <p><strong>Type:</strong> {selectedSubmission.agreement_type}</p>
-            <p><strong>Status:</strong> <b>{selectedSubmission.status}</b></p>
-            {selectedSubmission.legal_comments && (
-              <div style={{ marginTop: "16px", padding: "12px", backgroundColor: "#fff3cd", borderRadius: "4px" }}>
-                <strong>Legal Comments:</strong>
-                <p>{selectedSubmission.legal_comments}</p>
-              </div>
-            )}
-            {selectedSubmission.status === "corrections_needed" && (
-              <button 
-                className="primary wide-inline" 
-                onClick={handleResubmit}
-                style={{ marginTop: "16px" }}
-              >
-                Resubmit After Corrections
-              </button>
-            )}
-            {message && <p style={{ marginTop: "16px", color: message.includes("Failed") ? "red" : "green" }}>{message}</p>}
-          </>
-        ) : (
-          <p>Select a submission to view legal comments and version history.</p>
-        )}
-      </aside>
-    </section>
-  );
-} = await supabase
         .from("submissions")
         .select("id, partner_institution_name, agreement_type, status, created_at")
         .eq("submitted_by", account.id)

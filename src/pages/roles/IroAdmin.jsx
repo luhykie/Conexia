@@ -18,6 +18,7 @@ export function IroAdmin({ page }) {
   if (page === "engagements") return <EngagementsPage />;
   if (page === "expiry") return <ExpiryView title="Agreement Expiry Tracking" action="Apply Filters" />;
   if (page === "notifications") return <NotificationsView />;
+  if (page === "notarization") return <NotarizationTracker />;
 
   return (
     <DashboardView
@@ -154,10 +155,119 @@ function PerformanceReports() {
 
 // Finalizes records into the secure archive vault.
 function ArchivePage() {
+  const [submissions, setSubmissions] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [message, setMessage] = React.useState("");
+
+  React.useEffect(() => {
+    async function loadSubmissions() {
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("*")
+        .in("status", ["notarized", "archived", "distributed"])
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setSubmissions(data);
+      }
+      setLoading(false);
+    }
+
+    loadSubmissions();
+  }, []);
+
+  async function handleArchive(submission) {
+    try {
+      const token = localStorage.getItem("sb-access-token");
+      const response = await fetch(`http://localhost:8000/api/submissions/${submission.id}/archive`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        setMessage("Submission archived successfully.");
+        setSubmissions(submissions.map(s => s.id === submission.id ? { ...s, status: "archived" } : s));
+      } else {
+        setMessage("Failed to archive submission. Please try again.");
+      }
+    } catch (error) {
+      setMessage("Failed to archive submission. Please try again.");
+    }
+  }
+
+  async function handleDistribute(submission) {
+    try {
+      const token = localStorage.getItem("sb-access-token");
+      const response = await fetch(`http://localhost:8000/api/submissions/${submission.id}/distribute`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        setMessage("Submission distributed successfully.");
+        setSubmissions(submissions.map(s => s.id === submission.id ? { ...s, status: "distributed" } : s));
+      } else {
+        setMessage("Failed to distribute submission. Please try again.");
+      }
+    } catch (error) {
+      setMessage("Failed to distribute submission. Please try again.");
+    }
+  }
+
   return (
     <section className="page iro-admin-page">
       <PageTitle title="Records Archive" subtitle="Secure workspace for finalizing agreement distribution and archival." action="Export Registry" />
-      <StatGrid stats={archiveStats} />
+      <StatGrid stats={[
+        [String(submissions.filter(s => s.status === "notarized").length), "Pending Archive", Archive],
+        [String(submissions.filter(s => s.status === "archived").length), "Archived", CheckCircle2],
+        [String(submissions.filter(s => s.status === "distributed").length), "Distributed", FileCheck2],
+      ]} />
+      <Panel title="Archive Records">
+        {loading ? (
+          <p style={{ padding: "24px" }}>Loading submissions...</p>
+        ) : (
+          <DataTable 
+            headers={["Tracking ID", "Partner Name", "Type", "Status", "Actions"]} 
+            rows={submissions.map(s => [
+              s.tracking_number || s.id.slice(0, 8),
+              s.partner_institution_name,
+              s.agreement_type,
+              s.status,
+              <div style={{ display: "flex", gap: "8px" }}>
+                {s.status === "notarized" && (
+                  <button 
+                    className="outline" 
+                    onClick={() => handleArchive(s)}
+                  >
+                    Archive
+                  </button>
+                )}
+                {s.status === "archived" && (
+                  <button 
+                    className="outline" 
+                    onClick={() => handleDistribute(s)}
+                  >
+                    Distribute
+                  </button>
+                )}
+                {s.status === "distributed" && (
+                  <span className="badge">Completed</span>
+                )}
+              </div>
+            ])} 
+          />
+        )}
+        {message && <p style={{ marginTop: "16px", color: message.includes("Failed") ? "red" : "green" }}>{message}</p>}
+      </Panel>
+    </section>
+  );
+} />
       <Panel title="Archive Records">
         <DataTable headers={["Tracking ID", "Partner Name", "Type", "Distribution Date", "Completion", "Status", "Actions"]} rows={[
           ["#2024-AG-9102", "Global Tech Solutions Inc.", "MOA", "Oct 12, 2024", "100%", "Distributed", "Mark as Archived"],
