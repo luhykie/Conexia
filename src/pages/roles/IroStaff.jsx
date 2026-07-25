@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Clock3, Download, FileText, Folder, Gauge } from "lucide-react";
+import { Download, FileText, Folder, Gauge, Paperclip } from "lucide-react";
 import { DataTable } from "../../components/DataTable";
 import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
@@ -8,7 +8,6 @@ import { StatGrid } from "../../components/StatGrid";
 import { supabase } from "../../lib/supabaseClient";
 import { isMissingSubmissionsTableError, listLocalSubmissions, updateLocalSubmission } from "../../lib/submissionFallback";
 
-// Routes all IRO Staff pages through one role-owned component.
 export function IroStaff({ page, setPage }) {
   if (page === "incoming") return <IncomingSubmissions setPage={setPage} />;
   if (page === "log-review") return <LogReview setPage={setPage} />;
@@ -25,7 +24,6 @@ export function IroStaff({ page, setPage }) {
   );
 }
 
-// Shows all newly received submissions requiring IRO Staff processing.
 function IncomingSubmissions({ setPage }) {
   const [rows, setRows] = React.useState([]);
   const [submissions, setSubmissions] = React.useState([]);
@@ -41,10 +39,16 @@ function IncomingSubmissions({ setPage }) {
         row.agreement_type,
         new Date(row.created_at).toLocaleDateString(),
         row.status,
-        <button className="outline" type="button" onClick={() => {
-          setSelectedId(row.id);
-          setPage?.("log-review");
-        }}>Review</button>,
+        <button
+          className="outline"
+          type="button"
+          onClick={() => {
+            setSelectedId(row.id);
+            setPage?.("log-review");
+          }}
+        >
+          Review
+        </button>,
       ];
 
       if (!supabase) {
@@ -58,7 +62,7 @@ function IncomingSubmissions({ setPage }) {
 
       const { data, error } = await supabase
         .from("submissions")
-        .select("id, office, partner_institution_name, agreement_type, created_at, status")
+        .select("id, office, partner_institution_name, department, agreement_type, created_at, status, file_name")
         .eq("status", "under_review")
         .order("created_at", { ascending: false });
 
@@ -77,47 +81,60 @@ function IncomingSubmissions({ setPage }) {
     }
 
     loadIncoming();
-  }, []);
+  }, [setPage]);
+
+  const preview = submissions.find((item) => item.id === selectedId) || submissions[0] || null;
 
   return (
     <section className="page iro-staff-page">
       <PageTitle title="Incoming Queue" subtitle="Receive submissions routed from Department Staff." />
-      <StatGrid stats={[
-        [`${rows.length}`, "Total Pending", Folder, "+New"],
-        ["Under Review", FileText, "Review and log submissions before sending to IRO Admin"],
-      ]} />
+      <StatGrid
+        stats={[
+          [`${rows.length}`, "Total Pending", Folder, "+New"],
+          ["Under Review", "Review and log submissions before sending to IRO Admin", FileText],
+        ]}
+      />
       <FilterBar labels={["All Departments", "All Statuses", "Submitted Only"]} />
       <div className="two-col">
         <Panel title="Active Submissions" tools={<ExportButton label="Export CSV" />}>
           {loading ? (
             <p style={{ padding: 24 }}>Loading submissions...</p>
           ) : rows.length ? (
-            <DataTable headers={["Tracking #", "Department", "Document Type", "Date Submitted", "Status", "Action"]} rows={rows} />
+            <DataTable
+              headers={["Tracking #", "Department", "Document Type", "Date Submitted", "Status", "Action"]}
+              rows={rows}
+            />
           ) : (
             <p style={{ padding: 24 }}>No submissions are currently awaiting staff review.</p>
           )}
         </Panel>
+
         <aside className="detail-drawer">
           <h2>Submission Preview</h2>
-          {submissions.length ? (
-            (() => {
-              const preview = submissions.find((item) => item.id === selectedId) || submissions[0];
-              return (
-                <div className="doc-preview">
-                  <h3>{preview.partner_institution_name}</h3>
-                  <p><strong>Office:</strong> {preview.office}</p>
-                  <p><strong>Department:</strong> {preview.department || "---"}</p>
-                  <p><strong>Agreement Type:</strong> {preview.agreement_type}</p>
-                  <p><strong>Submitted:</strong> {new Date(preview.created_at).toLocaleString()}</p>
-                  <p><strong>Status:</strong> <b>{preview.status}</b></p>
-                  <button className="primary wide-inline" type="button" onClick={() => setPage?.("log-review")}>
-                    Open for Review
-                  </button>
-                </div>
-              );
-            })()
+          {preview ? (
+            <div className="doc-preview">
+              <h3>{preview.partner_institution_name}</h3>
+              <p><strong>Office:</strong> {preview.office}</p>
+              <p><strong>Department:</strong> {preview.department || "---"}</p>
+              <p><strong>Agreement Type:</strong> {preview.agreement_type}</p>
+              <p><strong>Submitted:</strong> {new Date(preview.created_at).toLocaleString()}</p>
+              <p><strong>Status:</strong> <b>{preview.status}</b></p>
+              <p className="attachment-indicator">
+                <Paperclip size={16} />
+                {preview.file_name ? (
+                  <span>
+                    1 file attached: <b>{preview.file_name}</b> <small>(preview opens in review)</small>
+                  </span>
+                ) : (
+                  <span>No file attached</span>
+                )}
+              </p>
+              <button className="primary wide-inline" type="button" onClick={() => setPage?.("log-review")}>
+                Open for Review
+              </button>
+            </div>
           ) : (
-            <p>No submission selected.</p>
+            <p style={{ padding: 24 }}>No submission selected.</p>
           )}
         </aside>
       </div>
@@ -125,7 +142,6 @@ function IncomingSubmissions({ setPage }) {
   );
 }
 
-// Gives IRO Staff a document preview plus administrative completeness checklist.
 function LogReview({ setPage }) {
   const [submission, setSubmission] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -135,18 +151,14 @@ function LogReview({ setPage }) {
     async function loadSubmission() {
       if (!supabase) {
         const [first] = listLocalSubmissions((row) => row.status === "under_review");
-        if (first) {
-          setSubmission(first);
-        }
+        if (first) setSubmission(first);
         setLoading(false);
         return;
       }
 
       const { data, error } = await supabase
         .from("submissions")
-        .select(
-          "id, office, department, partner_institution_name, agreement_type, expected_duration, partner_contact_email, status, created_at"
-        )
+        .select("id, office, department, partner_institution_name, agreement_type, expected_duration, partner_contact_email, status, created_at, file_name")
         .eq("status", "under_review")
         .order("created_at", { ascending: false })
         .limit(1)
@@ -156,9 +168,7 @@ function LogReview({ setPage }) {
         setSubmission(data);
       } else if (error && isMissingSubmissionsTableError(error)) {
         const [first] = listLocalSubmissions((row) => row.status === "under_review");
-        if (first) {
-          setSubmission(first);
-        }
+        if (first) setSubmission(first);
       }
       setLoading(false);
     }
@@ -170,7 +180,11 @@ function LogReview({ setPage }) {
     if (!submission) return;
 
     if (!supabase) {
-      updateLocalSubmission(submission.id, (row) => ({ ...row, status: "logged", updated_at: new Date().toISOString() }));
+      updateLocalSubmission(submission.id, (row) => ({
+        ...row,
+        status: "logged",
+        updated_at: new Date().toISOString(),
+      }));
       setMessage("Submission marked logged and routed to IRO Admin.");
       setSubmission({ ...submission, status: "logged" });
       return;
@@ -187,7 +201,11 @@ function LogReview({ setPage }) {
         return;
       }
 
-      updateLocalSubmission(submission.id, (row) => ({ ...row, status: "logged", updated_at: new Date().toISOString() }));
+      updateLocalSubmission(submission.id, (row) => ({
+        ...row,
+        status: "logged",
+        updated_at: new Date().toISOString(),
+      }));
     }
 
     setMessage("Submission marked logged and routed to IRO Admin.");
@@ -213,7 +231,17 @@ function LogReview({ setPage }) {
                 <p><strong>Department:</strong> {submission.department}</p>
                 <p><strong>Submitted:</strong> {new Date(submission.created_at).toLocaleString()}</p>
                 <p><strong>Contact:</strong> {submission.partner_contact_email}</p>
-                <p>Status: <b>{submission.status}</b></p>
+                <p><strong>Status:</strong> <b>{submission.status}</b></p>
+                <p className="attachment-indicator">
+                  <Paperclip size={16} />
+                  {submission.file_name ? (
+                    <span>
+                      1 file attached: <b>{submission.file_name}</b> <small>(open immediately in preview)</small>
+                    </span>
+                  ) : (
+                    <span>No file attached</span>
+                  )}
+                </p>
               </div>
             ) : (
               <p style={{ padding: 24 }}>No submissions are currently awaiting staff review.</p>
@@ -222,10 +250,15 @@ function LogReview({ setPage }) {
         </div>
         <aside className="review-sidebar">
           <h2>Completeness Check</h2>
-          { ["Partner Details Verified", "Signatory Identified", "Standard Template Used"].map((item) => (
-            <label className="checkline" key={item}><input type="checkbox" /> {item}</label>
-          )) }
-          <label>Internal Staff Notes<textarea placeholder="Any initial observations for the reviewer..." /></label>
+          {["Partner Details Verified", "Signatory Identified", "Standard Template Used"].map((item) => (
+            <label className="checkline" key={item}>
+              <input type="checkbox" /> {item}
+            </label>
+          ))}
+          <label>
+            Internal Staff Notes
+            <textarea placeholder="Any initial observations for the reviewer..." />
+          </label>
           <Panel title="Routing & Automation">
             <button className="primary wide-inline" onClick={handleMarkLogged} disabled={!submission}>
               Mark as Logged and Route to IRO Admin
@@ -239,7 +272,6 @@ function LogReview({ setPage }) {
   );
 }
 
-// Tracks submission stage history from receipt through legal review.
 function StatusTracker() {
   return (
     <section className="page split-page iro-staff-page">
@@ -258,7 +290,11 @@ function StatusTracker() {
               <span className="done">Logged</span>
               <span className={complete ? "done" : ""}>Under Review</span>
             </div>
-            <footer><span>MOA (Institutional)</span><span>Engineering Dept.</span><b>Time in Current Status {time}</b></footer>
+            <footer>
+              <span>MOA (Institutional)</span>
+              <span>Engineering Dept.</span>
+              <b>Time in Current Status {time}</b>
+            </footer>
           </article>
         ))}
       </div>
@@ -271,7 +307,9 @@ function StatusTracker() {
             <small>OCT 14, 11:30</small>
           </div>
         ))}
-        <button className="primary wide-inline"><Download size={18} /> Generate Export Log</button>
+        <button className="primary wide-inline">
+          <Download size={18} /> Generate Export Log
+        </button>
       </aside>
     </section>
   );

@@ -199,6 +199,9 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 
 .doc-preview { margin: var(--space-8); min-height: 600px; background: white; border: 1px solid #e1e5e8; padding: var(--space-12); font-family: Georgia, serif; line-height: 1.8; box-shadow: var(--shadow-card); }
 .doc-preview h3 { text-align: center; letter-spacing: .06em; }
+.attachment-indicator { display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-top: var(--space-4); background: #f5f8fe; border: 1px dashed var(--line); border-radius: var(--radius-control); color: var(--green-950); font-family: Inter, "Segoe UI", Arial, sans-serif; font-size: 14px; }
+.attachment-indicator svg { flex: 0 0 auto; color: var(--green-700); }
+.attachment-indicator small { color: #8a938f; font-weight: 500; }
 .status-card { padding: var(--space-6); margin-bottom: var(--space-6); border-color: var(--green-700); }
 .progress-steps, .pipeline { display: flex; justify-content: space-between; align-items: center; margin: var(--space-8); position: relative; }
 .progress-steps span, .pipeline span { display: grid; gap: 8px; text-align: center; color: #777; font-weight: 900; }
