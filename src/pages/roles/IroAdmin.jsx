@@ -267,16 +267,6 @@ function ArchivePage() {
       </Panel>
     </section>
   );
-} />
-      <Panel title="Archive Records">
-        <DataTable headers={["Tracking ID", "Partner Name", "Type", "Distribution Date", "Completion", "Status", "Actions"]} rows={[
-          ["#2024-AG-9102", "Global Tech Solutions Inc.", "MOA", "Oct 12, 2024", "100%", "Distributed", "Mark as Archived"],
-          ["#2024-AG-8841", "Sovereign Logistics Ltd.", "MOU", "Sep 28, 2024", "100%", "Archived", "View Vault"],
-          ["#2024-AG-7922", "Emerald Heritage Foundation", "MOF", "Oct 05, 2024", "65%", "In Distribution", "Locked"],
-        ]} />
-      </Panel>
-    </section>
-  );
 }
 
 // Gives IRO Admin global visibility into partner engagements.

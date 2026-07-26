@@ -95,28 +95,6 @@ function ReviewQueue() {
     } catch (error) {
       setMessage("Failed to approve document. Please try again.");
     }
-  }/status`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "approved",
-          notes: "Document approved by Legal Counsel",
-        }),
-      });
-
-      if (response.ok) {
-        setMessage("Document approved. Notarization Form will be generated.");
-        setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
-        setSelectedSubmission(null);
-      } else {
-        setMessage("Failed to approve document. Please try again.");
-      }
-    } catch (error) {
-      setMessage("Failed to approve document. Please try again.");
-    }
   }
 
   async function handleReturnForCorrections() {

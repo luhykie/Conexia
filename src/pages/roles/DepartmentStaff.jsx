@@ -375,7 +375,7 @@ function DepartmentForm({ form, onChange }) {
     </Panel>
   );
 }
-}
+
 
 // Shows department-owned submissions and legal comments.
 function MySubmissionsPage({ account }) {
@@ -507,70 +507,6 @@ function MySubmissionsPage({ account }) {
         ) : (
           <p>Select a submission to view legal comments and version history.</p>
         )}
-      </aside>
-    </section>
-  );
-} = await supabase
-        .from("submissions")
-        .select("id, partner_institution_name, agreement_type, status, created_at")
-        .eq("submitted_by", account.id)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setRows(
-          data.map((row) => [
-            row.id.slice(0, 8),
-            row.partner_institution_name,
-            row.agreement_type,
-            row.status,
-          ])
-        );
-      } else if (error && isMissingSubmissionsTableError(error)) {
-        const localRows = listLocalSubmissions((row) => row.submitted_by === account.id).map((row) => [
-          String(row.id).slice(0, 8),
-          row.partner_institution_name,
-          row.agreement_type,
-          row.status,
-        ]);
-        setRows(localRows);
-      }
-      setLoading(false);
-    }
-
-    loadSubmissions();
-
-    // subscribe to realtime updates for this user's submissions
-    if (account?.id) {
-      channel = supabase
-        .channel(`public:submissions:submitted_by=eq.${account.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions', filter: `submitted_by=eq.${account.id}` }, (payload) => {
-          loadSubmissions();
-        })
-        .subscribe();
-    }
-
-    return () => {
-      if (channel) {
-        try { supabase.removeChannel(channel); } catch (e) { /* ignore */ }
-      }
-    };
-  }, [account?.id]);
-
-  return (
-    <section className="page split-page department-page">
-      <div>
-        <PageTitle title="My Submissions" subtitle="Real-time tracking of institutional documents and partner agreements." />
-        <Panel title="Submission Records">
-          {loading ? (
-            <p style={{ padding: "24px" }}>Loading submissions...</p>
-          ) : (
-            <DataTable headers={["Tracking #", "Partner", "Type", "Status"]} rows={rows} />
-          )}
-        </Panel>
-      </div>
-      <aside className="detail-drawer">
-        <h2>Submission Details</h2>
-        <p>Select a submission to view legal comments and version history.</p>
       </aside>
     </section>
   );

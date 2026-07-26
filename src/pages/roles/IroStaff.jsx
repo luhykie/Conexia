@@ -230,32 +230,6 @@ function LogReview({ setPage }) {
       setMessage("Submission marked logged. Review Form generation pending.");
       setSubmission({ ...submission, status: "logged" });
     }
-  }));
-      setMessage("Submission marked logged and routed to IRO Admin.");
-      setSubmission({ ...submission, status: "logged" });
-      return;
-    }
-
-    const { error } = await supabase
-      .from("submissions")
-      .update({ status: "logged" })
-      .eq("id", submission.id);
-
-    if (error) {
-      if (!isMissingSubmissionsTableError(error)) {
-        setMessage("Unable to mark logged. Please try again.");
-        return;
-      }
-
-      updateLocalSubmission(submission.id, (row) => ({
-        ...row,
-        status: "logged",
-        updated_at: new Date().toISOString(),
-      }));
-    }
-
-    setMessage("Submission marked logged and routed to IRO Admin.");
-    setSubmission({ ...submission, status: "logged" });
   }
 
   return (
