@@ -32,7 +32,7 @@ export async function signInWithEmail(email, password) {
     return { ok: false, message: authError.message };
   }
 
-  const profile = await fetchProfile(authData.user.id);
+  const profile = await fetchProfile(authData.user.id, authData.user.email || normalizedEmail);
 
   if (!profile) {
     const devResult = authenticateDevAccount(normalizedEmail, password);
@@ -48,7 +48,7 @@ export async function signInWithEmail(email, password) {
 
 // Fetches the profiles row for a given auth user id and reshapes it
 // into the account object the rest of the app already relies on.
-export async function fetchProfile(userId) {
+export async function fetchProfile(userId, email = null) {
   if (!supabase) return null;
 
   const { data, error } = await supabase
@@ -61,6 +61,7 @@ export async function fetchProfile(userId) {
 
   return {
     id: data.id,
+    email,
     fullName: data.full_name,
     role: data.role,
     roleKey: data.role_key,

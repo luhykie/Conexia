@@ -1,17 +1,17 @@
 import { supabase } from "../lib/supabaseClient";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 async function resolveAuthToken(account) {
+  if (account?.email && import.meta.env.DEV) {
+    return `dev:${account.email}`;
+  }
+
   if (supabase) {
     const { data } = await supabase.auth.getSession();
     if (data.session?.access_token) {
       return data.session.access_token;
     }
-  }
-
-  if (account?.email && import.meta.env.DEV) {
-    return `dev:${account.email}`;
   }
 
   return null;
@@ -29,11 +29,16 @@ export async function apiRequest(path, { account, method = "GET", body, headers 
     requestHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: requestHeaders,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: requestHeaders,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    throw new Error(`Unable to reach the backend at ${API_BASE}. ${error.message}`);
+  }
 
   let payload = null;
   try {
@@ -45,7 +50,7 @@ export async function apiRequest(path, { account, method = "GET", body, headers 
   if (!response.ok) {
     const message = payload?.message || payload?.error || "Request failed.";
     const details = payload?.errors ? Object.values(payload.errors).flat().join(" ") : "";
-    throw new Error(details ? `${message} ${details}` : message);
+    throw new Error(`HTTP ${response.status}: ${details ? `${message} ${details}` : message}`);
   }
 
   return payload;

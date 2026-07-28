@@ -22,6 +22,11 @@ class Submission extends Model
         'submitted_by',
         'office',
         'department',
+        'title',
+        'submission_type',
+        'partner_classification',
+        'created_by',
+        'department_id',
         'contact_person',
         'contact_position',
         'contact_email',
@@ -40,6 +45,10 @@ class Submission extends Model
         'storage_path',
         'file_name',
         'status',
+        'current_reviewer',
+        'current_reviewer_role',
+        'submitted_at',
+        'last_reviewed_at',
         'date_received',
         'received_by',
         'pair_remarks',
@@ -55,6 +64,8 @@ class Submission extends Model
         'legal_reviewed_at',
         'review_form_generated_at',
         'notarization_form_generated_at',
+        'current_stage',
+        'revision_cycle',
     ];
 
     protected function casts(): array
@@ -88,5 +99,25 @@ class Submission extends Model
     public function workflowEvents(): HasMany
     {
         return $this->hasMany(WorkflowEvent::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(DocumentReview::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(DocumentComment::class);
+    }
+
+    public function logs(): HasMany
+    {
+        return $this->hasMany(DocumentLog::class);
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(DocumentStatusHistory::class);
     }
 }

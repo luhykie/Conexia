@@ -5,16 +5,34 @@ import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
-import { supabase } from "../../lib/supabaseClient";
 import { archiveStats, reportStats } from "../../data/mockData";
+import { archiveSubmission, distributeSubmission, listSubmissions } from "../../services/submissions";
+import { getSchoolLabel } from "../../utils/school";
+
+function formatSubmissionStatus(status) {
+  const labels = {
+    notarized: "Notarized",
+    archived: "Archived",
+    distributed: "Distributed",
+  };
+
+  return labels[status] || status || "Unknown";
+}
+
+function statusTone(status) {
+  if (status === "notarized") return "info";
+  if (status === "archived") return "success";
+  if (status === "distributed") return "success";
+  return "neutral";
+}
 
 // Routes all IRO Admin pages through one role-owned component.
-export function IroAdmin({ page }) {
+export function IroAdmin({ page, account }) {
   if (page === "log-review") return <LogReviewForm />;
   if (page === "validation") return <ValidationQueue />;
   if (page === "reassign") return <ReassignSubmissions />;
   if (page === "reports") return <PerformanceReports />;
-  if (page === "archive") return <ArchivePage />;
+  if (page === "archive") return <ArchivePage account={account} />;
   if (page === "engagements") return <EngagementsPage />;
   if (page === "expiry") return <ExpiryView title="Agreement Expiry Tracking" action="Apply Filters" />;
   if (page === "notifications") return <NotificationsView />;
@@ -154,21 +172,16 @@ function PerformanceReports() {
 }
 
 // Finalizes records into the secure archive vault.
-function ArchivePage() {
+function ArchivePage({ account }) {
   const [submissions, setSubmissions] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [message, setMessage] = React.useState("");
 
   React.useEffect(() => {
     async function loadSubmissions() {
-      const { data, error } = await supabase
-        .from("submissions")
-        .select("*")
-        .in("status", ["notarized", "archived", "distributed"])
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setSubmissions(data);
+      const response = await listSubmissions(account, { status: "in.(notarized,archived,distributed)" });
+      if (response?.data) {
+        setSubmissions(response.data);
       }
       setLoading(false);
     }
@@ -178,21 +191,9 @@ function ArchivePage() {
 
   async function handleArchive(submission) {
     try {
-      const token = localStorage.getItem("sb-access-token");
-      const response = await fetch(`http://localhost:8000/api/submissions/${submission.id}/archive`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
+      await archiveSubmission(account, submission.id);
         setMessage("Submission archived successfully.");
         setSubmissions(submissions.map(s => s.id === submission.id ? { ...s, status: "archived" } : s));
-      } else {
-        setMessage("Failed to archive submission. Please try again.");
-      }
     } catch (error) {
       setMessage("Failed to archive submission. Please try again.");
     }
@@ -200,21 +201,9 @@ function ArchivePage() {
 
   async function handleDistribute(submission) {
     try {
-      const token = localStorage.getItem("sb-access-token");
-      const response = await fetch(`http://localhost:8000/api/submissions/${submission.id}/distribute`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
+      await distributeSubmission(account, submission.id);
         setMessage("Submission distributed successfully.");
         setSubmissions(submissions.map(s => s.id === submission.id ? { ...s, status: "distributed" } : s));
-      } else {
-        setMessage("Failed to distribute submission. Please try again.");
-      }
     } catch (error) {
       setMessage("Failed to distribute submission. Please try again.");
     }
@@ -232,13 +221,14 @@ function ArchivePage() {
         {loading ? (
           <p style={{ padding: "24px" }}>Loading submissions...</p>
         ) : (
-          <DataTable 
-            headers={["Tracking ID", "Partner Name", "Type", "Status", "Actions"]} 
+            <DataTable 
+            headers={["Tracking ID", "Department", "Partner Name", "Type", "Status", "Actions"]} 
             rows={submissions.map(s => [
-              s.tracking_number || s.id.slice(0, 8),
+              <b>{s.tracking_number || s.id.slice(0, 8)}</b>,
+              getSchoolLabel(s),
               s.partner_institution_name,
               s.agreement_type,
-              s.status,
+              <span className={`badge ${statusTone(s.status)}`}>{formatSubmissionStatus(s.status)}</span>,
               <div style={{ display: "flex", gap: "8px" }}>
                 {s.status === "notarized" && (
                   <button 

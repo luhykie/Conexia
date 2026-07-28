@@ -42,7 +42,7 @@ export const roles = {
   },
   staff: {
     label: "IRO STAFF",
-    subtitle: "Receive submissions, log agreements, generate review forms, and route to Legal.",
+    subtitle: "Review document completeness, approve, reject, or return for revision.",
     theme: "IRO STAFF PORTAL",
     user: "PAIR IRO Staff",
     title: "IRO STAFF",
@@ -50,8 +50,8 @@ export const roles = {
     defaultPage: "dashboard",
   },
   legal: {
-    label: "LEGAL COUNSEL",
-    subtitle: "Review agreements, approve or return documents, record notarization.",
+    label: "GENERAL LEGAL",
+    subtitle: "Review documents, add legal comments, request revisions, and approve agreements.",
     theme: "LEGAL COUNSEL",
     user: "Legal Counsel",
     title: "LEGAL COUNSEL",

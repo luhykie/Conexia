@@ -5,11 +5,35 @@ import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, ExpiryView, FilterBar } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
-import { supabase } from "../../lib/supabaseClient";
+import { generateNotarizationForm, listSubmissions, updateSubmissionStatus } from "../../services/submissions";
+import { getSchoolLabel } from "../../utils/school";
+
+function formatSubmissionStatus(status) {
+  const labels = {
+    pending_iro_staff_review: "Pending IRO Staff Review",
+    approved_by_iro_staff: "Logged by IRO Staff",
+    pending_iro_admin_review: "Pending IRO Admin Review",
+    legally_approved: "Approved by Legal Counsel",
+    legal_revision_required: "Returned for Legal Corrections",
+    revision_required: "Revision Required",
+    pending_notarization: "Pending Notarization",
+    notarized: "Notarized",
+  };
+
+  return labels[status] || status || "Unknown";
+}
+
+function statusTone(status) {
+  if (status === "pending_iro_admin_review") return "warn";
+  if (status === "legally_approved") return "success";
+  if (status === "legal_revision_required") return "danger";
+  if (status === "pending_notarization") return "info";
+  return "neutral";
+}
 
 // Routes all Legal Counsel pages through one role-owned component.
-export function LegalCounsel({ page }) {
-  if (page === "review") return <ReviewQueue />;
+export function LegalCounsel({ page, account }) {
+  if (page === "review") return <ReviewQueue account={account} />;
   if (page === "notarization") return <NotarizationTracker />;
   if (page === "expiry") return <ExpiryView title="Institutional Workspace" action="New Submission" />;
   if (page === "history") return <ActionHistory />;
@@ -25,7 +49,7 @@ export function LegalCounsel({ page }) {
 }
 
 // Provides a legal review queue with a side panel for findings and decisions.
-function ReviewQueue() {
+function ReviewQueue({ account }) {
   const [submissions, setSubmissions] = React.useState([]);
   const [selectedSubmission, setSelectedSubmission] = React.useState(null);
   const [legalComments, setLegalComments] = React.useState("");
@@ -34,13 +58,10 @@ function ReviewQueue() {
 
   React.useEffect(() => {
     async function loadSubmissions() {
-      const { data, error } = await supabase
-        .from("submissions")
-        .select("*")
-        .in("status", ["review_form_generated", "under_review", "resubmitted"])
-        .order("created_at", { ascending: false });
+        const response = await listSubmissions(account, { status: "eq.pending_iro_admin_review" });
+        const data = response?.data || [];
 
-      if (!error && data) {
+      if (data) {
         setSubmissions(data);
         if (data.length > 0) setSelectedSubmission(data[0]);
       }
@@ -54,44 +75,11 @@ function ReviewQueue() {
     if (!selectedSubmission) return;
 
     try {
-      const token = localStorage.getItem("sb-access-token");
-      
-      // First update status to approved
-      const statusResponse = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "approved",
-          notes: "Document approved by Legal Counsel",
-        }),
-      });
-
-      if (!statusResponse.ok) {
-        setMessage("Failed to approve document. Please try again.");
-        return;
-      }
-
-      // Then generate notarization form
-      const notarizationResponse = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/notarization-form`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (notarizationResponse.ok) {
+      await updateSubmissionStatus(account, selectedSubmission.id, "legally_approved", "Document approved by Legal Counsel");
+      await generateNotarizationForm(account, selectedSubmission.id);
         setMessage("Document approved. Notarization Form generated successfully.");
         setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
         setSelectedSubmission(null);
-      } else {
-        setMessage("Document approved. Notarization Form generation pending.");
-        setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
-        setSelectedSubmission(null);
-      }
     } catch (error) {
       setMessage("Failed to approve document. Please try again.");
     }
@@ -104,28 +92,11 @@ function ReviewQueue() {
     }
 
     try {
-      const token = localStorage.getItem("sb-access-token");
-      const response = await fetch(`http://localhost:8000/api/submissions/${selectedSubmission.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "corrections_needed",
-          notes: legalComments,
-          metadata: { legal_comments: legalComments },
-        }),
-      });
-
-      if (response.ok) {
+      await updateSubmissionStatus(account, selectedSubmission.id, "legal_revision_required", legalComments);
         setMessage("Document returned to Department Staff for corrections.");
         setSubmissions(submissions.filter(s => s.id !== selectedSubmission.id));
         setSelectedSubmission(null);
         setLegalComments("");
-      } else {
-        setMessage("Failed to return document. Please try again.");
-      }
     } catch (error) {
       setMessage("Failed to return document. Please try again.");
     }
@@ -140,14 +111,15 @@ function ReviewQueue() {
           {loading ? (
             <p style={{ padding: "24px" }}>Loading submissions...</p>
           ) : (
-            <DataTable 
-              headers={["Tracking #", "Partner", "Document Type", "Route Date", "Status"]} 
+              <DataTable 
+              headers={["Tracking #", "Department", "Partner", "Document Type", "Route Date", "Status", "Action"]} 
               rows={submissions.map(s => [
-                s.tracking_number || s.id.slice(0, 8),
+                <b>{s.tracking_number || s.id.slice(0, 8)}</b>,
+                getSchoolLabel(s),
                 s.partner_institution_name,
                 s.agreement_type,
                 new Date(s.created_at).toLocaleDateString(),
-                s.status,
+                <span className={`badge ${statusTone(s.status)}`}>{formatSubmissionStatus(s.status)}</span>,
                 <button 
                   className="outline" 
                   onClick={() => setSelectedSubmission(s)}
@@ -169,10 +141,14 @@ function ReviewQueue() {
               <p>{selectedSubmission.agreement_type} - {new Date(selectedSubmission.created_at).toLocaleDateString()}</p>
             </div>
             <div style={{ marginBottom: "16px" }}>
+              <p><strong>Department:</strong> {getSchoolLabel(selectedSubmission)}</p>
               <p><strong>Partner:</strong> {selectedSubmission.partner_institution_name}</p>
               <p><strong>Agreement:</strong> {selectedSubmission.agreement_title || selectedSubmission.agreement_type}</p>
               <p><strong>Office:</strong> {selectedSubmission.office}</p>
               <p><strong>Urgency:</strong> {selectedSubmission.urgency_level}</p>
+              <p><strong>Status:</strong> <b>{formatSubmissionStatus(selectedSubmission.status)}</b></p>
+              <p><span className={`badge ${statusTone(selectedSubmission.status)}`}>{formatSubmissionStatus(selectedSubmission.status)}</span></p>
+              <p><strong>Review Notes:</strong> {selectedSubmission.notes || selectedSubmission.legal_comments || "No review notes yet."}</p>
             </div>
             <label>Legal Comments
               <textarea 

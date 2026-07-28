@@ -10,6 +10,15 @@ use Symfony\Component\HttpFoundation\Response;
 
 class VerifySupabaseJwt
 {
+    private const SCHOOL_MAP = [
+        'scs' => ['office' => 'School of Computer Studies', 'department' => 'Computer Studies', 'tracking_prefix' => 'SCS'],
+        'sbm' => ['office' => 'School of Business Management', 'department' => 'Business Management', 'tracking_prefix' => 'SBM'],
+        'sea' => ['office' => 'School of Engineering and Architecture', 'department' => 'Engineering and Architecture', 'tracking_prefix' => 'SEA'],
+        'sed' => ['office' => 'School of Education', 'department' => 'Education', 'tracking_prefix' => 'SED'],
+        'sol' => ['office' => 'School of Law', 'department' => 'Law', 'tracking_prefix' => 'SOL'],
+        'sas' => ['office' => 'School of Arts and Sciences', 'department' => 'Arts and Sciences', 'tracking_prefix' => 'SAS'],
+    ];
+
     public function __construct(private readonly SupabaseJwtService $jwtService)
     {
     }
@@ -72,13 +81,19 @@ class VerifySupabaseJwt
 
         if (! isset($devAccounts[$email])) {
             if (str_ends_with($email, '@conexia.edu')) {
+                $localPart = explode('@', $email)[0];
+                $school = self::SCHOOL_MAP[$localPart] ?? null;
+                $departmentName = $school['department'] ?? ucwords(str_replace(['.', '_', '-'], ' ', $localPart));
+                $office = $school['office'] ?? 'Department Office';
+
                 return new Profile([
                     'id' => '00000000-0000-4000-8000-000000000010',
-                    'full_name' => strtoupper(explode('@', $email)[0]).' Department Staff',
+                    'full_name' => $departmentName.' Department Staff',
                     'role' => 'Department Staff',
                     'role_key' => 'department',
-                    'office' => 'Department Office',
-                    'department' => strtoupper(explode('@', $email)[0]),
+                    'office' => $office,
+                    'department' => $departmentName,
+                    'tracking_prefix' => $school['tracking_prefix'] ?? strtoupper(substr($localPart, 0, 3)),
                     'status' => 'active',
                 ]);
             }

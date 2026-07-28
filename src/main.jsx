@@ -19,12 +19,13 @@ import { supabase } from "./lib/supabaseClient";
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
 import { isSupabaseConfigured } from "./supabaseConfig";
 import { Shell } from "./components/Shell";
-import { DepartmentStaff } from "./pages/roles/DepartmentStaff";
-import { IroAdmin } from "./pages/roles/IroAdmin";
-import { IroStaff } from "./pages/roles/IroStaff";
-import { LegalCounsel } from "./pages/roles/LegalCounsel";
-import { SuperAdmin } from "./pages/roles/SuperAdmin";
-import {BrowserRouter, Navigate, Route, Routes, useNavigate, useParams,} from "react-router-dom";
+import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams,} from "react-router-dom";
+
+const DepartmentStaff = React.lazy(() => import("./pages/roles/DepartmentStaff").then((module) => ({ default: module.DepartmentStaff })));
+const IroAdmin = React.lazy(() => import("./pages/roles/IroAdmin").then((module) => ({ default: module.IroAdmin })));
+const IroStaff = React.lazy(() => import("./pages/roles/IroStaff").then((module) => ({ default: module.IroStaff })));
+const LegalCounsel = React.lazy(() => import("./pages/roles/LegalCounsel").then((module) => ({ default: module.LegalCounsel })));
+const SuperAdmin = React.lazy(() => import("./pages/roles/SuperAdmin").then((module) => ({ default: module.SuperAdmin })));
 
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
 const AUTH_STORAGE_KEY = "conexia-account";
@@ -56,7 +57,7 @@ function App() {
       const { data } = await supabase.auth.getSession();
 
       if (data.session) {
-        const profile = await fetchProfile(data.session.user.id);
+        const profile = await fetchProfile(data.session.user.id, data.session.user.email);
         if (profile) {
           setAccount(profile);
         }
@@ -77,7 +78,7 @@ function App() {
           return;
         }
 
-        const profile = await fetchProfile(session.user.id);
+        const profile = await fetchProfile(session.user.id, session.user.email);
         setAccount(profile);
       });
       listener = data;
@@ -180,6 +181,7 @@ function LoginRoute({ onLogin }) {
 
 function WorkspaceRoute({ account, onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { page = "dashboard" } = useParams();
 
   const safePage = canAccessPage(account.roleKey, page)
@@ -193,6 +195,8 @@ function WorkspaceRoute({ account, onLogout }) {
   }, [page, safePage, navigate]);
 
   function navigateToPage(nextPage) {
+    const nextState = nextPage === "submission" ? { source: "sidebar" } : undefined;
+
     if (!canAccessPage(account.roleKey, nextPage)) {
       navigate(
         `/app/${getDefaultPage(account.roleKey)}`,
@@ -202,7 +206,7 @@ function WorkspaceRoute({ account, onLogout }) {
       return;
     }
 
-    navigate(`/app/${nextPage}`);
+    navigate(`/app/${nextPage}`, nextState ? { state: nextState } : undefined);
   }
 
   function handleLogout() {
@@ -224,6 +228,7 @@ function WorkspaceRoute({ account, onLogout }) {
           page={safePage}
           account={account}
           setPage={navigateToPage}
+          pageState={location.state}
         />
       </Shell>
     </WorkspaceErrorBoundary>
@@ -447,12 +452,16 @@ function LoginScreen({ onBack, onLogin }) {
 }
 
 // Selects the correct role module after RBAC has allowed the page.
-function RolePage({ roleKey, page, account, setPage }) {
-  if (roleKey === "super") return <SuperAdmin page={page} account={account} />;
-  if (roleKey === "admin") return <IroAdmin page={page} account={account} />;
-  if (roleKey === "staff") return <IroStaff page={page} account={account} setPage={setPage} />;
-  if (roleKey === "legal") return <LegalCounsel page={page} account={account} />;
-  return <DepartmentStaff page={page} account={account} />;
+function RolePage({ roleKey, page, account, setPage, pageState }) {
+  return (
+    <React.Suspense fallback={<div style={{ padding: 32 }}>Loading workspace...</div>}>
+      {roleKey === "super" && <SuperAdmin page={page} account={account} />}
+      {roleKey === "admin" && <IroAdmin page={page} account={account} />}
+      {roleKey === "staff" && <IroStaff page={page} account={account} setPage={setPage} />}
+      {roleKey === "legal" && <LegalCounsel page={page} account={account} />}
+      {roleKey !== "super" && roleKey !== "admin" && roleKey !== "staff" && roleKey !== "legal" && <DepartmentStaff page={page} account={account} setPage={setPage} pageState={pageState} />}
+    </React.Suspense>
+  );
 }
 
 const root = createRoot(document.getElementById("root"));

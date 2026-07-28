@@ -5,12 +5,33 @@ import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
-import { supabase } from "../../lib/supabaseClient";
-import { isMissingSubmissionsTableError, listLocalSubmissions, updateLocalSubmission } from "../../lib/submissionFallback";
+import { listSubmissions, updateSubmissionStatus } from "../../services/submissions";
+import { getSchoolLabel } from "../../utils/school";
 
-export function IroStaff({ page, setPage }) {
-  if (page === "incoming") return <IncomingSubmissions setPage={setPage} />;
-  if (page === "log-review") return <LogReview setPage={setPage} />;
+function formatSubmissionStatus(status) {
+  const labels = {
+    pending_iro_staff_review: "Pending",
+    approved_by_iro_staff: "Logged by IRO Staff",
+    pending_iro_admin_review: "Pending",
+    legally_approved: "Approved by Legal Counsel",
+    legal_revision_required: "Returned for Legal Corrections",
+    revision_required: "Revision Required",
+  };
+
+  return labels[status] || status || "Unknown";
+}
+
+function statusTone(status) {
+  if (status === "pending_iro_staff_review") return "warn";
+  if (status === "approved_by_iro_staff") return "success";
+  if (status === "pending_iro_admin_review") return "warn";
+  if (status === "legal_revision_required" || status === "revision_required") return "danger";
+  return "neutral";
+}
+
+export function IroStaff({ page, setPage, account }) {
+  if (page === "incoming") return <IncomingSubmissions setPage={setPage} account={account} />;
+  if (page === "log-review") return <LogReview setPage={setPage} account={account} />;
   if (page === "status") return <StatusTracker />;
   if (page === "expiry") return <ExpiryView title="Global Expiry List" action="Bulk Notify Offices" />;
 
@@ -24,7 +45,7 @@ export function IroStaff({ page, setPage }) {
   );
 }
 
-function IncomingSubmissions({ setPage }) {
+function IncomingSubmissions({ setPage, account }) {
   const [rows, setRows] = React.useState([]);
   const [submissions, setSubmissions] = React.useState([]);
   const [selectedId, setSelectedId] = React.useState(null);
@@ -33,12 +54,11 @@ function IncomingSubmissions({ setPage }) {
   React.useEffect(() => {
     async function loadIncoming() {
       const toRow = (row) => [
-        String(row.id).slice(0, 8),
-        row.office,
-        row.partner_institution_name,
+        <b>{row.tracking_number || String(row.id).slice(0, 8)}</b>,
+        getSchoolLabel(row),
         row.agreement_type,
         new Date(row.created_at).toLocaleDateString(),
-        row.status,
+        <span className={`badge ${statusTone(row.status)}`}>{formatSubmissionStatus(row.status)}</span>,
         <button
           className="outline"
           type="button"
@@ -48,40 +68,26 @@ function IncomingSubmissions({ setPage }) {
           }}
         >
           Review
-        </button>,
+          </button>,
       ];
 
-      if (!supabase) {
-        const local = listLocalSubmissions((row) => row.status === "under_review");
-        setSubmissions(local);
-        setRows(local.map(toRow));
-        setSelectedId(local[0]?.id || null);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("submissions")
-        .select("id, office, partner_institution_name, department, agreement_type, created_at, status, file_name")
-        .eq("status", "under_review")
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
+      try {
+        const response = await listSubmissions(account, { status: "eq.pending_iro_staff_review" });
+        const data = response?.data || [];
         setSubmissions(data);
         setRows(data.map(toRow));
         setSelectedId(data[0]?.id || null);
-      } else if (error && isMissingSubmissionsTableError(error)) {
-        const local = listLocalSubmissions((row) => row.status === "under_review");
-        setSubmissions(local);
-        setRows(local.map(toRow));
-        setSelectedId(local[0]?.id || null);
+      } catch (error) {
+        setSubmissions([]);
+        setRows([]);
+        setSelectedId(null);
       }
 
       setLoading(false);
     }
 
     loadIncoming();
-  }, [setPage]);
+  }, [setPage, account]);
 
   const preview = submissions.find((item) => item.id === selectedId) || submissions[0] || null;
 
@@ -100,10 +106,10 @@ function IncomingSubmissions({ setPage }) {
           {loading ? (
             <p style={{ padding: 24 }}>Loading submissions...</p>
           ) : rows.length ? (
-            <DataTable
-              headers={["Tracking #", "Department", "Document Type", "Date Submitted", "Status", "Action"]}
-              rows={rows}
-            />
+              <DataTable
+                headers={["Tracking #", "Department", "Document Type", "Date Submitted", "Status", "Action"]}
+                rows={rows}
+              />
           ) : (
             <p style={{ padding: 24 }}>No submissions are currently awaiting staff review.</p>
           )}
@@ -115,19 +121,23 @@ function IncomingSubmissions({ setPage }) {
             <div className="doc-preview">
               <h3>{preview.partner_institution_name}</h3>
               <p><strong>Office:</strong> {preview.office}</p>
-              <p><strong>Department:</strong> {preview.department || "---"}</p>
+              <p><strong>Department:</strong> {getSchoolLabel(preview)}</p>
+              <p><strong>Title:</strong> {preview.title || preview.agreement_title || "---"}</p>
               <p><strong>Agreement Type:</strong> {preview.agreement_type}</p>
+              <p><strong>Expected Duration:</strong> {preview.expected_duration || "---"}</p>
+              <p><strong>Contact Person:</strong> {preview.contact_person || "---"}</p>
+              <p><strong>Contact Position:</strong> {preview.contact_position || "---"}</p>
+              <p><strong>Contact Email:</strong> {preview.partner_contact_email || preview.contact_email || "---"}</p>
+              <p><strong>Contact Number:</strong> {preview.contact_number || "---"}</p>
+              <p><strong>Requested Completion:</strong> {preview.requested_completion_date ? new Date(preview.requested_completion_date).toLocaleDateString() : "---"}</p>
+              <p><strong>Requested By:</strong> {preview.requested_by_name || "---"}</p>
               <p><strong>Submitted:</strong> {new Date(preview.created_at).toLocaleString()}</p>
-              <p><strong>Status:</strong> <b>{preview.status}</b></p>
+              <p><strong>Status:</strong> <b>{formatSubmissionStatus(preview.status)}</b></p>
+              <p><span className={`badge ${statusTone(preview.status)}`}>{formatSubmissionStatus(preview.status)}</span></p>
+              <p><strong>Review Notes:</strong> {preview.notes || "No review notes yet."}</p>
               <p className="attachment-indicator">
                 <Paperclip size={16} />
-                {preview.file_name ? (
-                  <span>
-                    1 file attached: <b>{preview.file_name}</b> <small>(preview opens in review)</small>
-                  </span>
-                ) : (
-                  <span>No file attached</span>
-                )}
+                <span>Attachment received. IRO Staff can review the filled-out form, but the file stays hidden from staff by design.</span>
               </p>
               <button className="primary wide-inline" type="button" onClick={() => setPage?.("log-review")}>
                 Open for Review
@@ -142,33 +152,19 @@ function IncomingSubmissions({ setPage }) {
   );
 }
 
-function LogReview({ setPage }) {
+function LogReview({ setPage, account }) {
   const [submission, setSubmission] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [message, setMessage] = React.useState("");
 
   React.useEffect(() => {
     async function loadSubmission() {
-      if (!supabase) {
-        const [first] = listLocalSubmissions((row) => row.status === "under_review");
-        if (first) setSubmission(first);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("submissions")
-        .select("id, office, department, partner_institution_name, agreement_type, expected_duration, partner_contact_email, status, created_at, file_name")
-        .eq("status", "under_review")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (!error && data) {
+      try {
+        const response = await listSubmissions(account, { status: "eq.pending_iro_staff_review" });
+        const data = (response?.data || [])[0] || null;
         setSubmission(data);
-      } else if (error && isMissingSubmissionsTableError(error)) {
-        const [first] = listLocalSubmissions((row) => row.status === "under_review");
-        if (first) setSubmission(first);
+      } catch (error) {
+        setSubmission(null);
       }
       setLoading(false);
     }
@@ -179,57 +175,15 @@ function LogReview({ setPage }) {
     async function handleMarkLogged() {
     if (!submission) return;
 
-    if (!supabase) {
-      updateLocalSubmission(submission.id, (row) => ({
-        ...row,
-        status: "logged",
-        updated_at: new Date().toISOString(),
-      }));
-      setMessage("Submission marked logged and routed to IRO Admin.");
-      setSubmission({ ...submission, status: "logged" });
+    try {
+      await updateSubmissionStatus(account, submission.id, "approved_by_iro_staff", "IRO Staff approved the submission.");
+    } catch (error) {
+      setMessage(error.message || "Unable to approve submission. Please try again.");
       return;
     }
 
-    const { error: updateError } = await supabase
-      .from("submissions")
-      .update({ status: "logged" })
-      .eq("id", submission.id);
-
-    if (updateError) {
-      if (!isMissingSubmissionsTableError(updateError)) {
-        setMessage("Unable to mark logged. Please try again.");
-        return;
-      }
-
-      updateLocalSubmission(submission.id, (row) => ({
-        ...row,
-        status: "logged",
-        updated_at: new Date().toISOString(),
-      }));
-    }
-
-    // Generate Review Form after logging
-    try {
-      const token = localStorage.getItem("sb-access-token");
-      const response = await fetch(`http://localhost:8000/api/submissions/${submission.id}/review-form`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        setMessage("Submission marked logged and Review Form generated. Routed to Legal Counsel.");
-        setSubmission({ ...submission, status: "review_form_generated" });
-      } else {
-        setMessage("Submission marked logged. Review Form generation pending.");
-        setSubmission({ ...submission, status: "logged" });
-      }
-    } catch (apiError) {
-      setMessage("Submission marked logged. Review Form generation pending.");
-      setSubmission({ ...submission, status: "logged" });
-    }
+    setMessage("Submission logged and routed to IRO Admin.");
+    setSubmission({ ...submission, status: "approved_by_iro_staff" });
   }
 
   return (
@@ -246,22 +200,26 @@ function LogReview({ setPage }) {
             ) : submission ? (
               <div className="doc-preview">
                 <h3>{submission.partner_institution_name}</h3>
+                <p><strong>Department:</strong> {getSchoolLabel(submission)}</p>
+                <p><strong>Title:</strong> {submission.title || submission.agreement_title || "---"}</p>
                 <p><strong>Agreement Type:</strong> {submission.agreement_type}</p>
                 <p><strong>Office:</strong> {submission.office}</p>
-                <p><strong>Department:</strong> {submission.department}</p>
+                <p><strong>Expected Duration:</strong> {submission.expected_duration || "---"}</p>
+                <p><strong>Contact Person:</strong> {submission.contact_person || "---"}</p>
+                <p><strong>Contact Position:</strong> {submission.contact_position || "---"}</p>
+                <p><strong>Contact Email:</strong> {submission.partner_contact_email || submission.contact_email || "---"}</p>
+                <p><strong>Contact Number:</strong> {submission.contact_number || "---"}</p>
+                <p><strong>Requested Completion:</strong> {submission.requested_completion_date ? new Date(submission.requested_completion_date).toLocaleDateString() : "---"}</p>
+                <p><strong>Requested By:</strong> {submission.requested_by_name || "---"}</p>
                 <p><strong>Submitted:</strong> {new Date(submission.created_at).toLocaleString()}</p>
                 <p><strong>Contact:</strong> {submission.partner_contact_email}</p>
-                <p><strong>Status:</strong> <b>{submission.status}</b></p>
+                <p><strong>Status:</strong> <b>{formatSubmissionStatus(submission.status)}</b></p>
+                <p><span className={`badge ${statusTone(submission.status)}`}>{formatSubmissionStatus(submission.status)}</span></p>
+                <p><strong>Review Notes:</strong> {submission.notes || "No review notes yet."}</p>
                 <p className="attachment-indicator">
                   <Paperclip size={16} />
-                  {submission.file_name ? (
-                    <span>
-                      1 file attached: <b>{submission.file_name}</b> <small>(open immediately in preview)</small>
-                    </span>
-                  ) : (
-                    <span>No file attached</span>
-                  )}
-                </p>
+                <span>Attachment received. The file is hidden from IRO Staff, but the routed form is available for review.</span>
+              </p>
               </div>
             ) : (
               <p style={{ padding: 24 }}>No submissions are currently awaiting staff review.</p>
