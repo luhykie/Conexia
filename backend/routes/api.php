@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/documents', [
@@ -38,6 +39,11 @@ Route::patch('/documents/{document}/route-to-legal', [
     'routeToLegal',
 ]);
 
+Route::get('/legal-counsel/review-queue', [
+    DocumentController::class,
+    'legalReviewQueue',
+]);
+
 Route::patch('/documents/{document}/approve', [
     DocumentController::class,
     'approve',
@@ -51,4 +57,9 @@ Route::patch('/documents/{document}/request-corrections', [
 Route::get('/departments/{departmentId}/documents', [
     DocumentController::class,
     'departmentDocuments',
+]);
+
+Route::get('/legal-counsels', [
+    ProfileController::class,
+    'legalCounsels',
 ]);

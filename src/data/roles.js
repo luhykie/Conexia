@@ -10,7 +10,6 @@ import {
   Folder,
   Gauge,
   Gavel,
-  Grid2X2,
   Handshake,
   History,
   LayoutDashboard,
@@ -24,43 +23,52 @@ import {
 export const roles = {
   super: {
     label: "SUPER ADMIN",
-    subtitle: "Manage the entire system, users, roles, permissions, workflows, and audit logs.",
+    subtitle:
+      "Manage the entire system, users, roles, permissions, workflows, and audit logs.",
     theme: "SUPER ADMIN",
     user: "Conexia Super Admin",
     title: "SUPER ADMIN",
     icon: ShieldCheck,
     defaultPage: "dashboard",
   },
+
   admin: {
     label: "IRO ADMIN",
-    subtitle: "Manage document routing, validate review forms, archive agreements, and generate reports.",
+    subtitle:
+      "Manage incoming submissions, validate logged records, assign reviewers, archive agreements, and generate reports.",
     theme: "IRO ADMIN",
     user: "PAIR IRO Administrator",
     title: "IRO ADMIN",
     icon: Building2,
     defaultPage: "dashboard",
   },
+
   staff: {
     label: "IRO STAFF",
-    subtitle: "Receive submissions, log agreements, generate review forms, and route to Legal.",
+    subtitle:
+      "Receive submissions, log agreements, generate review forms, and route to Legal.",
     theme: "IRO STAFF PORTAL",
     user: "PAIR IRO Staff",
     title: "IRO STAFF",
     icon: Folder,
     defaultPage: "dashboard",
   },
+
   legal: {
     label: "LEGAL COUNSEL",
-    subtitle: "Review agreements, approve or return documents, record notarization.",
+    subtitle:
+      "Review agreements, approve or return documents, record notarization.",
     theme: "LEGAL COUNSEL",
     user: "Legal Counsel",
     title: "LEGAL COUNSEL",
     icon: Gavel,
     defaultPage: "dashboard",
   },
+
   department: {
     label: "DEPARTMENT STAFF",
-    subtitle: "Submit documents, monitor status, receive legal comments, and resubmit.",
+    subtitle:
+      "Submit documents, monitor status, receive legal comments, and resubmit.",
     theme: "Institutional Repository",
     user: "Department Staff",
     title: "Department Office",
@@ -69,7 +77,7 @@ export const roles = {
   },
 };
 
-// Sidebar navigation is intentionally role-scoped for RBAC visibility.
+// Sidebar navigation (RBAC)
 export const navItems = {
   department: [
     ["dashboard", "Dashboard", LayoutDashboard],
@@ -79,6 +87,7 @@ export const navItems = {
     ["expiry", "Expiry", CalendarClock],
     ["notifications", "Notifications", Bell],
   ],
+
   staff: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["incoming", "Incoming Submissions", Folder],
@@ -87,24 +96,28 @@ export const navItems = {
     ["expiry", "Expiry", CalendarClock],
     ["notifications", "Notifications", Bell],
   ],
+
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],
-    ["log-review", "Log & Review Form", FileText],
-    ["validation", "Validation Queue", ClipboardCheck],
+    ["incoming", "Incoming Submissions", Folder],
+    ["manage-submissions", "Manage Submissions", ClipboardCheck],
     ["reassign", "Reassign Submissions", RefreshCw],
+    ["distribution-lists", "Distribution Lists", Users],
     ["reports", "Performance Reports", Gauge],
     ["archive", "Archive", Archive],
-    ["engagements", "Engagements", Handshake],
     ["expiry", "Expiry", CalendarClock],
     ["notifications", "Notifications", Bell],
   ],
+
   legal: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["review", "Review Queue", ClipboardCheck],
     ["notarization", "Notarization Tracker", FileText],
     ["expiry", "Expiry", CalendarClock],
     ["history", "My Action History", History],
+    ["notifications", "Notifications", Bell],
   ],
+
   super: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["monitoring", "System Monitoring", Gauge],
@@ -112,4 +125,3 @@ export const navItems = {
     ["audit", "Audit Logs", ClipboardCheck],
   ],
 };
-

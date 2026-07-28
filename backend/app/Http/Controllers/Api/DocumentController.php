@@ -38,11 +38,19 @@ class DocumentController extends Controller
                 'max:255',
                 'unique:documents,tracking_number',
             ],
-            'title' => ['required', 'string', 'max:255'],
+            'title' => [
+                'required',
+                'string',
+                'max:255',
+            ],
             'document_type' => [
                 'required',
                 'string',
-                Rule::in(['MOA', 'MOU', 'MOF']),
+                Rule::in([
+                    'MOA',
+                    'MOU',
+                    'MOF',
+                ]),
             ],
             'partner_institution' => [
                 'required',
@@ -193,6 +201,41 @@ class DocumentController extends Controller
             'message' =>
                 'Document routed to Legal Counsel.',
             'data' => $document->fresh(),
+        ]);
+    }
+
+    /**
+     * GET /api/legal-counsel/review-queue
+     * Return documents assigned to one Legal Counsel.
+     */
+    public function legalReviewQueue(
+        Request $request
+    ): JsonResponse {
+        $legalCounselId = $request->query(
+            'legal_counsel_id'
+        );
+
+        if (!$legalCounselId) {
+            return response()->json([
+                'message' =>
+                    'Legal Counsel ID is required.',
+            ], 422);
+        }
+
+        $documents = Document::query()
+            ->where(
+                'status',
+                'Under Legal Review'
+            )
+            ->where(
+                'assigned_legal_counsel',
+                $legalCounselId
+            )
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return response()->json([
+            'data' => $documents,
         ]);
     }
 
