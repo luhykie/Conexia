@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
@@ -153,33 +154,72 @@ class DocumentController extends Controller
                 'nullable',
                 'string',
             ],
+            'file' => [
+                'required',
+                'file',
+                'max:25600',
+                'mimes:pdf,doc,docx,odt',
+            ],
         ]);
 
-        $document = DB::transaction(function () use ($request, $validated) {
-            $document = Document::create([
-                ...$validated,
-                'department_id' => $this->requireDepartment($request),
-                'submitted_by' => $this->profile($request)->id,
-                'status' => 'Submitted',
-                'submitted_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $file = $validated['file'];
+        unset($validated['file']);
+        $path = null;
 
-            $this->recordWorkflowEvent(
+        try {
+            $document = DB::transaction(function () use (
                 $request,
-                $document,
-                'document_submitted',
-                null,
-                'Submitted'
-            );
-            $this->notifications->documentSubmitted($document);
+                $validated,
+                $file,
+                &$path
+            ) {
+                $document = Document::create([
+                    ...$validated,
+                    'department_id' => $this->requireDepartment($request),
+                    'submitted_by' => $this->profile($request)->id,
+                    'status' => 'Submitted',
+                    'submitted_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
-            return $document;
-        });
+                $path = $file->store("documents/{$document->id}", 'local');
+
+                DocumentFile::create([
+                    'document_id' => $document->id,
+                    'uploaded_by' => $this->profile($request)->id,
+                    'file_category' => 'original_draft',
+                    'original_filename' => $file->getClientOriginalName(),
+                    'stored_filename' => basename($path),
+                    'storage_disk' => 'local',
+                    'storage_path' => $path,
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'version' => 1,
+                ]);
+
+                $this->recordWorkflowEvent(
+                    $request,
+                    $document,
+                    'document_submitted',
+                    null,
+                    'Submitted',
+                    "Original draft uploaded: {$file->getClientOriginalName()}"
+                );
+                $this->notifications->documentSubmitted($document);
+
+                return $document;
+            });
+        } catch (\Throwable $error) {
+            if ($path) {
+                Storage::disk('local')->delete($path);
+            }
+
+            throw $error;
+        }
 
         return response()->json([
             'message' => 'Document submitted successfully.',
-            'data' => $document,
+            'data' => $document->load('files'),
         ], 201);
     }
 
@@ -215,6 +255,37 @@ class DocumentController extends Controller
         return response()->json([
             'data' => $document,
         ]);
+    }
+
+    /**
+     * Stream one document attachment after checking record-level access.
+     */
+    public function viewFile(
+        Request $request,
+        Document $document,
+        DocumentFile $documentFile
+    ): StreamedResponse {
+        $this->ensureCanView($request, $document);
+
+        if ($documentFile->document_id !== $document->id) {
+            abort(404);
+        }
+
+        $disk = Storage::disk($documentFile->storage_disk);
+
+        if (! $disk->exists($documentFile->storage_path)) {
+            abort(404, 'The stored document file could not be found.');
+        }
+
+        return $disk->response(
+            $documentFile->storage_path,
+            $documentFile->original_filename,
+            [
+                'Content-Type' => $documentFile->mime_type,
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
+            ]
+        );
     }
 
     /**
@@ -350,6 +421,7 @@ class DocumentController extends Controller
                 DocumentFile::create([
                     'document_id' => $document->id,
                     'uploaded_by' => $this->profile($request)->id,
+                    'file_category' => 'reviewed_version',
                     'original_filename' => $file->getClientOriginalName(),
                     'stored_filename' => basename($path),
                     'storage_disk' => 'local',
@@ -682,6 +754,7 @@ class DocumentController extends Controller
             'departments:id,name',
             'assignedIroStaffProfile:id,full_name,email,role',
             'assignedLegalCounselProfile:id,full_name,email,role',
+            'files:id,document_id,uploaded_by,file_category,original_filename,mime_type,size,version,created_at',
             'reviewForm.preparer:id,full_name,email',
             'reviewForm.validator:id,full_name,email',
             'reviewForm.sentBackBy:id,full_name,email',

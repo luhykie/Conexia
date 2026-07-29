@@ -65,6 +65,20 @@ class ReviewFormWorkflowTest extends TestCase
             $table->timestamp('sent_back_at')->nullable();
             $table->timestamps();
         });
+        Schema::create('document_files', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('document_id');
+            $table->uuid('uploaded_by');
+            $table->string('file_category');
+            $table->string('original_filename');
+            $table->string('stored_filename');
+            $table->string('storage_disk');
+            $table->string('storage_path');
+            $table->string('mime_type');
+            $table->unsignedBigInteger('size');
+            $table->unsignedInteger('version');
+            $table->timestamps();
+        });
         Schema::create('workflow_events', function (Blueprint $table): void {
             $table->uuid('id')->nullable();
             $table->uuid('document_id');

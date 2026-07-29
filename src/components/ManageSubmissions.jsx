@@ -364,6 +364,11 @@ export function ManageSubmissions() {
   ]);
 
   if (selectedDocument) {
+    const reviewFormStatus =
+      selectedDocument.review_form?.review_form_status;
+    const isSubmitted = reviewFormStatus === "submitted";
+    const isValidated = reviewFormStatus === "validated";
+
     return (
       <section className="page iro-admin-page manage-review-page">
         <PageTitle
@@ -434,7 +439,8 @@ export function ManageSubmissions() {
               </label>
             </div>
 
-            <div className="card-block">
+            {isValidated && (
+            <div className="card-block route-card">
               <label>
                 Route To
 
@@ -448,7 +454,7 @@ export function ManageSubmissions() {
                   disabled={
                     submitting ||
                     loadingCounsels ||
-                    selectedDocument.review_form?.review_form_status !== "validated"
+                    !isValidated
                   }
                 >
                   <option value="">
@@ -497,6 +503,7 @@ export function ManageSubmissions() {
                 </div>
               )}
             </div>
+            )}
 
             <div className="card-block">
               <label>
@@ -510,9 +517,11 @@ export function ManageSubmissions() {
                     )
                   }
                   placeholder="Add validation notes..."
+                  readOnly={isValidated}
                   disabled={submitting}
                 />
               </label>
+              {isSubmitted && (
               <label>
                 Send-back Reason
                 <textarea
@@ -521,10 +530,11 @@ export function ManageSubmissions() {
                   placeholder="Explain what IRO Staff must correct..."
                   disabled={
                     submitting ||
-                    selectedDocument.review_form?.review_form_status !== "submitted"
+                    !isSubmitted
                   }
                 />
               </label>
+              )}
             </div>
 
             <div className="review-actions">
@@ -545,44 +555,42 @@ export function ManageSubmissions() {
                 </p>
               )}
 
-              <button
-                className="btn primary large wide-inline"
-                type="button"
-                onClick={handleValidate}
-                disabled={
-                  submitting ||
-                  selectedDocument.review_form?.review_form_status !== "submitted"
-                }
-              >
-                {submitting
-                  ? "Processing..."
-                  : "Validate Review Form"}
-              </button>
+              {isSubmitted && (
+                <>
+                  <button
+                    className="btn primary large wide-inline"
+                    type="button"
+                    onClick={handleValidate}
+                    disabled={submitting}
+                  >
+                    {submitting
+                      ? "Processing..."
+                      : "Validate Review Form"}
+                  </button>
 
-              <button
-                className="btn outline wide-inline"
-                type="button"
-                onClick={handleSendBack}
-                disabled={
-                  submitting ||
-                  selectedDocument.review_form?.review_form_status !== "submitted"
-                }
-              >
-                Send Back as Incomplete
-              </button>
+                  <button
+                    className="btn outline wide-inline"
+                    type="button"
+                    onClick={handleSendBack}
+                    disabled={submitting}
+                  >
+                    Send Back as Incomplete
+                  </button>
+                </>
+              )}
 
-              <button
-                className="btn primary large wide-inline"
-                type="button"
-                onClick={handleRouteToLegal}
-                disabled={
-                  submitting ||
-                  selectedDocument.review_form?.review_form_status !== "validated" ||
-                  !legalCounselId
-                }
-              >
-                Route Validated Form to Legal
-              </button>
+              {isValidated && (
+                <button
+                  className="btn primary large wide-inline route-action"
+                  type="button"
+                  onClick={handleRouteToLegal}
+                  disabled={submitting || !legalCounselId}
+                >
+                  {submitting
+                    ? "Routing..."
+                    : "Route Validated Form to Legal"}
+                </button>
+              )}
 
               <button
                 className="btn outline wide-inline"

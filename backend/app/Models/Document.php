@@ -100,6 +100,11 @@ class Document extends Model
         return $this->hasMany(WorkflowEvent::class);
     }
 
+    public function files(): HasMany
+    {
+        return $this->hasMany(DocumentFile::class);
+    }
+
     public function reviewForm(): HasOne
     {
         return $this->hasOne(ReviewForm::class);

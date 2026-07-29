@@ -13,9 +13,16 @@ class DocumentFile extends Model
 
     public $incrementing = false;
 
+    protected $hidden = [
+        'stored_filename',
+        'storage_disk',
+        'storage_path',
+    ];
+
     protected $fillable = [
         'document_id',
         'uploaded_by',
+        'file_category',
         'original_filename',
         'stored_filename',
         'storage_disk',

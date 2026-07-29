@@ -91,6 +91,39 @@ export async function getDocumentById(documentId) {
   return result.data ?? result;
 }
 
+export async function getDocumentFileBlob(documentId, fileId) {
+  if (!documentId || !fileId) {
+    throw new Error("Document and file IDs are required.");
+  }
+
+  async function fetchFile(accessToken) {
+    return fetch(
+      `${API_BASE_URL}/documents/${documentId}/files/${fileId}/view`,
+      {
+        headers: {
+          Accept: "*/*",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+  }
+
+  let response = await fetchFile(await getAccessToken());
+  if (response.status === 401) {
+    response = await fetchFile(await getAccessToken(true));
+  }
+
+  if (!response.ok) {
+    const result = await response.json().catch(() => null);
+    throw new Error(
+      result?.message ||
+        `Unable to open the attachment (status ${response.status}).`
+    );
+  }
+
+  return response.blob();
+}
+
 export async function getReviewForm(documentId) {
   const result = await apiRequest(
     `/documents/${documentId}/review-form`
@@ -185,6 +218,7 @@ export async function submitDocument(formData) {
       null,
 
     description: formData.description || null,
+    file: formData.file,
   };
 
   if (!payload.tracking_number) {
@@ -205,9 +239,28 @@ export async function submitDocument(formData) {
     );
   }
 
+  if (!payload.file) {
+    throw new Error("The original document file is required.");
+  }
+
+  const body = new FormData();
+  body.append("tracking_number", payload.tracking_number);
+  body.append("title", payload.title);
+  body.append("document_type", payload.document_type);
+  body.append("partner_institution", payload.partner_institution);
+  body.append("file", payload.file);
+
+  if (payload.partner_email) {
+    body.append("partner_email", payload.partner_email);
+  }
+
+  if (payload.description) {
+    body.append("description", payload.description);
+  }
+
   const result = await apiRequest("/documents", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body,
   });
   announceWorkflowChange();
 

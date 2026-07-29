@@ -779,6 +779,9 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .document-preview-panel .panel-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); background: #fbfcfe; }
 .document-preview-panel .file-title { font-weight: 700; color: var(--green-950); }
 .document-preview-panel .toolbar-actions { display: flex; gap: 8px; align-items: center; }
+.document-file-frame { display: block; width: 100%; min-height: 720px; border: 0; background: #fff; }
+.doc-file-state { min-height: 600px; display: grid; place-items: center; align-content: center; gap: 12px; padding: 32px; text-align: center; color: var(--green-950); }
+.doc-file-state.error { color: var(--danger); }
 .icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border-radius: 6px; border: 1px solid var(--line); background: white; }
 .zoom-label { padding: 6px 10px; background: #eef3f1; border-radius: 6px; font-weight: 700; color: var(--green-950); }
 
@@ -799,6 +802,11 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .staff-remarks textarea { width: 100%; min-height: 110px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04); background: rgba(0,0,0,0.12); color: #eaf7ee; padding: 12px; }
 
 .review-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.manage-review-layout .admin-review { position: sticky; top: 88px; margin-top: 0; max-height: calc(100vh - 112px); overflow-y: auto; scrollbar-gutter: stable; }
+.admin-review .review-actions button { width: 100%; min-height: 44px; }
+.admin-review .route-card { border: 1px solid rgba(255, 204, 0, .35); background: rgba(255, 204, 0, .08); }
+.admin-review .route-action { background: var(--gold); color: var(--green-950); border-color: var(--gold); font-weight: 900; }
+.admin-review .route-action:disabled { background: #d8cf9e; color: #5e604f; opacity: .75; }
 .review-status { margin: 0; color: #cfe6d5; font-size: 13px; line-height: 1.4; }
 .workflow-message, .empty-state { margin: 16px 24px; color: #4f5957; font-size: 14px; line-height: 1.4; }
 .summary-card .workflow-message { margin: 0; color: var(--green-950); font-weight: 800; }

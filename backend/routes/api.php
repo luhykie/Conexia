@@ -29,6 +29,13 @@ Route::middleware('supabase.auth')->group(function (): void {
         );
 
     Route::get(
+        '/documents/{document}/files/{documentFile}/view',
+        [DocumentController::class, 'viewFile']
+    )->middleware(
+        'role:department_staff,iro_staff,iro_admin,legal_counsel,super_admin'
+    );
+
+    Route::get(
         '/documents/{document}/review-form',
         [ReviewFormController::class, 'show']
     )->middleware('role:iro_staff,iro_admin,legal_counsel');

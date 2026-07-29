@@ -68,6 +68,7 @@ function SubmissionPage({ account }) {
   const [partnerInstitution, setPartnerInstitution] = useState("");
   const [partnerEmail, setPartnerEmail] = useState("");
   const [documentType, setDocumentType] = useState("MOA");
+  const [documentFile, setDocumentFile] = useState(null);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -77,6 +78,11 @@ function SubmissionPage({ account }) {
 
     if (!normalizedPartner) {
       setMessage("Please enter the partner institution.");
+      return;
+    }
+
+    if (!documentFile) {
+      setMessage("Please attach the original agreement draft.");
       return;
     }
 
@@ -109,6 +115,7 @@ function SubmissionPage({ account }) {
         description: `${documentType} submitted by ${
           account.office || account.fullName || "Department Staff"
         }.`,
+        file: documentFile,
       });
 
       setMessage(
@@ -119,6 +126,7 @@ function SubmissionPage({ account }) {
 
       setPartnerInstitution("");
       setPartnerEmail("");
+      setDocumentFile(null);
 
       window.setTimeout(() => {
         navigate("/app/submissions");
@@ -170,15 +178,29 @@ function SubmissionPage({ account }) {
 
           <Panel title="Document Upload Section">
             <Dropzone
-              label="Drag and drop agreement draft here"
-              detail="PDF, DOCX, ODT - MAX 25MB"
+              label={
+                documentFile
+                  ? documentFile.name
+                  : "Choose the agreement draft"
+              }
+              detail="PDF, DOC, DOCX, or ODT — maximum 25 MB"
+              accept=".pdf,.doc,.docx,.odt"
+              disabled={submitting}
+              onChange={(event) => {
+                setDocumentFile(event.target.files?.[0] || null);
+                setMessage("");
+              }}
             />
 
-            <div className="file-row">
-              <FileText />
-              University_MOA_Draft_v1.2.pdf
-              <small>1.4 MB - READY TO SCAN</small>
-            </div>
+            {documentFile && (
+              <div className="file-row">
+                <FileText />
+                {documentFile.name}
+                <small>
+                  {(documentFile.size / 1024 / 1024).toFixed(2)} MB — READY TO UPLOAD
+                </small>
+              </div>
+            )}
           </Panel>
         </div>
 

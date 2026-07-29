@@ -217,13 +217,25 @@ export function FilterBar({ labels }) {
 }
 
 // Shared upload dropzone used by submission and log/review pages.
-export function Dropzone({ label = "Drag and drop file here", detail = "PDF, DOCX up to 25MB" }) {
+export function Dropzone({
+  label = "Choose a file",
+  detail = "PDF, DOCX up to 25MB",
+  accept,
+  disabled = false,
+  onChange,
+}) {
   return (
-    <div className="dropzone">
+    <label className="dropzone">
       <UploadCloud size={42} />
       <b>{label}</b>
       <p>{detail}</p>
-    </div>
+      <input
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    </label>
   );
 }
 
