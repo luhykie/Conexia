@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   CalendarClock,
   CheckCircle2,
@@ -62,6 +63,8 @@ export function LegalCounsel({ page, account }) {
 
 // Provides a Legal Counsel review queue using real Laravel API data.
 function ReviewQueue({ account }) {
+  const [searchParams] = useSearchParams();
+  const linkedDocumentId = searchParams.get("document");
   const [documents, setDocuments] = useState([]);
   const [selectedDocumentId, setSelectedDocumentId] =
     useState(null);
@@ -106,7 +109,13 @@ function ReviewQueue({ account }) {
           return currentId;
         }
 
-        return queue[0]?.id || null;
+        const linkedDocumentExists = queue.some(
+          (document) => document.id === linkedDocumentId
+        );
+
+        return linkedDocumentExists
+          ? linkedDocumentId
+          : queue[0]?.id || null;
       });
     } catch (error) {
       console.error(

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { FileText, UploadCloud } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
@@ -329,6 +329,8 @@ function DepartmentForm({
 }
 
 function MySubmissionsPage({ account }) {
+  const [searchParams] = useSearchParams();
+  const linkedDocumentId = searchParams.get("document");
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -345,6 +347,14 @@ function MySubmissionsPage({ account }) {
       );
     }
   }, [account?.departmentId]);
+
+  useEffect(() => {
+    if (!loading && linkedDocumentId) {
+      document
+        .getElementById(`submission-${linkedDocumentId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [loading, linkedDocumentId]);
 
   async function loadSubmissions() {
     setLoading(true);
@@ -477,7 +487,15 @@ function MySubmissionsPage({ account }) {
                   </thead>
                   <tbody>
                     {documents.map((document) => (
-                      <tr key={document.id}>
+                      <tr
+                        id={`submission-${document.id}`}
+                        className={
+                          document.id === linkedDocumentId
+                            ? "notification-target"
+                            : undefined
+                        }
+                        key={document.id}
+                      >
                         <td>{document.tracking_number || "N/A"}</td>
                         <td>{document.partner_institution || "N/A"}</td>
                         <td>{document.document_type || "N/A"}</td>

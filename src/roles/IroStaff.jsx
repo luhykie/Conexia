@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 
 import { DashboardHeader } from "../components/DashboardHeader";
 import { DashboardStats } from "../components/DashboardStats";
@@ -165,6 +169,8 @@ function LogReview({ account }) {
 // Displays document workflow progress using Supabase records.
 function StatusTracker() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const linkedDocumentId = searchParams.get("document");
 
   const filterStatus =
     location.state?.filterStatus || null;
@@ -176,6 +182,14 @@ function StatusTracker() {
   useEffect(() => {
     loadStatusDocuments();
   }, []);
+
+  useEffect(() => {
+    if (!loading && linkedDocumentId) {
+      document
+        .getElementById(`status-${linkedDocumentId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [loading, linkedDocumentId]);
 
   async function loadStatusDocuments() {
     setLoading(true);
@@ -257,7 +271,12 @@ function StatusTracker() {
 
         {visibleDocuments.map((document) => (
           <article
-            className="status-card"
+            id={`status-${document.id}`}
+            className={`status-card ${
+              document.id === linkedDocumentId
+                ? "notification-target"
+                : ""
+            }`}
             key={document.id}
           >
             <span className="badge active">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   getDocumentById,
@@ -19,12 +19,14 @@ import ReviewActions from "./ReviewActions";
 export function LogReviewPage({ account }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [document, setDocument] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const documentId = location.state?.documentId;
+  const documentId =
+    searchParams.get("document") || location.state?.documentId;
   const filterStatus = location.state?.filterStatus || null;
 
   const checklistItems = [

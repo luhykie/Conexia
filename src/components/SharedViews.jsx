@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronDown, Download, Filter, UploadCloud } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Filter, UploadCloud } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DataTable } from "./DataTable";
 import { Panel } from "./Panel";
@@ -115,14 +115,14 @@ export function NotificationsView({ roleKey }) {
       }
 
       if (notification.document_id) {
-        const destination = {
-          department: "submissions",
-          staff: "incoming",
-          admin: "manage-submissions",
-          legal: "review",
-        }[roleKey] || "dashboard";
+        const destination = getNotificationDestination(
+          roleKey,
+          notification.type
+        );
 
         navigate(`/app/${destination}?document=${notification.document_id}`);
+      } else {
+        navigate(`/app/${getNotificationDestination(roleKey)}`);
       }
     } catch (readError) {
       setError(readError.message || "Unable to open notification.");
@@ -177,21 +177,30 @@ export function NotificationsView({ roleKey }) {
                 onClick={() => openNotification(notification)}
               >
                 <span className="notification-type">
-                  {notification.type.replaceAll("_", " ")}
+                  {(notification.type || "workflow_update").replaceAll("_", " ")}
                 </span>
-                <strong>{notification.title}</strong>
-                <p>{notification.message}</p>
-                {notification.document?.tracking_number && (
-                  <span className="tracking-number">
-                    {notification.document.tracking_number}
+                <span className="notification-content">
+                  <strong>{notification.title}</strong>
+                  <span className="notification-message">
+                    {notification.message}
                   </span>
-                )}
+                  {notification.document?.tracking_number && (
+                    <span className="tracking-number">
+                      {notification.document.tracking_number}
+                    </span>
+                  )}
+                </span>
                 <time dateTime={notification.created_at}>
                   {new Intl.DateTimeFormat(undefined, {
                     dateStyle: "medium",
                     timeStyle: "short",
                   }).format(new Date(notification.created_at))}
                 </time>
+                <ChevronRight
+                  className="notification-open-icon"
+                  aria-hidden="true"
+                  size={20}
+                />
               </button>
             ))}
           </div>
@@ -199,6 +208,32 @@ export function NotificationsView({ roleKey }) {
       </Panel>
     </section>
   );
+}
+
+function getNotificationDestination(roleKey, type = "") {
+  if (roleKey === "department") return "submissions";
+  if (roleKey === "legal") return "review";
+  if (roleKey === "admin") {
+    return type === "document_submitted"
+      ? "dashboard"
+      : "manage-submissions";
+  }
+  if (roleKey === "staff") {
+    if (
+      ["document_routed_to_legal", "revision_routed_to_legal"].includes(type)
+    ) {
+      return "status";
+    }
+    if (
+      ["document_logged", "revision_requested", "revision_resubmitted"].includes(
+        type
+      )
+    ) {
+      return "log-review";
+    }
+    return "incoming";
+  }
+  return "dashboard";
 }
 
 // Shared filter strip used by dense list pages.
