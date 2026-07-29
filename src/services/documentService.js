@@ -1,18 +1,60 @@
+import { supabase } from "../supabaseConfig";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   "http://127.0.0.1:8000/api";
 
-async function apiRequest(path, options = {}) {
+async function getAccessToken(forceRefresh = false) {
+  const result = forceRefresh
+    ? await supabase.auth.refreshSession()
+    : await supabase.auth.getSession();
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (!result.data.session?.access_token) {
+    throw new Error(
+      "Your authenticated session is missing or expired. Please sign in again."
+    );
+  }
+
+  return result.data.session.access_token;
+}
+
+async function sendRequest(path, options, accessToken) {
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      ...(!isFormData && { "Content-Type": "application/json" }),
+      Authorization: `Bearer ${accessToken}`,
       ...options.headers,
     },
   });
 
   const result = await response.json().catch(() => null);
+
+  return { response, result };
+}
+
+export async function apiRequest(path, options = {}) {
+  let accessToken = await getAccessToken();
+  let { response, result } = await sendRequest(
+    path,
+    options,
+    accessToken
+  );
+
+  if (response.status === 401) {
+    accessToken = await getAccessToken(true);
+    ({ response, result } = await sendRequest(
+      path,
+      options,
+      accessToken
+    ));
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -22,6 +64,10 @@ async function apiRequest(path, options = {}) {
   }
 
   return result;
+}
+
+function announceWorkflowChange() {
+  window.dispatchEvent(new CustomEvent("conexia:workflow-changed"));
 }
 
 /* ===========================================================
@@ -42,6 +88,70 @@ export async function getDocumentById(documentId) {
     `/documents/${documentId}`
   );
 
+  return result.data ?? result;
+}
+
+export async function getReviewForm(documentId) {
+  const result = await apiRequest(
+    `/documents/${documentId}/review-form`
+  );
+  return result.data ?? null;
+}
+
+export async function saveReviewForm(documentId, form) {
+  const result = await apiRequest(
+    `/documents/${documentId}/review-form`,
+    {
+      method: "PUT",
+      body: JSON.stringify(form),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function submitReviewForm(documentId, form) {
+  const result = await apiRequest(
+    `/documents/${documentId}/review-form/submit`,
+    {
+      method: "POST",
+      body: JSON.stringify(form),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function validateReviewForm(documentId, adminRemarks) {
+  const result = await apiRequest(
+    `/documents/${documentId}/review-form/validate`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        admin_remarks: adminRemarks?.trim() || null,
+      }),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function sendBackReviewForm(
+  documentId,
+  reason,
+  adminRemarks
+) {
+  const result = await apiRequest(
+    `/documents/${documentId}/review-form/send-back`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        reason: reason.trim(),
+        admin_remarks: adminRemarks?.trim() || null,
+      }),
+    }
+  );
+  announceWorkflowChange();
   return result.data ?? result;
 }
 
@@ -74,16 +184,7 @@ export async function submitDocument(formData) {
       formData.partnerEmail ||
       null,
 
-    description:
-      formData.description || null,
-
-    department_id:
-      formData.department_id ||
-      formData.departmentId,
-
-    submitted_by:
-      formData.submitted_by ||
-      formData.submittedBy,
+    description: formData.description || null,
   };
 
   if (!payload.tracking_number) {
@@ -104,18 +205,11 @@ export async function submitDocument(formData) {
     );
   }
 
-  if (!payload.department_id) {
-    throw new Error("Department ID is required.");
-  }
-
-  if (!payload.submitted_by) {
-    throw new Error("Submitter ID is required.");
-  }
-
   const result = await apiRequest("/documents", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  announceWorkflowChange();
 
   return result.data ?? result;
 }
@@ -146,28 +240,59 @@ export async function getIncomingDocuments() {
   return result.data ?? result;
 }
 
-export async function logDocument(
-  documentId,
-  iroStaffId
-) {
+export async function getIroStaffDashboard() {
+  const result = await apiRequest(
+    "/iro-staff/dashboard"
+  );
+
+  return result.data ?? result;
+}
+
+export async function logDocument(documentId) {
   if (!documentId) {
     throw new Error("Document ID is required.");
-  }
-
-  if (!iroStaffId) {
-    throw new Error("IRO Staff ID is required.");
   }
 
   const result = await apiRequest(
     `/documents/${documentId}/log`,
     {
       method: "PATCH",
-      body: JSON.stringify({
-        iro_staff_id: iroStaffId,
-      }),
     }
   );
+  announceWorkflowChange();
 
+  return result.data ?? result;
+}
+
+export async function resubmitRevision(documentId, file) {
+  if (!documentId) {
+    throw new Error("Document ID is required.");
+  }
+  if (!file) {
+    throw new Error("A corrected document file is required.");
+  }
+
+  const body = new FormData();
+  body.append("file", file);
+
+  const result = await apiRequest(
+    `/documents/${documentId}/resubmit-revision`,
+    { method: "POST", body }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function checkRevision(documentId) {
+  if (!documentId) {
+    throw new Error("Document ID is required.");
+  }
+
+  const result = await apiRequest(
+    `/documents/${documentId}/check-revision`,
+    { method: "PATCH" }
+  );
+  announceWorkflowChange();
   return result.data ?? result;
 }
 
@@ -180,6 +305,11 @@ export async function getLoggedDocuments() {
     "/iro-admin/manage-submissions"
   );
 
+  return result.data ?? result;
+}
+
+export async function getIroAdminOverview() {
+  const result = await apiRequest("/iro-admin/overview");
   return result.data ?? result;
 }
 
@@ -214,6 +344,7 @@ export async function routeToLegal(
       }),
     }
   );
+  announceWorkflowChange();
 
   return result.data ?? result;
 }
@@ -221,6 +352,14 @@ export async function routeToLegal(
 /* ===========================================================
    LEGAL COUNSEL
 =========================================================== */
+
+export async function getLegalReviewQueue() {
+  const result = await apiRequest(
+    "/legal-counsel/review-queue"
+  );
+
+  return result.data ?? result;
+}
 
 export async function approveDocument(documentId) {
   if (!documentId) {
@@ -233,6 +372,7 @@ export async function approveDocument(documentId) {
       method: "PATCH",
     }
   );
+  announceWorkflowChange();
 
   return result.data ?? result;
 }
@@ -260,25 +400,7 @@ export async function requestCorrections(
       }),
     }
   );
-
-  return result.data ?? result;
-}
-export async function getLegalReviewQueue(
-  legalCounselId
-) {
-  if (!legalCounselId) {
-    throw new Error(
-      "Legal Counsel ID is required."
-    );
-  }
-
-  const query = new URLSearchParams({
-    legal_counsel_id: legalCounselId,
-  });
-
-  const result = await apiRequest(
-    `/legal-counsel/review-queue?${query.toString()}`
-  );
+  announceWorkflowChange();
 
   return result.data ?? result;
 }

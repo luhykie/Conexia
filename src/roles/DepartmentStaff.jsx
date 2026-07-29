@@ -16,6 +16,7 @@ import { StatGrid } from "../components/StatGrid";
 
 import {
   getDepartmentDocuments,
+  resubmitRevision,
   submitDocument,
 } from "../services/documentService";
 
@@ -37,7 +38,7 @@ export function DepartmentStaff({ page, account }) {
   }
 
   if (page === "notifications") {
-    return <NotificationsView />;
+    return <NotificationsView roleKey="department" />;
   }
 
   return <DepartmentDashboard account={account} />;
@@ -108,8 +109,6 @@ function SubmissionPage({ account }) {
         description: `${documentType} submitted by ${
           account.office || account.fullName || "Department Staff"
         }.`,
-        department_id: account.departmentId,
-        submitted_by: account.id,
       });
 
       setMessage(
@@ -311,6 +310,8 @@ function MySubmissionsPage({ account }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [revisionFiles, setRevisionFiles] = useState({});
+  const [resubmittingId, setResubmittingId] = useState(null);
 
   useEffect(() => {
     if (account?.departmentId) {
@@ -348,12 +349,29 @@ function MySubmissionsPage({ account }) {
     }
   }
 
-  const rows = documents.map((document) => [
-    document.tracking_number || "N/A",
-    document.partner_institution || "N/A",
-    document.document_type || "N/A",
-    document.status || "Unknown",
-  ]);
+  async function handleRevisionResubmit(document) {
+    const file = revisionFiles[document.id];
+    if (!file) {
+      setErrorMessage("Choose the corrected PDF, DOC, DOCX, or ODT file first.");
+      return;
+    }
+
+    setResubmittingId(document.id);
+    setErrorMessage("");
+    try {
+      await resubmitRevision(document.id, file);
+      setRevisionFiles((files) => {
+        const next = { ...files };
+        delete next[document.id];
+        return next;
+      });
+      await loadSubmissions();
+    } catch (error) {
+      setErrorMessage(error.message || "Unable to resubmit the revision.");
+    } finally {
+      setResubmittingId(null);
+    }
+  }
 
   const activeCount = documents.filter((document) =>
     [
@@ -417,22 +435,67 @@ function MySubmissionsPage({ account }) {
 
           {!loading &&
             !errorMessage &&
-            rows.length === 0 && (
+            documents.length === 0 && (
               <p>No submissions found.</p>
             )}
 
           {!loading &&
             !errorMessage &&
-            rows.length > 0 && (
-              <DataTable
-                headers={[
-                  "Tracking #",
-                  "Partner",
-                  "Type",
-                  "Status",
-                ]}
-                rows={rows}
-              />
+            documents.length > 0 && (
+              <div className="submission-table-wrap">
+                <table className="submission-table">
+                  <thead>
+                    <tr>
+                      <th>Tracking #</th>
+                      <th>Partner</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Revision Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.map((document) => (
+                      <tr key={document.id}>
+                        <td>{document.tracking_number || "N/A"}</td>
+                        <td>{document.partner_institution || "N/A"}</td>
+                        <td>{document.document_type || "N/A"}</td>
+                        <td>{document.status || "Unknown"}</td>
+                        <td>
+                          {document.status === "Corrections Needed" ? (
+                            <div className="revision-upload">
+                              <input
+                                type="file"
+                                accept=".pdf,.doc,.docx,.odt"
+                                onChange={(event) =>
+                                  setRevisionFiles((files) => ({
+                                    ...files,
+                                    [document.id]: event.target.files?.[0] ?? null,
+                                  }))
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="primary"
+                                disabled={
+                                  !revisionFiles[document.id] ||
+                                  resubmittingId === document.id
+                                }
+                                onClick={() => handleRevisionResubmit(document)}
+                              >
+                                {resubmittingId === document.id
+                                  ? "Resubmitting..."
+                                  : "Resubmit Revision"}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="muted-text">No action required</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
         </Panel>
       </div>

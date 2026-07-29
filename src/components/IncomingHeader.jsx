@@ -1,7 +1,7 @@
 import React from "react";
 import { Filter } from "lucide-react";
 
-export function IncomingHeader() {
+export function IncomingHeader({ onAdvancedFilters }) {
   return (
     <header className="incoming-header">
       <div className="title-block">
@@ -10,7 +10,11 @@ export function IncomingHeader() {
       </div>
 
       <div className="header-actions">
-        <button className="outline">
+        <button
+          className="outline"
+          type="button"
+          onClick={onAdvancedFilters}
+        >
           <Filter size={16} /> Advanced Filters
         </button>
       </div>

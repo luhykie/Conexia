@@ -7,13 +7,13 @@ export function DashboardStats({ stats = {}, onCardClick, showLoggedToday = true
     {
       value: stats.incoming ?? 0,
       label: "Unlogged",
-      detail: "+2 since yesterday",
+      detail: "Pending logging",
       icon: FileInput,
     },
     {
       value: stats.loggedToday ?? 0,
       label: "Logged Today",
-      detail: "+1 since yesterday",
+      detail: "Completed today",
       icon: CheckCircle2,
     },
     {

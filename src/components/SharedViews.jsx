@@ -1,10 +1,16 @@
 import React from "react";
 import { ChevronDown, Download, Filter, UploadCloud } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DataTable } from "./DataTable";
 import { Panel } from "./Panel";
 import { PageTitle } from "./PageTitle";
 import { StatGrid } from "./StatGrid";
-import { dashboardStats, expiryRows, notificationRows, recentActivity } from "../data/mockData";
+import { dashboardStats, expiryRows, recentActivity } from "../data/mockData";
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../services/notificationService";
 
 // Shared dashboard skeleton used by all roles.
 export function DashboardView({ roleKey, title, subtitle, action, onAction }) {
@@ -65,13 +71,131 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
 }
 
 // Shared notification archive for Department Staff and IRO Admin.
-export function NotificationsView() {
+export function NotificationsView({ roleKey }) {
+  const navigate = useNavigate();
+  const [notifications, setNotifications] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [markingAll, setMarkingAll] = React.useState(false);
+
+  const loadNotifications = React.useCallback(async () => {
+    setError("");
+    try {
+      const result = await getNotifications();
+      setNotifications(result.data ?? []);
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load notifications.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadNotifications();
+    const timer = window.setInterval(loadNotifications, 30000);
+    window.addEventListener("conexia:workflow-changed", loadNotifications);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("conexia:workflow-changed", loadNotifications);
+    };
+  }, [loadNotifications]);
+
+  async function openNotification(notification) {
+    try {
+      if (!notification.is_read) {
+        await markNotificationRead(notification.id);
+        setNotifications((items) =>
+          items.map((item) =>
+            item.id === notification.id
+              ? { ...item, is_read: true, read_at: new Date().toISOString() }
+              : item
+          )
+        );
+        window.dispatchEvent(new CustomEvent("conexia:notifications-changed"));
+      }
+
+      if (notification.document_id) {
+        const destination = {
+          department: "submissions",
+          staff: "incoming",
+          admin: "manage-submissions",
+          legal: "review",
+        }[roleKey] || "dashboard";
+
+        navigate(`/app/${destination}?document=${notification.document_id}`);
+      }
+    } catch (readError) {
+      setError(readError.message || "Unable to open notification.");
+    }
+  }
+
+  async function markAllRead() {
+    setMarkingAll(true);
+    setError("");
+    try {
+      await markAllNotificationsRead();
+      setNotifications((items) =>
+        items.map((item) => ({ ...item, is_read: true }))
+      );
+      window.dispatchEvent(new CustomEvent("conexia:notifications-changed"));
+    } catch (readError) {
+      setError(readError.message || "Unable to mark notifications as read.");
+    } finally {
+      setMarkingAll(false);
+    }
+  }
+
   return (
     <section className="page">
-      <PageTitle title="Notifications Archive" subtitle="Detailed chronological record of all alerts and submission updates." action="Mark All as Read" />
-      <FilterBar labels={["All", "Submissions", "System", "Security", "Oct 01 - Oct 24"]} />
+      <PageTitle
+        title="Notifications"
+        subtitle="Workflow alerts assigned to your authenticated account."
+        action="Mark All as Read"
+        onAction={markAllRead}
+        actionDisabled={markingAll || !notifications.some((item) => !item.is_read)}
+      />
       <Panel title="Notification Details">
-        <DataTable headers={["Type", "Notification Details", "Timestamp"]} rows={notificationRows} />
+        {loading && <p className="notification-state">Loading notifications...</p>}
+        {!loading && error && (
+          <div className="notification-state error">
+            <p>{error}</p>
+            <button type="button" className="outline" onClick={loadNotifications}>
+              Try Again
+            </button>
+          </div>
+        )}
+        {!loading && !error && notifications.length === 0 && (
+          <p className="notification-state">You have no notifications.</p>
+        )}
+        {!loading && !error && notifications.length > 0 && (
+          <div className="notification-list">
+            {notifications.map((notification) => (
+              <button
+                type="button"
+                className={`notification-item ${notification.is_read ? "read" : "unread"}`}
+                key={notification.id}
+                onClick={() => openNotification(notification)}
+              >
+                <span className="notification-type">
+                  {notification.type.replaceAll("_", " ")}
+                </span>
+                <strong>{notification.title}</strong>
+                <p>{notification.message}</p>
+                {notification.document?.tracking_number && (
+                  <span className="tracking-number">
+                    {notification.document.tracking_number}
+                  </span>
+                )}
+                <time dateTime={notification.created_at}>
+                  {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(notification.created_at))}
+                </time>
+              </button>
+            ))}
+          </div>
+        )}
       </Panel>
     </section>
   );

@@ -1,61 +1,90 @@
 import React from "react";
-import { Check, FilePlus2, Gavel, RotateCcw } from "lucide-react";
+import {
+  Check,
+  FilePlus2,
+  Gavel,
+  RotateCcw,
+  ClipboardCheck,
+} from "lucide-react";
 
-const activities = [
-  {
-    title: "Submission #84920 Approved",
-    detail: "Partner: Horizon Media",
-    time: "Today, 10:45 AM",
-    tone: "success",
-    icon: Check,
-  },
-  {
-    title: "Sent back for Completeness",
-    detail: "Ref: #72314-B (Missing Annex C)",
-    time: "Today, 09:12 AM",
-    tone: "warn",
-    icon: RotateCcw,
-  },
-  {
-    title: "Routed to Legal Review",
-    detail: "Submission: Vanguard Assets",
-    time: "Oct 26, 04:30 PM",
-    tone: "success",
-    icon: Gavel,
-  },
-  {
+const EVENT_DISPLAY = {
+  document_submitted: {
     title: "New Submission Received",
-    detail: "Queue: IRO General Log",
-    time: "Oct 26, 03:15 PM",
     tone: "info",
     icon: FilePlus2,
   },
-];
+  document_logged: {
+    title: "Document Logged",
+    tone: "success",
+    icon: ClipboardCheck,
+  },
+  routed_to_legal: {
+    title: "Routed to Legal Review",
+    tone: "success",
+    icon: Gavel,
+  },
+  legal_approved: {
+    title: "Approved by Legal Counsel",
+    tone: "success",
+    icon: Check,
+  },
+  corrections_requested: {
+    title: "Corrections Requested",
+    tone: "warn",
+    icon: RotateCcw,
+  },
+};
 
-// Timeline-style recent workflow activity panel.
-export function WorkflowActivity() {
+export function WorkflowActivity({ activities = [] }) {
   return (
     <aside className="iro-panel iro-activity-panel">
       <header>
         <div>
           <h2>Recent Workflow Activity</h2>
-          <p>Real-time status updates</p>
+          <p>Persisted document status events</p>
         </div>
       </header>
-      <div className="iro-activity-list">
-        {activities.map(({ title, detail, time, tone, icon: Icon }) => (
-          <article className="iro-activity-item" key={title}>
-            <span className={`activity-dot ${tone}`}>
-              <Icon size={13} />
-            </span>
-            <div>
-              <h3>{title}</h3>
-              <p>{detail}</p>
-              <time>{time}</time>
-            </div>
-          </article>
-        ))}
-      </div>
+
+      {activities.length === 0 ? (
+        <p className="empty-state">No workflow activity yet.</p>
+      ) : (
+        <div className="iro-activity-list">
+          {activities.map((activity) => {
+            const display =
+              EVENT_DISPLAY[activity.event_type] ||
+              EVENT_DISPLAY.document_submitted;
+            const Icon = display.icon;
+
+            return (
+              <article
+                className="iro-activity-item"
+                key={activity.id}
+              >
+                <span className={`activity-dot ${display.tone}`}>
+                  <Icon size={13} />
+                </span>
+                <div>
+                  <h3>{display.title}</h3>
+                  <p>
+                    {activity.document?.tracking_number ||
+                      "Document"}{" "}
+                    —{" "}
+                    {activity.document?.partner_institution ||
+                      "Partner unavailable"}
+                  </p>
+                  <time>
+                    {activity.created_at
+                      ? new Date(
+                          activity.created_at
+                        ).toLocaleString()
+                      : "Time unavailable"}
+                  </time>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </aside>
   );
 }

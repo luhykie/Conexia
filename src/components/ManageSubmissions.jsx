@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import DocumentPreview from "./DocumentPreview";
 import { PageTitle } from "./PageTitle";
@@ -9,6 +10,8 @@ import {
   getLegalCounsels,
   getLoggedDocuments,
   routeToLegal,
+  sendBackReviewForm,
+  validateReviewForm,
 } from "../services/documentService";
 
 const CHECKLIST_ITEMS = [
@@ -37,7 +40,41 @@ const INITIAL_CHECKLIST = {
   gdpr: false,
 };
 
+function getDepartmentName(document) {
+  return (
+    document.department?.name ||
+    document.departments?.name ||
+    document.department_name ||
+    "Department unavailable"
+  );
+}
+
+function getAssignedStaffName(document) {
+  const profile = document.assigned_iro_staff_profile;
+
+  return (
+    profile?.full_name ||
+    profile?.email ||
+    (document.assigned_iro_staff ? "Staff profile unavailable" : "Unassigned")
+  );
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not available";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function ManageSubmissions() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [documents, setDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] =
     useState(null);
@@ -47,8 +84,8 @@ export function ManageSubmissions() {
     useState("");
 
   const [loading, setLoading] = useState(true);
-  const [loadingDocument, setLoadingDocument] =
-    useState(false);
+  const [loadingDocumentId, setLoadingDocumentId] =
+    useState(null);
   const [loadingCounsels, setLoadingCounsels] =
     useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -66,10 +103,19 @@ export function ManageSubmissions() {
   const [checklist, setChecklist] =
     useState(INITIAL_CHECKLIST);
   const [adminRemarks, setAdminRemarks] = useState("");
+  const [sentBackReason, setSentBackReason] = useState("");
 
   useEffect(() => {
     loadDocuments();
     loadLegalCounsels();
+  }, []);
+
+  useEffect(() => {
+    const documentId = searchParams.get("document");
+
+    if (documentId) {
+      handleReview(documentId);
+    }
   }, []);
 
   async function loadDocuments() {
@@ -123,7 +169,7 @@ export function ManageSubmissions() {
   }
 
   async function handleReview(documentId) {
-    setLoadingDocument(true);
+    setLoadingDocumentId(documentId);
     setErrorMessage("");
     setStatusMessage("");
 
@@ -132,9 +178,13 @@ export function ManageSubmissions() {
         await getDocumentById(documentId);
 
       setSelectedDocument(document);
-      setChecklist(INITIAL_CHECKLIST);
+      setChecklist({
+        ...INITIAL_CHECKLIST,
+        ...(document.review_form?.checklist_answers || {}),
+      });
       setLegalCounselId("");
-      setAdminRemarks("");
+      setAdminRemarks(document.review_form?.admin_remarks || "");
+      setSentBackReason(document.review_form?.sent_back_reason || "");
     } catch (error) {
       console.error(
         "Unable to load selected document:",
@@ -146,27 +196,32 @@ export function ManageSubmissions() {
           "Unable to load the selected document."
       );
     } finally {
-      setLoadingDocument(false);
+      setLoadingDocumentId(null);
     }
   }
 
   function handleBackToQueue() {
+    setSearchParams({}, { replace: true });
     setSelectedDocument(null);
     setChecklist(INITIAL_CHECKLIST);
     setLegalCounselId("");
     setAdminRemarks("");
+    setSentBackReason("");
     setStatusMessage("");
     setErrorMessage("");
   }
 
-  function handleChecklistChange(key) {
-    setChecklist((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
+  async function refreshSelectedDocument() {
+    const refreshed = await getDocumentById(selectedDocument.id);
+    setSelectedDocument(refreshed);
+    setChecklist({
+      ...INITIAL_CHECKLIST,
+      ...(refreshed.review_form?.checklist_answers || {}),
+    });
+    return refreshed;
   }
 
-  async function handleValidateAndRoute() {
+  async function handleValidate() {
     setStatusMessage("");
     setErrorMessage("");
 
@@ -188,40 +243,65 @@ export function ManageSubmissions() {
       return;
     }
 
-    if (!legalCounselId) {
+    setSubmitting(true);
+
+    try {
+      await validateReviewForm(selectedDocument.id, adminRemarks);
+      await refreshSelectedDocument();
+      setStatusMessage("Review Form validated. You may now route it to Legal Counsel.");
+    } catch (error) {
       setStatusMessage(
-        "Please select a Legal Counsel before routing."
+        error?.message ||
+          "Unable to validate the Review Form."
       );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSendBack() {
+    if (!sentBackReason.trim()) {
+      setStatusMessage("A send-back reason is required.");
       return;
     }
 
     setSubmitting(true);
-
+    setStatusMessage("");
     try {
-      await routeToLegal(
+      await sendBackReviewForm(
         selectedDocument.id,
-        legalCounselId
+        sentBackReason,
+        adminRemarks
       );
-
-      setStatusMessage(
-        "Document successfully validated and routed to Legal Counsel."
-      );
-
       await loadDocuments();
-
-      window.setTimeout(() => {
-        handleBackToQueue();
-      }, 1500);
+      setStatusMessage("Review Form sent back to IRO Staff.");
+      window.setTimeout(handleBackToQueue, 1200);
     } catch (error) {
-      console.error(
-        "Unable to route document to Legal Counsel:",
-        error
-      );
+      setStatusMessage(error.message || "Unable to send back the Review Form.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-      setStatusMessage(
-        error?.message ||
-          "Unable to route the document. Check the Laravel server and try again."
-      );
+  async function handleRouteToLegal() {
+    if (selectedDocument?.review_form?.review_form_status !== "validated") {
+      setStatusMessage("Validate the Review Form before routing.");
+      return;
+    }
+    if (!legalCounselId) {
+      setStatusMessage("Please select a Legal Counsel before routing.");
+      return;
+    }
+
+    setSubmitting(true);
+    setStatusMessage("");
+    try {
+      await routeToLegal(selectedDocument.id, legalCounselId);
+      await loadDocuments();
+      setStatusMessage("Validated document routed to Legal Counsel.");
+      window.setTimeout(handleBackToQueue, 1200);
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to route the document.");
     } finally {
       setSubmitting(false);
     }
@@ -231,9 +311,7 @@ export function ManageSubmissions() {
     const departmentValues = documents
       .map(
         (document) =>
-          document.departments?.name ||
-          document.department_name ||
-          document.department_id
+          getDepartmentName(document)
       )
       .filter(Boolean);
 
@@ -244,11 +322,8 @@ export function ManageSubmissions() {
     const search = searchTerm.trim().toLowerCase();
 
     return documents.filter((document) => {
-      const department =
-        document.departments?.name ||
-        document.department_name ||
-        document.department_id ||
-        "";
+      const department = getDepartmentName(document);
+      const assignedStaff = getAssignedStaffName(document);
 
       const matchesSearch =
         !search ||
@@ -258,6 +333,7 @@ export function ManageSubmissions() {
           document.document_type,
           document.status,
           department,
+          assignedStaff,
         ]
           .filter(Boolean)
           .some((value) =>
@@ -314,8 +390,25 @@ export function ManageSubmissions() {
           <aside className="review-sidebar dark-card admin-review">
             <h2>Administrative Review</h2>
 
+            {!selectedDocument.review_form && (
+              <div className="card-block">
+                <h3>Waiting for IRO Staff</h3>
+                <p>
+                  This document has not yet received a submitted Review Form.
+                  IRO Admin validation and legal routing are unavailable until
+                  IRO Staff completes and submits the form.
+                </p>
+              </div>
+            )}
+
             <div className="card-block">
               <h3>Completeness Check</h3>
+              <p>
+                Staff:{" "}
+                {selectedDocument.review_form?.preparer?.full_name ||
+                  selectedDocument.review_form?.preparer?.email ||
+                  "Not available"}
+              </p>
 
               {CHECKLIST_ITEMS.map((item) => (
                 <label
@@ -325,15 +418,20 @@ export function ManageSubmissions() {
                   <input
                     type="checkbox"
                     checked={checklist[item.key]}
-                    onChange={() =>
-                      handleChecklistChange(item.key)
-                    }
-                    disabled={submitting}
+                    readOnly
+                    disabled
                   />
 
                   <span>{item.label}</span>
                 </label>
               ))}
+              <label>
+                Staff Remarks
+                <textarea
+                  value={selectedDocument.review_form?.staff_remarks || ""}
+                  readOnly
+                />
+              </label>
             </div>
 
             <div className="card-block">
@@ -348,7 +446,9 @@ export function ManageSubmissions() {
                     )
                   }
                   disabled={
-                    submitting || loadingCounsels
+                    submitting ||
+                    loadingCounsels ||
+                    selectedDocument.review_form?.review_form_status !== "validated"
                   }
                 >
                   <option value="">
@@ -413,6 +513,18 @@ export function ManageSubmissions() {
                   disabled={submitting}
                 />
               </label>
+              <label>
+                Send-back Reason
+                <textarea
+                  value={sentBackReason}
+                  onChange={(event) => setSentBackReason(event.target.value)}
+                  placeholder="Explain what IRO Staff must correct..."
+                  disabled={
+                    submitting ||
+                    selectedDocument.review_form?.review_form_status !== "submitted"
+                  }
+                />
+              </label>
             </div>
 
             <div className="review-actions">
@@ -436,12 +548,40 @@ export function ManageSubmissions() {
               <button
                 className="btn primary large wide-inline"
                 type="button"
-                onClick={handleValidateAndRoute}
-                disabled={submitting}
+                onClick={handleValidate}
+                disabled={
+                  submitting ||
+                  selectedDocument.review_form?.review_form_status !== "submitted"
+                }
               >
                 {submitting
-                  ? "Routing to Legal..."
-                  : "Validate & Route to Legal"}
+                  ? "Processing..."
+                  : "Validate Review Form"}
+              </button>
+
+              <button
+                className="btn outline wide-inline"
+                type="button"
+                onClick={handleSendBack}
+                disabled={
+                  submitting ||
+                  selectedDocument.review_form?.review_form_status !== "submitted"
+                }
+              >
+                Send Back as Incomplete
+              </button>
+
+              <button
+                className="btn primary large wide-inline"
+                type="button"
+                onClick={handleRouteToLegal}
+                disabled={
+                  submitting ||
+                  selectedDocument.review_form?.review_form_status !== "validated" ||
+                  !legalCounselId
+                }
+              >
+                Route Validated Form to Legal
               </button>
 
               <button
@@ -462,16 +602,17 @@ export function ManageSubmissions() {
   return (
     <section className="page iro-admin-page">
       <PageTitle
-        title="Manage Submissions"
-        subtitle="Review logged submissions, validate records, and route approved documents to Legal Counsel."
+        title="Review & Validate"
+        subtitle="Review submitted IRO Staff forms, validate complete records, and route validated documents to Legal Counsel."
         action="Refresh Queue"
         onAction={loadDocuments}
+        actionDisabled={loading}
       />
 
       <div className="manage-submission-filters">
         <input
           type="search"
-          placeholder="Search tracking number, partner, type, or department..."
+          placeholder="Search tracking, department, partner, type, staff, or status..."
           value={searchTerm}
           onChange={(event) =>
             setSearchTerm(event.target.value)
@@ -485,12 +626,11 @@ export function ManageSubmissions() {
           }
         >
           <option value="All">All Statuses</option>
-          <option value="Logged">Logged</option>
-          <option value="Under Legal Review">
-            Under Legal Review
+          <option value="Review Form Submitted">
+            Awaiting Validation
           </option>
-          <option value="Corrections Needed">
-            Sent Back
+          <option value="Admin Validated">
+            Validated
           </option>
         </select>
 
@@ -513,10 +653,10 @@ export function ManageSubmissions() {
         </select>
       </div>
 
-      <Panel title="Submission Management Queue">
+      <Panel title="Review Forms Awaiting Admin Action">
         {loading && <p>Loading submissions...</p>}
 
-        {loadingDocument && (
+        {loadingDocumentId && (
           <p>Opening document...</p>
         )}
 
@@ -537,7 +677,9 @@ export function ManageSubmissions() {
         {!loading &&
           !errorMessage &&
           filteredDocuments.length === 0 && (
-            <p>No logged submissions found.</p>
+            <p className="empty-state">
+              No submitted Review Forms match the selected filters.
+            </p>
           )}
 
         {!loading &&
@@ -561,62 +703,60 @@ export function ManageSubmissions() {
                 <tbody>
                   {filteredDocuments.map((document) => {
                     const department =
-                      document.departments?.name ||
-                      document.department_name ||
-                      document.department_id ||
-                      "Unknown Department";
+                      getDepartmentName(document);
+                    const assignedStaff =
+                      getAssignedStaffName(document);
 
                     return (
                       <tr key={document.id}>
-                        <td>
+                        <td className="manage-tracking-cell">
                           {document.tracking_number ||
                             "N/A"}
                         </td>
 
-                        <td>{department}</td>
+                        <td className="manage-department-cell">
+                          {department}
+                        </td>
 
-                        <td>
+                        <td className="manage-partner-cell">
                           {document.partner_institution ||
                             "N/A"}
                         </td>
 
-                        <td>
+                        <td className="manage-type-cell">
                           <span className="badge">
                             {document.document_type ||
                               "N/A"}
                           </span>
                         </td>
 
-                        <td>
-                          {document.assigned_iro_staff ||
-                            "Unassigned"}
+                        <td className="manage-staff-cell">
+                          {assignedStaff}
                         </td>
 
-                        <td>
+                        <td className="manage-status-cell">
                           <span className="badge active">
                             {document.status ||
                               "Unknown"}
                           </span>
                         </td>
 
-                        <td>
-                          {document.updated_at
-                            ? new Date(
-                                document.updated_at
-                              ).toLocaleString()
-                            : "N/A"}
+                        <td className="manage-date-cell">
+                          {formatUpdatedAt(document.updated_at)}
                         </td>
 
-                        <td>
+                        <td className="manage-action-cell">
                           <button
                             className="btn primary small"
                             type="button"
-                            disabled={loadingDocument}
+                            disabled={Boolean(loadingDocumentId)}
                             onClick={() =>
                               handleReview(document.id)
                             }
                           >
-                            Review
+                            {loadingDocumentId === document.id
+                              ? "Opening..."
+                              : "Review"}
                           </button>
                         </td>
                       </tr>

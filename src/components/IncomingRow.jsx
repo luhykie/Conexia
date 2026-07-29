@@ -9,12 +9,18 @@ function Badge({ children, className = "" }) {
   );
 }
 
-export function IncomingRow({ row }) {
+export function IncomingRow({
+  row,
+  roleKey,
+  opening,
+  onOpening,
+}) {
   const navigate = useNavigate();
 
   const partner = row.partner_institution || "Not provided";
   const type = row.document_type || "N/A";
   const department =
+    row.department?.name ||
     row.departments?.name ||
     row.department_name ||
     row.department_id ||
@@ -24,11 +30,15 @@ export function IncomingRow({ row }) {
     ? new Date(row.submitted_at)
     : null;
 
-  const dateSubmitted = submittedDate
-    ? submittedDate.toLocaleDateString()
-    : "N/A";
+  const validSubmittedDate =
+    submittedDate &&
+    !Number.isNaN(submittedDate.getTime());
 
-  const daysWaiting = submittedDate
+  const dateSubmitted = validSubmittedDate
+    ? submittedDate.toLocaleDateString()
+    : "Not available";
+
+  const daysWaiting = validSubmittedDate
     ? Math.max(
         0,
         Math.floor(
@@ -36,13 +46,14 @@ export function IncomingRow({ row }) {
             (1000 * 60 * 60 * 24)
         )
       )
-    : 0;
+    : null;
 
   const typeClass = type
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
 
   function handleStartLogging() {
+    onOpening?.();
     navigate("/app/log-review", {
       state: {
         documentId: row.id,
@@ -52,6 +63,10 @@ export function IncomingRow({ row }) {
 
   return (
     <tr>
+      <td className="tracking-cell">
+        {row.tracking_number || "Not available"}
+      </td>
+
       <td className="dept-cell">
         <span className="dot" aria-hidden="true" />
         {department}
@@ -70,33 +85,45 @@ export function IncomingRow({ row }) {
       <td>
         <Badge
           className={
-            daysWaiting > 7
+            daysWaiting !== null && daysWaiting > 7
               ? "danger"
-              : daysWaiting > 3
+              : daysWaiting !== null && daysWaiting > 3
                 ? "warn"
                 : ""
           }
         >
-          {daysWaiting} Days
+          {daysWaiting === null
+            ? "Not available"
+            : `${daysWaiting} ${
+                daysWaiting === 1 ? "Day" : "Days"
+              }`}
         </Badge>
       </td>
 
       <td className="actions">
-        <button
-          className="btn small"
-          type="button"
-          onClick={handleStartLogging}
-        >
-          View Details
-        </button>
+        {["staff", "admin"].includes(roleKey) ? (
+          <>
+            <button
+              className="btn small"
+              type="button"
+              onClick={handleStartLogging}
+              disabled={opening}
+            >
+              View Details
+            </button>
 
-        <button
-          className="btn primary small"
-          type="button"
-          onClick={handleStartLogging}
-        >
-          Start Logging
-        </button>
+            <button
+              className="btn primary small"
+              type="button"
+              onClick={handleStartLogging}
+              disabled={opening}
+            >
+              {opening ? "Opening..." : "Start Logging"}
+            </button>
+          </>
+        ) : (
+          <span className="muted-text">IRO Staff action</span>
+        )}
       </td>
     </tr>
   );

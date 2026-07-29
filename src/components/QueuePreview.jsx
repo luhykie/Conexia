@@ -1,43 +1,77 @@
 import React from "react";
 import { ArrowRight } from "lucide-react";
 
-const queueRows = [
-  ["Global Logistics Corp", "School of Art and Sciences", "2023-10-24", "Urgent"],
-  ["FinTech Solutions", "School of Computer Studies", "2023-10-25", "Pending"],
-  ["EcoPower Systems", "School of Engineering", "2023-10-25", "Awaiting"],
-  ["BlueWater Shipping", "School of Education", "2023-10-26", "Pending"],
-  ["Apex Tech Ltd", "School of Computer Studies", "2023-10-26", "Awaiting"],
-];
-
-// Compact queue table showing the oldest unlogged submissions.
-export function QueuePreview() {
+export function QueuePreview({ documents = [], onViewAll }) {
   return (
     <section className="iro-panel iro-queue-panel">
       <header>
         <div>
           <h2>Oldest Unlogged Queue Preview</h2>
-          <p>Priority items pending data entry</p>
+          <p>Submitted records waiting for IRO logging</p>
         </div>
-        <button className="text-link">
-          View All <ArrowRight size={16} />
-        </button>
+
+        {onViewAll && (
+          <button
+            className="text-link"
+            type="button"
+            onClick={onViewAll}
+          >
+            View All <ArrowRight size={16} />
+          </button>
+        )}
       </header>
-      <div className="iro-queue-table">
-        <div className="iro-queue-head">
-          <span>Partner</span>
-          <span>Department</span>
-          <span>Date Submitted</span>
-          <span>Status</span>
-        </div>
-        {queueRows.map(([partner, department, date, status]) => (
-          <div className="iro-queue-row" key={`${partner}-${date}`}>
-            <strong>{partner}</strong>
-            <span>{department}</span>
-            <time>{date}</time>
-            <span className={`queue-badge ${status.toLowerCase()}`}>{status}</span>
+
+      {documents.length === 0 ? (
+        <p className="empty-state">No pending submissions.</p>
+      ) : (
+        <div className="iro-queue-table">
+          <div className="iro-queue-head">
+            <span>Tracking # / Partner</span>
+            <span>Department</span>
+            <span>Age</span>
+            <span>Status</span>
           </div>
-        ))}
-      </div>
+
+          {documents.map((document) => {
+            const submittedAt = document.submitted_at
+              ? new Date(document.submitted_at)
+              : null;
+            const age = submittedAt
+              ? Math.max(
+                  0,
+                  Math.floor(
+                    (Date.now() - submittedAt.getTime()) /
+                      86400000
+                  )
+                )
+              : null;
+
+            return (
+              <div className="iro-queue-row" key={document.id}>
+                <strong>
+                  {document.tracking_number || "No tracking number"}
+                  <small>
+                    {document.partner_institution ||
+                      "Partner not provided"}
+                  </small>
+                </strong>
+                <span>
+                  {document.departments?.name ||
+                    "Department unavailable"}
+                </span>
+                <time>
+                  {age === null
+                    ? "Date unavailable"
+                    : `${age} ${age === 1 ? "day" : "days"}`}
+                </time>
+                <span className="queue-badge awaiting">
+                  {document.status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

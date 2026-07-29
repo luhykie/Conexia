@@ -3,14 +3,16 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   getDocumentById,
-  logDocument,
+  getReviewForm,
+  getIroStaffDashboard,
+  saveReviewForm,
+  submitReviewForm,
 } from "../services/documentService";
 
 import { LogReviewHeader } from "./LogReviewHeader";
 import { DashboardStats } from "./DashboardStats";
 import DocumentPreview from "./DocumentPreview";
 import Checklist from "./Checklist";
-import RouteDropdown from "./RouteDropdown";
 import StaffRemarks from "./StaffRemarks";
 import ReviewActions from "./ReviewActions";
 
@@ -26,29 +28,62 @@ export function LogReviewPage({ account }) {
   const filterStatus = location.state?.filterStatus || null;
 
   const checklistItems = [
-    "Signatures Present",
-    "Terms Defined",
-    "Attachments Included",
-    "GDPR Compliance",
+    { key: "signatures", label: "Signatures Present" },
+    { key: "terms", label: "Terms Defined" },
+    { key: "attachments", label: "Attachments Included" },
+    { key: "gdpr", label: "GDPR Compliance" },
   ];
+  const [checklist, setChecklist] = useState({
+    signatures: false,
+    terms: false,
+    attachments: false,
+    gdpr: false,
+  });
+  const [staffRemarks, setStaffRemarks] = useState("");
+  const [reviewFormStatus, setReviewFormStatus] = useState("draft");
 
-  const stats = {
-    incoming: 12,
-    loggedToday: 9,
-    awaitingCheck: 3,
-    routedToLegal: 24,
-  };
+  const [stats, setStats] = useState({
+    incoming: 0,
+    loggedToday: 0,
+    awaitingCheck: 0,
+    routedToLegal: 0,
+  });
 
   useEffect(() => {
+    loadDashboardStats();
     if (documentId) {
       loadDocument();
     }
   }, [documentId]);
 
+  async function loadDashboardStats() {
+    try {
+      const dashboard = await getIroStaffDashboard();
+      setStats((current) => ({
+        ...current,
+        ...(dashboard?.stats || {}),
+      }));
+    } catch (error) {
+      console.error("Unable to load workflow statistics:", error);
+    }
+  }
+
   async function loadDocument() {
     try {
       const data = await getDocumentById(documentId);
       setDocument(data);
+      const form = data.review_form || await getReviewForm(documentId);
+      if (form) {
+        setChecklist((current) => ({
+          ...current,
+          ...(form.checklist_answers || {}),
+        }));
+        setStaffRemarks(form.staff_remarks || "");
+        setReviewFormStatus(form.review_form_status || "draft");
+        if (form.sent_back_reason) {
+          setStatusMessage(`Sent back by IRO Admin: ${form.sent_back_reason}`);
+        }
+      }
     } catch (error) {
       console.error("Unable to load selected document:", error);
       setStatusMessage("Unable to load the selected document.");
@@ -82,7 +117,14 @@ export function LogReviewPage({ account }) {
     }
   }
 
-  function handleSaveDraft() {
+  function toggleChecklist(key) {
+    setChecklist((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
+
+  async function handleSaveDraft() {
     if (!documentId) {
       setStatusMessage(
         "Open an incoming submission before saving the review form."
@@ -90,7 +132,20 @@ export function LogReviewPage({ account }) {
       return;
     }
 
-    setStatusMessage("Review draft kept on this screen.");
+    setIsSubmitting(true);
+    setStatusMessage("Saving Review Form draft...");
+    try {
+      const form = await saveReviewForm(documentId, {
+        checklist_answers: checklist,
+        staff_remarks: staffRemarks,
+      });
+      setReviewFormStatus(form.review_form_status);
+      setStatusMessage("Review Form draft saved.");
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to save the Review Form.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
 async function handleSubmitToAdmin() {
@@ -116,21 +171,22 @@ async function handleSubmitToAdmin() {
   setStatusMessage("Submitting document to IRO Admin...");
 
   try {
-    const loggedDocument = await logDocument(
-      documentId,
-      account.id
-    );
-
-    console.log("Updated document:", loggedDocument);
-
-    setDocument(loggedDocument);
+    const form = await submitReviewForm(documentId, {
+      checklist_answers: checklist,
+      staff_remarks: staffRemarks,
+    });
+    setReviewFormStatus(form.review_form_status);
 
     setStatusMessage(
       "Document successfully submitted to IRO Admin for validation."
     );
 
     setTimeout(() => {
-      navigate("/app/status");
+      navigate(
+        account?.roleKey === "admin"
+          ? "/app/manage-submissions"
+          : "/app/status"
+      );
     }, 1200);
   } catch (error) {
     console.error(
@@ -172,21 +228,28 @@ async function handleSubmitToAdmin() {
         </div>
 
         <aside className="review-sidebar dark-card admin-review">
-          <h2>Administrative Review</h2>
+          <h2>IRO Review Form</h2>
+          <p className="review-form-status">
+            Status: {reviewFormStatus.replaceAll("_", " ")}
+          </p>
 
           <div className="card-block">
             <h3>Completeness Check</h3>
-            <Checklist items={checklistItems} />
-          </div>
-
-          <div className="card-block">
-            <h3>Route To</h3>
-            <RouteDropdown />
+            <Checklist
+              items={checklistItems}
+              values={checklist}
+              onChange={toggleChecklist}
+              disabled={isSubmitting || reviewFormStatus === "validated"}
+            />
           </div>
 
           <div className="card-block">
             <h3>Staff Remarks</h3>
-            <StaffRemarks />
+            <StaffRemarks
+              value={staffRemarks}
+              onChange={setStaffRemarks}
+              disabled={isSubmitting || reviewFormStatus === "validated"}
+            />
           </div>
 
           <ReviewActions

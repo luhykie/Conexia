@@ -1,40 +1,106 @@
 import React from "react";
-import { RefreshCw, Download, Sliders } from "lucide-react";
+import { RefreshCw, Download, Search } from "lucide-react";
 
-export function IncomingFilters() {
+export function IncomingFilters({
+  searchTerm,
+  onSearchChange,
+  department,
+  onDepartmentChange,
+  departments,
+  partner,
+  onPartnerChange,
+  partners,
+  documentType,
+  onDocumentTypeChange,
+  documentTypes,
+  onRefresh,
+  refreshing,
+  onExport,
+  canExport,
+}) {
   return (
     <div className="incoming-filters">
       <div className="filters-left">
-        <button className="icon-btn"><Sliders size={18} /></button>
+        <label className="incoming-search">
+          <Search size={17} />
+          <input
+            id="incoming-search"
+            type="search"
+            value={searchTerm}
+            onChange={(event) =>
+              onSearchChange(event.target.value)
+            }
+            placeholder="Search tracking number, partner, or department..."
+          />
+        </label>
 
-        <select aria-label="Department" className="select">
-          <option>All Departments</option>
-          <option>School of Education</option>
-          <option>School of Law</option>
-          <option>School of Engineering and Architecture</option>
-          <option>School of Business and Management</option>
-          <option>School of Arts and Sciences</option>
-          <option>School of Allied and Medical Sciences</option>
-          <option>Expanded Tertiary Education Equivalency and Accreditation Program</option>
+        <select
+          aria-label="Department"
+          className="select"
+          value={department}
+          onChange={(event) =>
+            onDepartmentChange(event.target.value)
+          }
+        >
+          <option value="All">All Departments</option>
+          {departments.map((name) => (
+            <option value={name} key={name}>
+              {name}
+            </option>
+          ))}
         </select>
 
-        <select aria-label="Partner" className="select">
-          <option>All Partners</option>
-          <option>Global Relief Initiative</option>
-          <option>Vertex Logistics Corp.</option>
+        <select
+          aria-label="Partner"
+          className="select"
+          value={partner}
+          onChange={(event) =>
+            onPartnerChange(event.target.value)
+          }
+        >
+          <option value="All">All Partners</option>
+          {partners.map((name) => (
+            <option value={name} key={name}>
+              {name}
+            </option>
+          ))}
         </select>
 
-        <select aria-label="Submission Type" className="select">
-          <option>All Types</option>
-          <option>MOA</option>
-          <option>MOU</option>
-          <option>MOF</option>
+        <select
+          aria-label="Submission Type"
+          className="select"
+          value={documentType}
+          onChange={(event) =>
+            onDocumentTypeChange(event.target.value)
+          }
+        >
+          <option value="All">All Types</option>
+          {documentTypes.map((type) => (
+            <option value={type} key={type}>
+              {type}
+            </option>
+          ))}
         </select>
       </div>
 
       <div className="filters-right">
-        <button className="btn ghost"><RefreshCw size={16} /> Refresh Queue</button>
-        <button className="btn outline"><Download size={16} /> Export CSV</button>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+        >
+          <RefreshCw size={16} />
+          {refreshing ? "Refreshing..." : "Refresh Queue"}
+        </button>
+        <button
+          className="btn outline"
+          type="button"
+          onClick={onExport}
+          disabled={!canExport}
+        >
+          <Download size={16} /> Export CSV
+        </button>
       </div>
     </div>
   );

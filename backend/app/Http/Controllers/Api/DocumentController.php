@@ -4,24 +4,111 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\DocumentFile;
+use App\Models\WorkflowEvent;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class DocumentController extends Controller
 {
+    public function __construct(
+        private readonly NotificationService $notifications
+    ) {
+    }
     /**
      * GET /api/documents
      * Return all documents.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $documents = Document::query()
+        $profile = $this->profile($request);
+        $query = Document::query()
+            ->with($this->documentRelationships());
+
+        if ($profile->role === 'iro_staff') {
+            $query->where(function ($query) use ($profile): void {
+                $query->where('status', 'Submitted')
+                    ->orWhere('assigned_iro_staff', $profile->id);
+            });
+        }
+
+        $documents = $query
             ->orderByDesc('submitted_at')
             ->get();
 
         return response()->json([
             'data' => $documents,
+        ]);
+    }
+
+    public function iroStaffDashboard(Request $request): JsonResponse
+    {
+        $profile = $this->profile($request);
+
+        $queue = Document::query()
+            ->with($this->documentRelationships())
+            ->where('status', 'Submitted')
+            ->orderBy('submitted_at')
+            ->limit(5)
+            ->get();
+
+        $activities = WorkflowEvent::query()
+            ->with('document:id,tracking_number,partner_institution')
+            ->whereHas('document', function ($query) use ($profile): void {
+                $query->where('status', 'Submitted')
+                    ->orWhere('assigned_iro_staff', $profile->id);
+            })
+            ->orderByDesc('created_at')
+            ->limit(6)
+            ->get();
+
+        $today = now()->startOfDay();
+
+        return response()->json([
+            'data' => [
+                'stats' => [
+                    'incoming' => Document::query()
+                        ->where('status', 'Submitted')
+                        ->count(),
+                    'loggedToday' => WorkflowEvent::query()
+                        ->where('event_type', 'document_logged')
+                        ->where('created_at', '>=', $today)
+                        ->when(
+                            $profile->role === 'iro_staff',
+                            fn ($query) => $query->where(
+                                'actor_id',
+                                $profile->id
+                            )
+                        )
+                        ->count(),
+                    'awaitingCheck' => Document::query()
+                        ->where('status', 'Logged')
+                        ->when(
+                            $profile->role === 'iro_staff',
+                            fn ($query) => $query->where(
+                                'assigned_iro_staff',
+                                $profile->id
+                            )
+                        )
+                        ->count(),
+                    'routedToLegal' => Document::query()
+                        ->where('status', 'Under Legal Review')
+                        ->when(
+                            $profile->role === 'iro_staff',
+                            fn ($query) => $query->where(
+                                'assigned_iro_staff',
+                                $profile->id
+                            )
+                        )
+                        ->count(),
+                ],
+                'queue' => $queue,
+                'activities' => $activities,
+            ],
         ]);
     }
 
@@ -66,22 +153,29 @@ class DocumentController extends Controller
                 'nullable',
                 'string',
             ],
-            'department_id' => [
-                'required',
-                'uuid',
-            ],
-            'submitted_by' => [
-                'required',
-                'uuid',
-            ],
         ]);
 
-        $document = Document::create([
-            ...$validated,
-            'status' => 'Submitted',
-            'submitted_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $document = DB::transaction(function () use ($request, $validated) {
+            $document = Document::create([
+                ...$validated,
+                'department_id' => $this->requireDepartment($request),
+                'submitted_by' => $this->profile($request)->id,
+                'status' => 'Submitted',
+                'submitted_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->recordWorkflowEvent(
+                $request,
+                $document,
+                'document_submitted',
+                null,
+                'Submitted'
+            );
+            $this->notifications->documentSubmitted($document);
+
+            return $document;
+        });
 
         return response()->json([
             'message' => 'Document submitted successfully.',
@@ -96,6 +190,7 @@ class DocumentController extends Controller
     public function incoming(): JsonResponse
     {
         $documents = Document::query()
+            ->with($this->documentRelationships())
             ->where('status', 'Submitted')
             ->orderByDesc('submitted_at')
             ->get();
@@ -109,8 +204,14 @@ class DocumentController extends Controller
      * GET /api/documents/{document}
      * Return one document.
      */
-    public function show(Document $document): JsonResponse
+    public function show(
+        Request $request,
+        Document $document
+    ): JsonResponse
     {
+        $this->ensureCanView($request, $document);
+        $document->load($this->documentRelationships());
+
         return response()->json([
             'data' => $document,
         ]);
@@ -120,17 +221,8 @@ class DocumentController extends Controller
      * PATCH /api/documents/{document}/log
      * IRO Staff submits a document to IRO Admin.
      */
-    public function log(
-        Request $request,
-        Document $document
-    ): JsonResponse {
-        $validated = $request->validate([
-            'iro_staff_id' => [
-                'required',
-                'uuid',
-            ],
-        ]);
-
+    public function log(Request $request, Document $document): JsonResponse
+    {
         if ($document->status !== 'Submitted') {
             return response()->json([
                 'message' =>
@@ -138,12 +230,56 @@ class DocumentController extends Controller
             ], 422);
         }
 
-        $document->update([
-            'assigned_iro_staff' =>
-                $validated['iro_staff_id'],
-            'status' => 'Logged',
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($request, $document): void {
+            $previousStatus = $document->status;
+            $revisionEvent = $document->workflowEvents()
+                ->where('event_type', 'revision_resubmitted')
+                ->latest('created_at')
+                ->first();
+            $lastCheck = $document->workflowEvents()
+                ->where('event_type', 'revision_checked')
+                ->latest('created_at')
+                ->first();
+            $isRevision = $revisionEvent
+                && (! $lastCheck || $revisionEvent->created_at->gt($lastCheck->created_at));
+
+            $document->update([
+                'assigned_iro_staff' => $this->profile($request)->id,
+                'status' => 'Logged',
+                'updated_at' => now(),
+            ]);
+
+            if ($isRevision) {
+                $version = DocumentFile::query()
+                    ->where('document_id', $document->id)
+                    ->max('version') ?? 2;
+                $this->recordWorkflowEvent(
+                    $request,
+                    $document,
+                    'revision_checked',
+                    $previousStatus,
+                    'Logged',
+                    "Revision version {$version}; Review Form status: ready for validation"
+                );
+                $this->notifications->revisionChecked(
+                    $document,
+                    $this->profile($request),
+                    (int) $version
+                );
+            } else {
+                $this->recordWorkflowEvent(
+                    $request,
+                    $document,
+                    'document_logged',
+                    $previousStatus,
+                    'Logged'
+                );
+                $this->notifications->documentLogged(
+                    $document,
+                    $this->profile($request)
+                );
+            }
+        });
 
         return response()->json([
             'message' =>
@@ -159,12 +295,146 @@ class DocumentController extends Controller
     public function logged(): JsonResponse
     {
         $documents = Document::query()
-            ->where('status', 'Logged')
+            ->with($this->documentRelationships())
+            ->whereIn('status', [
+                'Review Form Submitted',
+                'Admin Validated',
+            ])
             ->orderByDesc('updated_at')
             ->get();
 
         return response()->json([
             'data' => $documents,
+        ]);
+    }
+
+    /**
+     * Department Staff resubmits a document returned by Legal Counsel.
+     */
+    public function resubmitRevision(
+        Request $request,
+        Document $document
+    ): JsonResponse {
+        $validated = $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'max:25600',
+                'mimes:pdf,doc,docx,odt',
+            ],
+        ]);
+        $profile = $this->profile($request);
+
+        if (
+            $document->submitted_by !== $profile->id
+            && $document->department_id !== $profile->department_id
+        ) {
+            abort(404);
+        }
+
+        if ($document->status !== 'Corrections Needed') {
+            return response()->json([
+                'message' => 'Only documents requiring corrections can be resubmitted.',
+            ], 422);
+        }
+
+        $version = (int) (DocumentFile::query()
+            ->where('document_id', $document->id)
+            ->max('version') ?? 1) + 1;
+        $file = $validated['file'];
+        $path = $file->store("documents/{$document->id}", 'local');
+
+        try {
+            DB::transaction(function () use ($request, $document, $version, $file, $path): void {
+                $previousStatus = $document->status;
+                DocumentFile::create([
+                    'document_id' => $document->id,
+                    'uploaded_by' => $this->profile($request)->id,
+                    'original_filename' => $file->getClientOriginalName(),
+                    'stored_filename' => basename($path),
+                    'storage_disk' => 'local',
+                    'storage_path' => $path,
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'version' => $version,
+                ]);
+                $document->update([
+                    'status' => 'Submitted',
+                    'updated_at' => now(),
+                ]);
+
+                $this->recordWorkflowEvent(
+                    $request,
+                    $document,
+                    'revision_resubmitted',
+                    $previousStatus,
+                    'Submitted',
+                    "Revision version {$version}"
+                );
+                $this->notifications->revisionResubmitted($document, $version);
+            });
+        } catch (\Throwable $error) {
+            Storage::disk('local')->delete($path);
+            throw $error;
+        }
+
+        return response()->json([
+            'message' => 'Revised document resubmitted.',
+            'data' => $document->fresh(),
+            'version' => $version,
+        ]);
+    }
+
+    /**
+     * IRO Staff completes the revised document completeness check.
+     */
+    public function checkRevision(
+        Request $request,
+        Document $document
+    ): JsonResponse {
+        if ($document->status !== 'Submitted') {
+            return response()->json([
+                'message' => 'Only resubmitted revisions can be checked.',
+            ], 422);
+        }
+
+        $revisionEvent = $document->workflowEvents()
+            ->where('event_type', 'revision_resubmitted')
+            ->latest('created_at')
+            ->first();
+
+        if (! $revisionEvent) {
+            return response()->json([
+                'message' => 'This document is not a resubmitted revision.',
+            ], 422);
+        }
+
+        $version = $this->notifications->revisionNumber($document) - 1;
+
+        DB::transaction(function () use ($request, $document, $version): void {
+            $previousStatus = $document->status;
+            $staff = $this->profile($request);
+            $document->update([
+                'assigned_iro_staff' => $staff->id,
+                'status' => 'Logged',
+                'updated_at' => now(),
+            ]);
+
+            $this->recordWorkflowEvent(
+                $request,
+                $document,
+                'revision_checked',
+                $previousStatus,
+                'Logged',
+                "Revision version {$version}; Review Form status: ready for validation"
+            );
+            $this->notifications->revisionChecked($document, $staff, $version);
+        });
+
+        return response()->json([
+            'message' => 'Revision completeness check completed.',
+            'data' => $document->fresh(),
+            'version' => $version,
         ]);
     }
 
@@ -180,22 +450,57 @@ class DocumentController extends Controller
             'legal_counsel_id' => [
                 'required',
                 'uuid',
+                Rule::exists('profiles', 'id')
+                    ->where('role', 'legal_counsel')
+                    ->where('is_active', true),
             ],
         ]);
 
-        if ($document->status !== 'Logged') {
+        $reviewForm = $document->reviewForm;
+
+        if (
+            $document->status !== 'Admin Validated'
+            || ! $reviewForm
+            || $reviewForm->review_form_status !== 'validated'
+            || ! $reviewForm->validated_by
+            || ! $reviewForm->validated_at
+        ) {
             return response()->json([
                 'message' =>
-                    'Only logged documents can be routed to Legal Counsel.',
+                    'The Review Form must be validated by IRO Admin before routing.',
             ], 422);
         }
 
-        $document->update([
-            'assigned_legal_counsel' =>
-                $validated['legal_counsel_id'],
-            'status' => 'Under Legal Review',
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use (
+            $request,
+            $document,
+            $validated
+        ): void {
+            $previousStatus = $document->status;
+
+            $document->update([
+                'assigned_legal_counsel' =>
+                    $validated['legal_counsel_id'],
+                'status' => 'Under Legal Review',
+                'updated_at' => now(),
+            ]);
+
+            $this->recordWorkflowEvent(
+                $request,
+                $document,
+                'routed_to_legal',
+                $previousStatus,
+                'Under Legal Review'
+            );
+
+            $revision = $document->workflowEvents()
+                ->where('event_type', 'revision_checked')
+                ->exists();
+            $version = $revision
+                ? $this->notifications->revisionNumber($document) - 1
+                : 1;
+            $this->notifications->routedToLegal($document, $version, $revision);
+        });
 
         return response()->json([
             'message' =>
@@ -211,18 +516,10 @@ class DocumentController extends Controller
     public function legalReviewQueue(
         Request $request
     ): JsonResponse {
-        $legalCounselId = $request->query(
-            'legal_counsel_id'
-        );
-
-        if (!$legalCounselId) {
-            return response()->json([
-                'message' =>
-                    'Legal Counsel ID is required.',
-            ], 422);
-        }
+        $legalCounselId = $this->profile($request)->id;
 
         $documents = Document::query()
+            ->with($this->documentRelationships())
             ->where(
                 'status',
                 'Under Legal Review'
@@ -231,6 +528,11 @@ class DocumentController extends Controller
                 'assigned_legal_counsel',
                 $legalCounselId
             )
+            ->whereHas('reviewForm', function ($query): void {
+                $query->where('review_form_status', 'validated')
+                    ->whereNotNull('validated_by')
+                    ->whereNotNull('validated_at');
+            })
             ->orderByDesc('updated_at')
             ->get();
 
@@ -244,8 +546,12 @@ class DocumentController extends Controller
      * Legal Counsel approves the document.
      */
     public function approve(
+        Request $request,
         Document $document
     ): JsonResponse {
+        $this->ensureAssignedLegalCounsel($request, $document);
+        $this->ensureValidatedReviewForm($document);
+
         if ($document->status !== 'Under Legal Review') {
             return response()->json([
                 'message' =>
@@ -253,10 +559,22 @@ class DocumentController extends Controller
             ], 422);
         }
 
-        $document->update([
-            'status' => 'Approved',
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use ($request, $document): void {
+            $previousStatus = $document->status;
+
+            $document->update([
+                'status' => 'Approved',
+                'updated_at' => now(),
+            ]);
+
+            $this->recordWorkflowEvent(
+                $request,
+                $document,
+                'legal_approved',
+                $previousStatus,
+                'Approved'
+            );
+        });
 
         return response()->json([
             'message' => 'Document approved.',
@@ -272,6 +590,9 @@ class DocumentController extends Controller
         Request $request,
         Document $document
     ): JsonResponse {
+        $this->ensureAssignedLegalCounsel($request, $document);
+        $this->ensureValidatedReviewForm($document);
+
         $validated = $request->validate([
             'remarks' => [
                 'required',
@@ -287,11 +608,32 @@ class DocumentController extends Controller
             ], 422);
         }
 
-        $document->update([
-            'status' => 'Corrections Needed',
-            'legal_notes' => $validated['remarks'],
-            'updated_at' => now(),
-        ]);
+        DB::transaction(function () use (
+            $request,
+            $document,
+            $validated
+        ): void {
+            $previousStatus = $document->status;
+
+            $document->update([
+                'status' => 'Corrections Needed',
+                'legal_notes' => $validated['remarks'],
+                'updated_at' => now(),
+            ]);
+
+            $this->recordWorkflowEvent(
+                $request,
+                $document,
+                'corrections_requested',
+                $previousStatus,
+                'Corrections Needed',
+                $validated['remarks']
+            );
+            $this->notifications->revisionRequested(
+                $document,
+                $validated['remarks']
+            );
+        });
 
         return response()->json([
             'message' =>
@@ -305,15 +647,127 @@ class DocumentController extends Controller
      * Return documents owned by one department.
      */
     public function departmentDocuments(
+        Request $request,
         string $departmentId
     ): JsonResponse {
+        $profile = $this->profile($request);
+
+        if (
+            $profile->role === 'department_staff'
+            && $profile->department_id !== $departmentId
+        ) {
+            abort(404);
+        }
+
         $documents = Document::query()
+            ->with($this->documentRelationships())
             ->where('department_id', $departmentId)
             ->orderByDesc('submitted_at')
             ->get();
 
         return response()->json([
             'data' => $documents,
+        ]);
+    }
+
+    private function profile(Request $request): object
+    {
+        return $request->attributes->get('auth_profile');
+    }
+
+    private function documentRelationships(): array
+    {
+        return [
+            'department:id,name',
+            'departments:id,name',
+            'assignedIroStaffProfile:id,full_name,email,role',
+            'assignedLegalCounselProfile:id,full_name,email,role',
+            'reviewForm.preparer:id,full_name,email',
+            'reviewForm.validator:id,full_name,email',
+            'reviewForm.sentBackBy:id,full_name,email',
+        ];
+    }
+
+    private function requireDepartment(Request $request): string
+    {
+        $departmentId = $this->profile($request)->department_id;
+
+        if (! $departmentId) {
+            abort(422, 'The authenticated profile has no assigned department.');
+        }
+
+        return $departmentId;
+    }
+
+    private function ensureCanView(
+        Request $request,
+        Document $document
+    ): void {
+        $profile = $this->profile($request);
+
+        $allowed = match ($profile->role) {
+            'department_staff' =>
+                $document->department_id === $profile->department_id
+                || $document->submitted_by === $profile->id,
+            'legal_counsel' =>
+                $document->assigned_legal_counsel === $profile->id,
+            'iro_staff' =>
+                $document->status === 'Submitted'
+                || $document->assigned_iro_staff === $profile->id,
+            'iro_admin', 'super_admin' => true,
+            default => false,
+        };
+
+        if (! $allowed) {
+            abort(404);
+        }
+    }
+
+    private function ensureAssignedLegalCounsel(
+        Request $request,
+        Document $document
+    ): void {
+        if (
+            $document->assigned_legal_counsel
+            !== $this->profile($request)->id
+        ) {
+            abort(404);
+        }
+    }
+
+    private function ensureValidatedReviewForm(Document $document): void
+    {
+        $form = $document->reviewForm;
+
+        if (
+            ! $form
+            || $form->review_form_status !== 'validated'
+            || ! $form->validated_by
+            || ! $form->validated_at
+        ) {
+            abort(422, 'A validated IRO Review Form is required for legal review.');
+        }
+    }
+
+    private function recordWorkflowEvent(
+        Request $request,
+        Document $document,
+        string $eventType,
+        ?string $fromStatus,
+        string $toStatus,
+        ?string $notes = null
+    ): void {
+        $profile = $this->profile($request);
+
+        WorkflowEvent::create([
+            'document_id' => $document->id,
+            'actor_id' => $profile->id,
+            'actor_role' => $profile->role,
+            'event_type' => $eventType,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'notes' => $notes,
+            'created_at' => now(),
         ]);
     }
 }

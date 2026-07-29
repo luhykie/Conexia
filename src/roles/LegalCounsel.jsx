@@ -14,6 +14,7 @@ import {
   DashboardView,
   ExpiryView,
   FilterBar,
+  NotificationsView,
 } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 
@@ -25,6 +26,9 @@ import {
 
 // Routes all Legal Counsel pages through one role-owned component.
 export function LegalCounsel({ page, account }) {
+  if (page === "notifications") {
+    return <NotificationsView roleKey="legal" />;
+  }
   if (page === "review") {
     return <ReviewQueue account={account} />;
   }
@@ -87,7 +91,7 @@ function ReviewQueue({ account }) {
     setMessage("");
 
     try {
-      const data = await getLegalReviewQueue(account.id);
+      const data = await getLegalReviewQueue();
 
       const queue = Array.isArray(data) ? data : [];
 
@@ -127,6 +131,11 @@ function ReviewQueue({ account }) {
       (document) =>
         document.id === selectedDocumentId
     ) || documents[0] || null;
+  const validatedReviewForm = selectedDocument?.review_form;
+  const hasValidatedReviewForm =
+    validatedReviewForm?.review_form_status === "validated" &&
+    Boolean(validatedReviewForm?.validated_by) &&
+    Boolean(validatedReviewForm?.validated_at);
 
   async function handleApprove() {
     if (!selectedDocument) {
@@ -333,6 +342,10 @@ function ReviewQueue({ account }) {
           )}
         </div>
 
+        {selectedDocument && (
+          <ValidatedReviewForm form={validatedReviewForm} />
+        )}
+
         <label>
           Liability Assessment
 
@@ -342,14 +355,14 @@ function ReviewQueue({ account }) {
             }
             placeholder="Enter findings, risks, or required corrections..."
             value={remarks}
-            disabled={!selectedDocument || submitting}
+            disabled={!selectedDocument || !hasValidatedReviewForm || submitting}
           />
         </label>
 
         <label className="checkline">
           <input
             type="checkbox"
-            disabled={!selectedDocument || submitting}
+            disabled={!selectedDocument || !hasValidatedReviewForm || submitting}
           />
           Compliance Verified
         </label>
@@ -358,7 +371,7 @@ function ReviewQueue({ account }) {
           <button
             className="outline danger"
             type="button"
-            disabled={!selectedDocument || submitting}
+            disabled={!selectedDocument || !hasValidatedReviewForm || submitting}
             onClick={handleReturn}
           >
             {submitting ? "Processing..." : "Return"}
@@ -366,7 +379,7 @@ function ReviewQueue({ account }) {
 
           <button
             type="button"
-            disabled={!selectedDocument || submitting}
+            disabled={!selectedDocument || !hasValidatedReviewForm || submitting}
             onClick={handleApprove}
           >
             {submitting ? "Processing..." : "Approve"}
@@ -386,6 +399,81 @@ function ReviewQueue({ account }) {
         )}
       </aside>
     </section>
+  );
+}
+
+function ValidatedReviewForm({ form }) {
+  if (
+    !form ||
+    form.review_form_status !== "validated"
+  ) {
+    return (
+      <div className="card-block error-message">
+        <h3>IRO Review Form unavailable</h3>
+        <p>
+          Legal action is blocked because a validated IRO Review Form was not
+          included with this document.
+        </p>
+      </div>
+    );
+  }
+
+  const checklist = form.checklist_answers || {};
+  const items = [
+    ["signatures", "Signatures Present"],
+    ["terms", "Terms Defined"],
+    ["attachments", "Attachments Included"],
+    ["gdpr", "GDPR Compliance"],
+  ];
+
+  return (
+    <div className="card-block legal-review-form">
+      <h3>Validated IRO Review Form</h3>
+      <p>
+        Prepared by:{" "}
+        <strong>
+          {form.preparer?.full_name ||
+            form.preparer?.email ||
+            "IRO Staff"}
+        </strong>
+      </p>
+
+      <div className="checklist">
+        {items.map(([key, label]) => (
+          <label className="checkline" key={key}>
+            <input
+              type="checkbox"
+              checked={Boolean(checklist[key])}
+              readOnly
+              disabled
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+
+      <div className="review-form-notes">
+        <strong>Staff Remarks</strong>
+        <p>{form.staff_remarks || "No staff remarks provided."}</p>
+      </div>
+
+      <div className="review-form-notes">
+        <strong>IRO Admin Remarks</strong>
+        <p>{form.admin_remarks || "No admin remarks provided."}</p>
+      </div>
+
+      <p>
+        Validated by:{" "}
+        <strong>
+          {form.validator?.full_name ||
+            form.validator?.email ||
+            "IRO Admin"}
+        </strong>
+      </p>
+      <time dateTime={form.validated_at}>
+        {new Date(form.validated_at).toLocaleString()}
+      </time>
+    </div>
   );
 }
 

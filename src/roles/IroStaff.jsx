@@ -17,11 +17,12 @@ import LogReviewPage from "../components/LogReviewPage";
 import {
   getDocuments,
   getIncomingDocuments,
+  getIroStaffDashboard,
 } from "../services/documentService";
 // Routes all IRO Staff pages through one role-owned component.
 export function IroStaff({ page, account }) {
   if (page === "incoming") {
-    return <IncomingSubmissions />;
+    return <IncomingSubmissions roleKey="staff" />;
   }
 
   if (page === "log-review") {
@@ -42,16 +43,20 @@ export function IroStaff({ page, account }) {
   }
 
   if (page === "notifications") {
-    return <NotificationsView />;
+    return <NotificationsView roleKey="staff" />;
   }
 
-  return <IroStaffDashboard />;
+  return <IroStaffDashboard account={account} />;
 }
 
-function IroStaffDashboard() {
+function IroStaffDashboard({ account }) {
   const navigate = useNavigate();
 
-  const [documents, setDocuments] = useState([]);
+  const [dashboard, setDashboard] = useState({
+    stats: {},
+    queue: [],
+    activities: [],
+  });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -64,8 +69,14 @@ function IroStaffDashboard() {
     setErrorMessage("");
 
     try {
-      const data = await getIncomingDocuments();
-      setDocuments(data ?? []);
+      const data = await getIroStaffDashboard();
+      setDashboard({
+        stats: data?.stats ?? {},
+        queue: Array.isArray(data?.queue) ? data.queue : [],
+        activities: Array.isArray(data?.activities)
+          ? data.activities
+          : [],
+      });
     } catch (error) {
       console.error(
         "Failed to load IRO Staff dashboard documents:",
@@ -77,37 +88,6 @@ function IroStaffDashboard() {
       setLoading(false);
     }
   }
-
-  const today = new Date().toDateString();
-
-  const stats = {
-    incoming: documents.filter(
-      (document) => document.status === "Submitted"
-    ).length,
-
-    loggedToday: documents.filter((document) => {
-      if (
-        document.status !== "Logged" ||
-        !document.updated_at
-      ) {
-        return false;
-      }
-
-      return (
-        new Date(document.updated_at).toDateString() ===
-        today
-      );
-    }).length,
-
-    awaitingCheck: documents.filter(
-      (document) => document.status === "Logged"
-    ).length,
-
-    routedToLegal: documents.filter(
-      (document) =>
-        document.status === "Under Legal Review"
-    ).length,
-  };
 
   function handleCardClick(label) {
     switch (label) {
@@ -150,7 +130,10 @@ function IroStaffDashboard() {
 
   return (
     <section className="page iro-staff-dashboard">
-      <DashboardHeader />
+      <DashboardHeader
+        account={account}
+        incomingCount={dashboard.stats.incoming ?? 0}
+      />
 
       {errorMessage && (
         <div className="notice">
@@ -159,13 +142,16 @@ function IroStaffDashboard() {
       )}
 
       <DashboardStats
-        stats={stats}
+        stats={dashboard.stats}
         onCardClick={handleCardClick}
       />
 
       <div className="iro-dashboard-grid">
-        <QueuePreview documents={documents} />
-        <WorkflowActivity documents={documents} />
+        <QueuePreview
+          documents={dashboard.queue}
+          onViewAll={() => navigate("/app/incoming")}
+        />
+        <WorkflowActivity activities={dashboard.activities} />
       </div>
     </section>
   );
