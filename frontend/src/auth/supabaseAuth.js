@@ -1,21 +1,25 @@
+import { apiGet } from "../api/apiClient";
 import { supabase } from "../supabaseConfig";
+import { reportClientError } from "../utils/reportClientError";
 
-const roleKeyMap = {
-  super_admin: "super",
-  iro_admin: "admin",
-  iro_staff: "staff",
-  legal_counsel: "legal",
-  department_staff: "department",
-};
+/**
+ * Sign in through Supabase Auth, then load the authorised
+ * CONEXIA profile through Laravel.
+ */
+export async function loginWithSupabase(
+  email,
+  password,
+) {
+  const normalizedEmail = email
+    .trim()
+    .toLowerCase();
 
-export async function loginWithSupabase(email, password) {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  const { data: authData, error: authError } =
-    await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+  const {
+    error: authError,
+  } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
 
   if (authError) {
     return {
@@ -24,68 +28,80 @@ export async function loginWithSupabase(email, password) {
     };
   }
 
-  const user = authData.user;
+  try {
+    const response = await apiGet("/me");
 
-  const { data: profile, error: profileError } =
-    await supabase
-      .from("profiles")
-      .select(`
-        id,
-        full_name,
-        email,
-        role,
-        department_id,
-        is_active
-      `)
-      .eq("id", user.id)
-      .single();
+    if (
+      !response?.ok ||
+      !response?.account
+    ) {
+      await supabase.auth.signOut();
 
-  if (profileError) {
+      return {
+        ok: false,
+        message:
+          "Your CONEXIA account could not be loaded.",
+      };
+    }
+
+    if (!response.account.roleKey) {
+      await supabase.auth.signOut();
+
+      return {
+        ok: false,
+        message:
+          "Your account has an invalid system role.",
+      };
+    }
+
+    return {
+      ok: true,
+      account: response.account,
+    };
+  } catch (error) {
     await supabase.auth.signOut();
 
     return {
       ok: false,
-      message: "Your account profile could not be loaded.",
+      message:
+        error.message ||
+        "Your CONEXIA profile could not be loaded.",
     };
   }
+}
 
-  if (!profile.is_active) {
-    await supabase.auth.signOut();
+export async function getAuthenticatedAccount() {
+  try {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
 
-    return {
-      ok: false,
-      message: "Your account has been deactivated.",
-    };
+    if (error || !session) {
+      return null;
+    }
+
+    const response = await apiGet("/me");
+
+    return response?.account || null;
+  } catch (error) {
+    reportClientError(
+      "Unable to restore authenticated account:",
+      error,
+    );
+
+    return null;
   }
-
-  const roleKey = roleKeyMap[profile.role];
-
-  if (!roleKey) {
-    await supabase.auth.signOut();
-
-    return {
-      ok: false,
-      message: "Your account has an invalid role.",
-    };
-  }
-
-  return {
-    ok: true,
-    account: {
-      id: profile.id,
-      name: profile.full_name,
-      email: profile.email,
-      databaseRole: profile.role,
-      roleKey,
-      departmentId: profile.department_id,
-    },
-  };
 }
 
 export async function logoutFromSupabase() {
-  const { error } = await supabase.auth.signOut();
+  const { error } =
+    await supabase.auth.signOut();
 
   if (error) {
-    console.error("Supabase logout failed:", error);
+    reportClientError(
+      "Supabase logout failed:",
+      error,
+    );
   }
 }

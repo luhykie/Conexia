@@ -5,7 +5,8 @@ import {
   Settings,
 } from "lucide-react";
 import { getAllowedNavItems } from "../auth/rbac";
-import { supabase } from "../supabaseConfig";
+import { getUnreadNotificationCount } from "../services/notificationService";
+import { reportClientError } from "../utils/reportClientError";
 
 // Role-aware sidebar renders only RBAC-approved links.
 export function Sidebar({
@@ -32,98 +33,35 @@ export function Sidebar({
       return undefined;
     }
 
-    let notificationChannel;
     let componentActive = true;
 
     async function loadUnreadCount() {
-      const {
-        data: authData,
-        error: authError,
-      } = await supabase.auth.getUser();
+      try {
+        const response =
+          await getUnreadNotificationCount();
 
-      if (
-        authError ||
-        !authData.user ||
-        !componentActive
-      ) {
-        if (authError) {
-          console.error(
-            "Unable to identify user:",
-            authError
+        if (componentActive) {
+          setUnreadCount(
+            response.count ??
+              response.data?.count ??
+              0
           );
         }
-
-        return;
-      }
-
-      const { count, error: countError } =
-        await supabase
-          .from("notifications")
-          .select("id", {
-            count: "exact",
-            head: true,
-          })
-          .eq("user_id", authData.user.id)
-          .eq("is_read", false);
-
-      if (countError) {
-        console.error(
+      } catch (requestError) {
+        reportClientError(
           "Unable to load unread notification count:",
-          countError
+          requestError
         );
-
-        return;
       }
-
-      if (componentActive) {
-        setUnreadCount(count ?? 0);
-      }
-    }
-
-    async function subscribeToNotifications() {
-      const {
-        data: authData,
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (
-        authError ||
-        !authData.user ||
-        !componentActive
-      ) {
-        return;
-      }
-
-      notificationChannel = supabase
-        .channel(
-          `sidebar-notifications-${authData.user.id}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${authData.user.id}`,
-          },
-          () => {
-            loadUnreadCount();
-          }
-        )
-        .subscribe();
     }
 
     loadUnreadCount();
-    subscribeToNotifications();
+    const refreshTimer =
+      window.setInterval(loadUnreadCount, 30000);
 
     return () => {
       componentActive = false;
-
-      if (notificationChannel) {
-        supabase.removeChannel(
-          notificationChannel
-        );
-      }
+      window.clearInterval(refreshTimer);
     };
   }, [hasNotificationsPage, roleKey]);
 

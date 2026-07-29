@@ -17,15 +17,36 @@ import "./styles.css";
 import { loginWithSupabase, logoutFromSupabase } from "./auth/supabaseAuth";
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
 import { Shell } from "./components/Shell";
-import { DepartmentStaff } from "./roles/DepartmentStaff";
-import { IroAdmin } from "./roles/IroAdmin";
-import { IroStaff } from "./roles/IroStaff";
-import { LegalCounsel } from "./roles/LegalCounsel";
-import { SuperAdmin } from "./roles/SuperAdmin";
+import { reportClientError } from "./utils/reportClientError";
 import {BrowserRouter, Navigate, Route, Routes, useNavigate, useParams,} from "react-router-dom";
 
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
 const AUTH_STORAGE_KEY = "conexia-account";
+const DepartmentStaff = React.lazy(() =>
+  import("./roles/DepartmentStaff").then((module) => ({
+    default: module.DepartmentStaff,
+  }))
+);
+const IroAdmin = React.lazy(() =>
+  import("./roles/IroAdmin").then((module) => ({
+    default: module.IroAdmin,
+  }))
+);
+const IroStaff = React.lazy(() =>
+  import("./roles/IroStaff").then((module) => ({
+    default: module.IroStaff,
+  }))
+);
+const LegalCounsel = React.lazy(() =>
+  import("./roles/LegalCounsel").then((module) => ({
+    default: module.LegalCounsel,
+  }))
+);
+const SuperAdmin = React.lazy(() =>
+  import("./roles/SuperAdmin").then((module) => ({
+    default: module.SuperAdmin,
+  }))
+);
 
 function getSavedAccount() {
   try {
@@ -33,7 +54,7 @@ function getSavedAccount() {
 
     return savedAccount ? JSON.parse(savedAccount) : null;
   } catch (error) {
-    console.error("Unable to restore saved account:", error);
+    reportClientError("Unable to restore saved account:", error);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;
   }
@@ -167,11 +188,13 @@ function WorkspaceRoute({ account, onLogout }) {
       account={account}
       onLogout={handleLogout}
     >
-      <RolePage
-        roleKey={account.roleKey}
-        page={safePage}
-        account={account}
-      />
+      <React.Suspense fallback={<p>Loading...</p>}>
+        <RolePage
+          roleKey={account.roleKey}
+          page={safePage}
+          account={account}
+        />
+      </React.Suspense>
     </Shell>
   );
 }
@@ -331,7 +354,7 @@ function LoginScreen({ onBack, onLogin }) {
 
       onLogin(result.account);
     } catch (loginError) {
-      console.error("Login failed:", loginError);
+      reportClientError("Login failed:", loginError);
 
       setError(
         "Unable to sign in. Please check your connection and try again.",

@@ -6,19 +6,31 @@ import {
   Gavel,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "../supabaseConfig";
+import {
+  getReviewDocuments,
+  submitLegalDecision,
+  getNotarizationDocuments,
+  submitForNotarization,
+  completeNotarization as completeNotarizationRequest,
+  getLegalHistory,
+} from "../services/legalCounselServices";
 import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
 import {
   DashboardView,
-  Dropzone,
   ExpiryView,
   FilterBar,
 } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import { createNotification } from "../utils/notifications";  
 import { NotificationsPage } from "../components/NotificationsPage";
+import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
+import {
+  getExpirySummary,
+  requestDocumentRenewal,
+} from "../services/workflowSummaryService";
+import { reportClientError } from "../utils/reportClientError";
 
 // Routes all Legal Counsel pages through one role-owned component.
 export function LegalCounsel({ page }) {
@@ -80,90 +92,50 @@ function ReviewQueue() {
 
   const [success, setSuccess] =
     React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
 
-  async function loadDocuments() {
-    setLoading(true);
-    setError("");
+async function loadDocuments() {
+  setLoading(true);
+  setError("");
 
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+  try {
+    const response =
+      await getReviewDocuments({ page });
 
-    if (authError || !authData.user) {
-      setError(
-        authError?.message ||
-          "Unable to identify the signed-in Legal Counsel."
+    const loadedDocuments =
+      response.documents ??
+      response.data ??
+      [];
+
+    setDocuments(loadedDocuments);
+    setMeta(response.meta ?? null);
+
+    setSelectedDocument((current) => {
+      if (!loadedDocuments.length) {
+        return null;
+      }
+
+      return (
+        loadedDocuments.find(
+          (document) =>
+            document.id === current?.id
+        ) || loadedDocuments[0]
       );
+    });
+  } catch (requestError) {
+    reportClientError(
+      "Unable to load review documents:",
+      requestError
+    );
 
-      setLoading(false);
-      return;
-    }
-
-    const { data, error: queryError } =
-      await supabase
-        .from("documents")
-        .select(`
-          id,
-          tracking_number,
-          title,
-          document_type,
-          partner_institution,
-          partner_email,
-          description,
-          submitted_by,
-          assigned_legal_counsel,
-          status,
-          legal_notes,
-          submitted_at,
-          updated_at
-        `)
-        .eq(
-          "assigned_legal_counsel",
-          authData.user.id
-        )
-        .in("status", [
-          "Under Legal Review",
-          "Corrections Needed",
-        ])
-        .order("updated_at", {
-          ascending: false,
-        });
-
-    if (queryError) {
-      console.error(
-        "Unable to load Legal review documents:",
-        queryError
-      );
-
-      setError(queryError.message);
-      setDocuments([]);
-      setSelectedDocument(null);
-    } else {
-      const loadedDocuments = data ?? [];
-
-      setDocuments(loadedDocuments);
-
-      setSelectedDocument((current) => {
-        if (!loadedDocuments.length) {
-          return null;
-        }
-
-        const currentDocument =
-          loadedDocuments.find(
-            (document) =>
-              document.id === current?.id
-          );
-
-        return (
-          currentDocument ||
-          loadedDocuments[0]
-        );
-      });
-    }
-
+    setError(requestError.message);
+    setDocuments([]);
+    setSelectedDocument(null);
+  } finally {
     setLoading(false);
   }
+}
 
   React.useEffect(() => {
     loadDocuments();
@@ -227,24 +199,22 @@ function ReviewQueue() {
     setProcessing(true);
     setError("");
     setSuccess("");
-
-    const { error: updateError } =
-        await supabase
-          .from("documents")
-          .update({
+      
+      try {
+        await submitLegalDecision(
+          selectedDocument.id,
+          {
             status: newStatus,
             legal_notes: notes || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", selectedDocument.id);
-
-      if (updateError) {
-        console.error(
+          }
+        );
+      } catch (requestError) {
+        reportClientError(
           "Unable to save the Legal decision:",
-          updateError
+          requestError
         );
 
-        setError(updateError.message);
+        setError(requestError.message);
         setProcessing(false);
         return;
       }
@@ -272,7 +242,7 @@ function ReviewQueue() {
         });
 
       if (!notificationResult.success) {
-        console.error(
+        reportClientError(
           "Notification failed:",
           notificationResult.error
         );
@@ -380,6 +350,8 @@ function ReviewQueue() {
                   "Action",
                 ]}
                 rows={rows}
+                meta={meta}
+                onPageChange={setPage}
               />
             )}
         </Panel>
@@ -433,6 +405,10 @@ function ReviewQueue() {
                 }
               </p>
             )}
+
+            <DocumentFilesPanel
+              documentId={selectedDocument.id}
+            />
 
             <label>
               Liability Assessment and Legal
@@ -546,70 +522,24 @@ function NotarizationTracker() {
 
   const [success, setSuccess] =
     React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
 
   async function loadDocuments() {
     setLoading(true);
     setError("");
 
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+    try {
+      const response =
+        await getNotarizationDocuments({ page });
 
-    if (authError || !authData.user) {
-      setError(
-        authError?.message ||
-          "Unable to identify the signed-in Legal Counsel."
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    const { data, error: queryError } =
-      await supabase
-        .from("documents")
-        .select(`
-          id,
-          tracking_number,
-          title,
-          document_type,
-          partner_institution,
-          assigned_legal_counsel,
-          status,
-          submitted_by,
-          legal_notes,
-          notarial_reference_number,
-          notarization_date,
-          notary_signature_code,
-          updated_at
-        `)
-        .eq(
-          "assigned_legal_counsel",
-          authData.user.id
-        )
-        .in("status", [
-          "Approved",
-          "Pending Notarization",
-          "Notarized",
-        ])
-        .order("updated_at", {
-          ascending: false,
-        });
-
-    if (queryError) {
-      console.error(
-        "Unable to load notarization documents:",
-        queryError
-      );
-
-      setError(queryError.message);
-      setDocuments([]);
-      setSelectedDocument(null);
-    } else {
-      const loadedDocuments = data ?? [];
+      const loadedDocuments =
+        response.documents ??
+        response.data ??
+        [];
 
       setDocuments(loadedDocuments);
+      setMeta(response.meta ?? null);
 
       setSelectedDocument((current) => {
         if (!loadedDocuments.length) {
@@ -627,9 +557,18 @@ function NotarizationTracker() {
           loadedDocuments[0]
         );
       });
-    }
+    } catch (requestError) {
+      reportClientError(
+        "Unable to load notarization documents:",
+        requestError
+      );
 
-    setLoading(false);
+      setError(requestError.message);
+      setDocuments([]);
+      setSelectedDocument(null);
+    } finally {
+      setLoading(false);
+    }
   }
 
   React.useEffect(() => {
@@ -713,40 +652,32 @@ function NotarizationTracker() {
         });
 
       if (!notificationResult.success) {
-        console.error(
+        reportClientError(
           "Notification failed:",
           notificationResult.error
         );
       }
     }
 
-    const { error: updateError } =
-      await supabase
-        .from("documents")
-        .update({
-          status: "Pending Notarization",
-
+    try {
+      await submitForNotarization(
+        selectedDocument.id,
+        {
           notarial_reference_number:
             referenceNumber.trim(),
-
           notarization_date:
             notarizationDate,
-
           notary_signature_code:
             signatureCode.trim(),
-
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", selectedDocument.id);
-
-    if (updateError) {
-      console.error(
+        }
+      );
+    } catch (requestError) {
+      reportClientError(
         "Unable to submit document for notarization:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessing(false);
       return;
     }
@@ -802,40 +733,32 @@ function NotarizationTracker() {
         });
 
       if (!notificationResult.success) {
-        console.error(
+        reportClientError(
           "Notification failed:",
           notificationResult.error
         );
       }
     }
 
-    const { error: updateError } =
-      await supabase
-        .from("documents")
-        .update({
-          status: "Notarized",
-
+    try {
+      await completeNotarizationRequest(
+        selectedDocument.id,
+        {
           notarial_reference_number:
             referenceNumber.trim(),
-
           notarization_date:
             notarizationDate,
-
           notary_signature_code:
             signatureCode.trim(),
-
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", selectedDocument.id);
-
-    if (updateError) {
-      console.error(
+        }
+      );
+    } catch (requestError) {
+      reportClientError(
         "Unable to complete notarization:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessing(false);
       return;
     }
@@ -985,6 +908,8 @@ function NotarizationTracker() {
                   "Action",
                 ]}
                 rows={rows}
+                meta={meta}
+                onPageChange={setPage}
               />
             )}
         </Panel>
@@ -1148,25 +1073,111 @@ function NotarizationTracker() {
 
 // Lists the legal team's review and notarization history.
 function ActionHistory() {
-  const historyItems = [
-    [
-      "Approved #USJR-2023-0842",
-      "Review of Commercial Master Services Agreement completed successfully.",
-      "Verified",
-    ],
+  const [historyItems, setHistoryItems] =
+    React.useState([]);
 
-    [
-      "Notarized Entry #NX-9921",
-      "Digital notarial seal applied to Partnership Addendum.",
-      "Recorded",
-    ],
+  const [loading, setLoading] =
+    React.useState(true);
 
-    [
-      "Rejected #UK-LTD-4401",
-      "Insufficient identity verification documents provided.",
-      "Correction",
-    ],
-  ];
+  const [error, setError] =
+    React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
+
+  const [expiryItems, setExpiryItems] =
+    React.useState([]);
+
+  const [expiryError, setExpiryError] =
+    React.useState("");
+
+  const [expiryProcessingId, setExpiryProcessingId] =
+    React.useState(null);
+
+  React.useEffect(() => {
+    async function loadHistory() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response =
+          await getLegalHistory({ page });
+
+        const loadedHistory =
+          response.history ??
+          response.data ??
+          response.items ??
+          [];
+
+        setHistoryItems(loadedHistory);
+        setMeta(response.meta ?? null);
+      } catch (requestError) {
+        reportClientError(
+          "Unable to load legal action history:",
+          requestError
+        );
+
+        setError(requestError.message);
+        setHistoryItems([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadHistory();
+  }, [page]);
+
+  React.useEffect(() => {
+    async function loadExpiry() {
+      setExpiryError("");
+
+      try {
+        const response = await getExpirySummary();
+
+        setExpiryItems(
+          response.data?.records ??
+            response.data?.upcoming ??
+            []
+        );
+      } catch (requestError) {
+        reportClientError(
+          "Unable to load legal expiry records:",
+          requestError
+        );
+
+        setExpiryError(requestError.message);
+        setExpiryItems([]);
+      }
+    }
+
+    loadExpiry();
+  }, [page]);
+
+  async function requestRenewal(record) {
+    if (!record?.id) return;
+
+    setExpiryProcessingId(record.id);
+    setExpiryError("");
+
+    try {
+      await requestDocumentRenewal(record.id);
+      const response = await getExpirySummary();
+
+      setExpiryItems(
+        response.data?.records ??
+          response.data?.upcoming ??
+          []
+      );
+    } catch (requestError) {
+      reportClientError(
+        "Unable to flag document for renewal:",
+        requestError
+      );
+
+      setExpiryError(requestError.message);
+    } finally {
+      setExpiryProcessingId(null);
+    }
+  }
 
   return (
     <section className="page legal-page">
@@ -1186,18 +1197,65 @@ function ActionHistory() {
 
       <div className="two-col">
         <Panel title="Audit Log & Activity">
-          {historyItems.map(
-            (
-              [title, detail, status],
-              index
-            ) => (
+          {loading && (
+            <p>Loading legal action history...</p>
+          )}
+
+          {error && (
+            <p className="auth-error">
+              {error}
+            </p>
+          )}
+
+          {!loading &&
+            !error &&
+            historyItems.length === 0 && (
+              <p>No legal actions recorded yet.</p>
+            )}
+
+          {!loading &&
+            !error &&
+            historyItems.map(
+              (item, index) => {
+                const title =
+                  Array.isArray(item)
+                    ? item[0]
+                    : item.title ||
+                      item.action ||
+                      item.status ||
+                      "Legal action";
+
+                const detail =
+                  Array.isArray(item)
+                    ? item[1]
+                    : item.detail ||
+                      item.description ||
+                      item.message ||
+                      item.legal_notes ||
+                      "";
+
+                const status =
+                  Array.isArray(item)
+                    ? item[2]
+                    : item.badge ||
+                      item.status ||
+                      item.type ||
+                      "Recorded";
+
+                const isDanger =
+                  status === "Correction" ||
+                  status ===
+                    "Corrections Needed" ||
+                  status === "Rejected";
+
+                return (
               <div
                 className={`timeline-item ${
-                  index === 2
+                  isDanger
                     ? "danger"
                     : ""
                 }`}
-                key={title}
+                key={`${title}-${index}`}
               >
                 <b>{title}</b>
 
@@ -1205,7 +1263,7 @@ function ActionHistory() {
 
                 <span
                   className={`badge ${
-                    index === 2
+                    isDanger
                       ? "danger"
                       : ""
                   }`}
@@ -1213,38 +1271,95 @@ function ActionHistory() {
                   {status}
                 </span>
               </div>
-            )
-          )}
+                );
+              }
+            )}
+          {!loading &&
+            !error &&
+            historyItems.length > 0 &&
+            meta && (
+              <div className="table">
+                <footer>
+                  Showing {meta.from || 0}-{meta.to || 0} of {meta.total} records
+                  <div>
+                    <button
+                      disabled={meta.current_page <= 1}
+                      onClick={() => setPage(meta.current_page - 1)}
+                    >
+                      &lt;
+                    </button>
+                    <button className="active-page">
+                      {meta.current_page}
+                    </button>
+                    <button
+                      disabled={meta.current_page >= meta.last_page}
+                      onClick={() => setPage(meta.current_page + 1)}
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </footer>
+              </div>
+            )}
         </Panel>
 
         <Panel title="Expiring Soon">
-          <div className="notice danger">
-            <b>
-              Strategic Alliances Ltd.
-            </b>
-
-            <p>
-              Expires in 3 days -
-              #CERT-998-AX
+          {expiryError && (
+            <p className="auth-error">
+              {expiryError}
             </p>
+          )}
 
-            <button className="primary">
-              Flag for Renewal
-            </button>
-          </div>
+          {!expiryError &&
+            expiryItems.length === 0 && (
+              <p>No assigned documents are expiring soon.</p>
+            )}
 
-          <div className="notice warn">
-            <b>Cloud Systems Inc.</b>
+          {!expiryError &&
+            expiryItems.map((record) => (
+              <div
+                className={`notice ${
+                  record.classification === "expired"
+                    ? "danger"
+                    : "warn"
+                }`}
+                key={record.id}
+              >
+                <b>
+                  {record.partner_institution ||
+                    record.document_name ||
+                    record.tracking_number}
+                </b>
 
-            <p>
-              Expires in 12 days -
-              #CERT-204-VY
-            </p>
+                <p>
+                  {record.expiry} -{" "}
+                  {record.tracking_number}
+                </p>
 
-            <button className="outline">
-              Flag for Renewal
-            </button>
-          </div>
+                <button
+                  className={
+                    record.classification === "expired"
+                      ? "primary"
+                      : "outline"
+                  }
+                  disabled={
+                    expiryProcessingId === record.id ||
+                    record.renewal_status ===
+                      "renewal_requested"
+                  }
+                  onClick={() =>
+                    requestRenewal(record)
+                  }
+                >
+                  {expiryProcessingId === record.id
+                    ? "Flagging..."
+                    : record.renewal_status ===
+                        "renewal_requested"
+                      ? "Renewal Flagged"
+                      : "Flag for Renewal"}
+                </button>
+              </div>
+            ))}
 
           <section className="dark-card">
             <ShieldCheck />
@@ -1255,9 +1370,12 @@ function ActionHistory() {
               </h2>
 
               <p>
-                4 agreements require
-                notarization updates this
-                month.
+                {expiryItems.length} assigned
+                agreement
+                {expiryItems.length === 1
+                  ? ""
+                  : "s"} require renewal
+                attention.
               </p>
             </div>
           </section>

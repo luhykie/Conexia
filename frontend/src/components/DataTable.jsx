@@ -1,7 +1,13 @@
 import React from "react";
 
-// Reusable fixed-grid table for prototype data.
-export function DataTable({ headers, rows }) {
+// Reusable fixed-grid table for tabular data.
+export function DataTable({ headers, rows, meta, onPageChange }) {
+  const currentPage = meta?.current_page ?? 1;
+  const lastPage = meta?.last_page ?? 1;
+  const from = meta?.from ?? (rows.length === 0 ? 0 : 1);
+  const to = meta?.to ?? rows.length;
+  const total = meta?.total ?? rows.length;
+
   return (
     <div className="table" style={{ "--cols": headers.length }}>
       <div className="thead">
@@ -19,12 +25,21 @@ export function DataTable({ headers, rows }) {
         </div>
       ))}
       <footer>
-        Showing {rows.length === 0 ? 0 : 1}-{rows.length} of {rows.length} records
+        Showing {from || 0}-{to || 0} of {total} records
         <div>
-          <button>&lt;</button>
-          <button className="active-page">1</button>
-          <button>2</button>
-          <button>&gt;</button>
+          <button
+            disabled={!onPageChange || currentPage <= 1}
+            onClick={() => onPageChange(currentPage - 1)}
+          >
+            &lt;
+          </button>
+          <button className="active-page">{currentPage}</button>
+          <button
+            disabled={!onPageChange || currentPage >= lastPage}
+            onClick={() => onPageChange(currentPage + 1)}
+          >
+            &gt;
+          </button>
         </div>
       </footer>
     </div>

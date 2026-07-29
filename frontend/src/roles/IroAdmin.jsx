@@ -1,11 +1,15 @@
 import React from "react";
-import { Archive, CalendarClock, CheckCircle2, FileCheck2, FileText, Info, RefreshCw, Shield } from "lucide-react";
+import { Archive, CalendarClock, CheckCircle2, FileCheck2, Info, RefreshCw, Shield } from "lucide-react";
 import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
-import { archiveStats, reportStats } from "../data/mockData";
+import {
+  getArchiveSummary,
+  getReportSummary,
+} from "../services/workflowSummaryService";
+import { reportClientError } from "../utils/reportClientError";
 
 // Routes all IRO Admin pages through one role-owned component.
 export function IroAdmin({ page }) {
@@ -113,10 +117,65 @@ function ReassignSubmissions() {
 
 // Summarizes institutional throughput and bottlenecks.
 function PerformanceReports() {
+  const [summary, setSummary] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    async function loadReports() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await getReportSummary({ page });
+
+        if (active) {
+          setSummary(response.data ?? {});
+          setMeta(response.meta ?? null);
+        }
+      } catch (requestError) {
+        reportClientError("Unable to load report summary:", requestError);
+
+        if (active) {
+          setError(requestError.message);
+          setSummary(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadReports();
+
+    return () => {
+      active = false;
+    };
+  }, [page]);
+
+  const stats = summary?.stats ?? {};
+  const breakdownRows = (summary?.department_breakdown ?? []).map((row) => [
+    row.department,
+    row.total_requests,
+    row.approved,
+    row.returned,
+    row.average_turnaround,
+    row.success_rate,
+  ]);
+
   return (
     <section className="page iro-admin-page">
       <PageTitle title="Institutional Performance Reports" subtitle="Institutional oversight" action="Export Report" />
-      <StatGrid stats={reportStats} />
+      <StatGrid stats={[
+        [String(stats.total_reviewed ?? 0), "Total Reviewed", FileCheck2],
+        [String(stats.total_returned ?? 0), "Total Returned", RefreshCw, "", "danger"],
+        [String(stats.total_notarized ?? 0), "Total Notarized", Shield],
+      ]} />
       <div className="two-col">
         <Panel title="Workflow Efficiency: Average Time per Stage">
           {["Document Logging", "Administrative Review", "Legal Counsel Approval", "Final Notarization"].map((stage, index) => (
@@ -130,9 +189,19 @@ function PerformanceReports() {
         <Panel title="Agreement Volume Trends"><div className="bars">{[46, 58, 66, 82, 62, 50].map((height, index) => <span style={{ height: `${height}%` }} key={index} />)}</div></Panel>
       </div>
       <Panel title="Departmental Breakdown">
-        <DataTable headers={["Department / Office", "Total Requests", "Approved", "Returned", "Avg. Turnaround", "Success Rate"]} 
-        
-        />
+        {loading && <p>Loading report data...</p>}
+        {error && <p className="auth-error">{error}</p>}
+        {!loading && !error && breakdownRows.length === 0 && (
+          <p>No report data is available.</p>
+        )}
+        {!loading && !error && breakdownRows.length > 0 && (
+          <DataTable
+            headers={["Department / Office", "Total Requests", "Approved", "Returned", "Avg. Turnaround", "Success Rate"]}
+            rows={breakdownRows}
+            meta={meta}
+            onPageChange={setPage}
+          />
+        )}
       </Panel>
     </section>
   );
@@ -140,14 +209,83 @@ function PerformanceReports() {
 
 // Finalizes records into the secure archive vault.
 function ArchivePage() {
+  const [summary, setSummary] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    async function loadArchive() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await getArchiveSummary({ page });
+
+        if (active) {
+          setSummary(response.data ?? {});
+          setMeta(response.meta ?? null);
+        }
+      } catch (requestError) {
+        reportClientError("Unable to load archive records:", requestError);
+
+        if (active) {
+          setError(requestError.message);
+          setSummary(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadArchive();
+
+    return () => {
+      active = false;
+    };
+  }, [page]);
+
+  const stats = summary?.stats ?? {};
+  const rows = (summary?.records ?? []).map((record) => [
+    record.tracking_number || "-",
+    record.partner_institution || "-",
+    record.document_type || "-",
+    record.distribution_date
+      ? new Date(record.distribution_date).toLocaleDateString()
+      : "-",
+    record.completion || "-",
+    record.status || "-",
+    "View",
+  ]);
+
   return (
     <section className="page iro-admin-page">
       <PageTitle title="Records Archive" subtitle="Secure workspace for finalizing agreement distribution and archival." action="Export Registry" />
-      <StatGrid stats={archiveStats} />
+      <StatGrid stats={[
+        [String(stats.total_archived ?? 0), "Total Archived", Archive],
+        [String(stats.finalized_today ?? 0), "Finalized Today", Shield],
+        [String(stats.pending_archival ?? 0), "Pending Archival", CalendarClock, "", "warn"],
+        [String(stats.audit_flags ?? 0), "Audit Flags", Info, "", "danger"],
+      ]} />
       <Panel title="Archive Records">
-        <DataTable headers={["Tracking ID", "Partner Name", "Type", "Distribution Date", "Completion", "Status", "Actions"]} 
-        
-        />
+        {loading && <p>Loading archive records...</p>}
+        {error && <p className="auth-error">{error}</p>}
+        {!loading && !error && rows.length === 0 && (
+          <p>No archived records are available.</p>
+        )}
+        {!loading && !error && rows.length > 0 && (
+          <DataTable
+            headers={["Tracking ID", "Partner Name", "Type", "Distribution Date", "Completion", "Status", "Actions"]}
+            rows={rows}
+            meta={meta}
+            onPageChange={setPage}
+          />
+        )}
       </Panel>
     </section>
   );
@@ -174,8 +312,6 @@ function EngagementsPage() {
           <span>Status<b>Verified Active</b></span>
           <span>Risk Level<b>Low (Tier 1)</b></span>
         </div>
-        <div className="file-row"><FileText /> signed_mou_v2.pdf</div>
-        <div className="file-row"><FileText /> risk_assessment.docx</div>
         <button className="primary wide-inline">Edit Engagement</button>
       </aside>
     </section>

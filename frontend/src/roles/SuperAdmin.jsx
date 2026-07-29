@@ -1,4 +1,3 @@
-import React, { useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -39,8 +38,25 @@ import {
   FilterBar,
 } from "../components/SharedViews";
 
-import { departments } from "../data/departments";
-import { seedUsers } from "../data/seedUsers";
+import {
+    getDepartments,
+} from "../services/departmentService";
+
+import {
+    getUsers,
+    toggleUserStatus as apiToggleStatus,
+} from "../services/userService";
+
+import {
+  getSuperAdminDashboard,
+} from "../services/dashboardService";
+import { reportClientError } from "../utils/reportClientError";
+
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 /* ==========================================================================
    Super Admin Page Router
@@ -104,149 +120,23 @@ const dashboardMetrics = {
   },
 };
 
-const dashboardTrendData = {
-  daily: [
-    {
-      period: "Mon",
-      totalUsers: 110,
-      activeUsers: 72,
-      activeDepartments: 6,
-      activeSessions: 24,
-    },
-    {
-      period: "Tue",
-      totalUsers: 112,
-      activeUsers: 78,
-      activeDepartments: 7,
-      activeSessions: 31,
-    },
-    {
-      period: "Wed",
-      totalUsers: 114,
-      activeUsers: 81,
-      activeDepartments: 7,
-      activeSessions: 29,
-    },
-    {
-      period: "Thu",
-      totalUsers: 116,
-      activeUsers: 87,
-      activeDepartments: 8,
-      activeSessions: 35,
-    },
-    {
-      period: "Fri",
-      totalUsers: 119,
-      activeUsers: 92,
-      activeDepartments: 8,
-      activeSessions: 42,
-    },
-    {
-      period: "Sat",
-      totalUsers: 120,
-      activeUsers: 74,
-      activeDepartments: 8,
-      activeSessions: 27,
-    },
-    {
-      period: "Sun",
-      totalUsers: 121,
-      activeUsers: 79,
-      activeDepartments: 8,
-      activeSessions: 30,
-    },
-  ],
+function fallbackTrend() {
+  return {
+    daily: [emptyTrendPoint("Previous"), emptyTrendPoint("Today")],
+    weekly: [emptyTrendPoint("Previous"), emptyTrendPoint("Current")],
+    monthly: [emptyTrendPoint("Previous"), emptyTrendPoint("Current")],
+  };
+}
 
-  weekly: [
-    {
-      period: "Week 1",
-      totalUsers: 94,
-      activeUsers: 61,
-      activeDepartments: 6,
-      activeSessions: 19,
-    },
-    {
-      period: "Week 2",
-      totalUsers: 101,
-      activeUsers: 67,
-      activeDepartments: 6,
-      activeSessions: 23,
-    },
-    {
-      period: "Week 3",
-      totalUsers: 108,
-      activeUsers: 73,
-      activeDepartments: 7,
-      activeSessions: 26,
-    },
-    {
-      period: "Week 4",
-      totalUsers: 115,
-      activeUsers: 82,
-      activeDepartments: 8,
-      activeSessions: 34,
-    },
-    {
-      period: "Current",
-      totalUsers: 121,
-      activeUsers: 79,
-      activeDepartments: 8,
-      activeSessions: 30,
-    },
-  ],
-
-  monthly: [
-    {
-      period: "Jan",
-      totalUsers: 63,
-      activeUsers: 41,
-      activeDepartments: 5,
-      activeSessions: 14,
-    },
-    {
-      period: "Feb",
-      totalUsers: 72,
-      activeUsers: 48,
-      activeDepartments: 5,
-      activeSessions: 17,
-    },
-    {
-      period: "Mar",
-      totalUsers: 84,
-      activeUsers: 56,
-      activeDepartments: 6,
-      activeSessions: 20,
-    },
-    {
-      period: "Apr",
-      totalUsers: 95,
-      activeUsers: 65,
-      activeDepartments: 6,
-      activeSessions: 23,
-    },
-    {
-      period: "May",
-      totalUsers: 106,
-      activeUsers: 71,
-      activeDepartments: 7,
-      activeSessions: 27,
-    },
-    {
-      period: "Jun",
-      totalUsers: 115,
-      activeUsers: 82,
-      activeDepartments: 8,
-      activeSessions: 34,
-    },
-    {
-      period: "Jul",
-      totalUsers: 121,
-      activeUsers: 79,
-      activeDepartments: 8,
-      activeSessions: 30,
-    },
-  ],
-};
+function emptyTrendPoint(period) {
+  return {
+    period,
+    totalUsers: 0,
+    activeUsers: 0,
+    activeDepartments: 0,
+    activeSessions: 0,
+  };
+}
 
 /* ==========================================================================
    Super Admin Dashboard
@@ -260,8 +150,18 @@ function SuperAdminDashboard() {
     "activeUsers",
   ]);
 
+  const [dashboard, setDashboard] = useState({
+    trend: fallbackTrend(),
+    recent_activity: [],
+    system: {},
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const currentData =
-    dashboardTrendData[selectedPeriod];
+    dashboard.trend?.[selectedPeriod] ||
+    fallbackTrend()[selectedPeriod];
 
   const latestEntry =
     currentData[currentData.length - 1];
@@ -274,6 +174,49 @@ function SuperAdminDashboard() {
     weekly: "from previous week",
     monthly: "from previous month",
   };
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await getSuperAdminDashboard();
+        const loadedDashboard =
+          response.dashboard ?? response.data ?? {};
+
+        if (active) {
+          setDashboard({
+            trend: loadedDashboard.trend ?? fallbackTrend(),
+            recent_activity:
+              loadedDashboard.recent_activity ?? [],
+            system: loadedDashboard.system ?? {},
+          });
+        }
+      } catch (requestError) {
+        reportClientError(
+          "Unable to load Super Admin dashboard:",
+          requestError,
+        );
+
+        if (active) {
+          setError(requestError.message);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadDashboard();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function toggleMetric(metricKey) {
     setSelectedMetrics((currentMetrics) => {
@@ -300,6 +243,9 @@ function SuperAdminDashboard() {
         title="Super Admin Dashboard"
         subtitle="Monitor user accounts, departments, active sessions, system activity, and platform health."
       />
+
+      {loading && <p>Loading dashboard...</p>}
+      {error && <p className="auth-error">{error}</p>}
 
       <div className="super-dashboard-stats">
         {Object.entries(dashboardMetrics).map(
@@ -419,26 +365,23 @@ function SuperAdminDashboard() {
       <div className="dashboard-bottom-grid">
         <Panel title="Recent Administrative Activity">
           <div className="activity-list">
-            <ActivityItem
-              icon={UserPlus}
-              title="New user account created"
-              description="A Department Staff account was created by the Super Admin."
-              time="10 minutes ago"
-            />
-
-            <ActivityItem
-              icon={UserCog}
-              title="Role permissions updated"
-              description="The access permissions for the IRO Staff role were changed."
-              time="45 minutes ago"
-            />
-
-            <ActivityItem
-              icon={Building2}
-              title="Department information updated"
-              description="The School of Computer Studies department information was modified."
-              time="2 hours ago"
-            />
+            {loading && <p>Loading activity...</p>}
+            {!loading &&
+              !error &&
+              dashboard.recent_activity.length === 0 && (
+                <p>No recent administrative activity is available.</p>
+              )}
+            {!loading &&
+              !error &&
+              dashboard.recent_activity.map((item, index) => (
+                <ActivityItem
+                  icon={UserCog}
+                  key={`${item.title}-${index}`}
+                  title={item.title}
+                  description={item.description}
+                  time={item.time || "-"}
+                />
+              ))}
           </div>
         </Panel>
 
@@ -447,26 +390,32 @@ function SuperAdminDashboard() {
             <div>
               <span>Platform Status</span>
               <strong className="status-success">
-                Operational
+                {dashboard.system.platform_status ||
+                  "Unknown"}
               </strong>
             </div>
 
             <div>
               <span>Database Status</span>
               <strong className="status-success">
-                Connected
+                {dashboard.system.database_status ||
+                  "Unknown"}
               </strong>
             </div>
 
             <div>
               <span>Storage Usage</span>
-              <strong>42%</strong>
+              <strong>
+                {dashboard.system.storage_usage ||
+                  "Not tracked"}
+              </strong>
             </div>
 
             <div>
               <span>Security Alerts</span>
               <strong className="status-warning">
-                2 warnings
+                {dashboard.system.security_alerts ||
+                  "0 warnings"}
               </strong>
             </div>
           </div>
@@ -712,29 +661,64 @@ function AdminTrendChart({
    ========================================================================== */
 
 function UserManagement() {
-  const [users, setUsers] = useState(
-    seedUsers.map((user, index) => ({
-      id: index + 1,
-      ...user,
-      status: "Active",
-      lastLogin:
-        index % 3 === 0
-          ? "Today, 9:30 AM"
-          : index % 3 === 1
-            ? "Yesterday, 4:15 PM"
-            : "July 17, 2026",
-    })),
-  );
+  const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [userPage, setUserPage] = useState(1);
+  const [userMeta, setUserMeta] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-    role: "Department Staff",
-    department: departments[0]?.code || "",
+    role: "department_staff",
+    departmentId: "",
   });
 
-  const [openUserMenu, setOpenUserMenu] = useState(null);
-  
+  useEffect(() => {
+    async function loadPageData() {
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const [userData, departmentData] =
+          await Promise.all([
+            getUsers({ page: userPage }),
+            getDepartments({ per_page: 100 }),
+          ]);
+
+        const loadedUsers = userData.data ?? [];
+        const loadedDepartments =
+          departmentData.data ?? [];
+
+        setUsers(loadedUsers);
+        setUserMeta(userData.meta ?? null);
+        setDepartments(loadedDepartments);
+
+        setForm((current) => ({
+          ...current,
+          departmentId:
+            current.departmentId ||
+            loadedDepartments[0]?.id ||
+            "",
+        }));
+      } catch (error) {
+        reportClientError(error);
+
+        setErrorMessage(
+          error.message ||
+            "Unable to load user management data.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadPageData();
+  }, [userPage]);
+
   function updateForm(event) {
     const { name, value } = event.target;
 
@@ -745,63 +729,75 @@ function UserManagement() {
   }
 
   function createUser() {
-    if (!form.fullName.trim() || !form.email.trim()) {
-      window.alert(
-        "Please enter the user's full name and email address.",
-      );
-
-      return;
-    }
-
-    setUsers((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        fullName: form.fullName,
-        email: form.email.toLowerCase(),
-        role: form.role,
-        office:
-          departments.find(
-            (department) =>
-              department.code === form.department,
-          )?.name || form.department,
-        department: form.department,
-        status: "Active",
-        lastLogin: "Never",
-      },
-    ]);
-
-    setForm({
-      fullName: "",
-      email: "",
-      role: "Department Staff",
-      department: departments[0]?.code || "",
-    });
-  }
-
-  function toggleUserStatus(userId) {
-    setUsers((current) =>
-      current.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              status:
-                user.status === "Active"
-                  ? "Inactive"
-                  : "Active",
-            }
-          : user,
-      ),
+    window.alert(
+      "Create User will be connected after the Supabase Admin API is configured.",
     );
   }
 
+  async function toggleUserStatus(userId) {
+    const selectedUser = users.find(
+      (user) => user.id === userId,
+    );
+
+    if (!selectedUser) {
+      return;
+    }
+
+    const action =
+      selectedUser.is_active
+        ? "deactivate"
+        : "activate";
+
+    const confirmed = window.confirm(
+      `Are you sure you want to ${action} ${selectedUser.fullName}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const updatedUser =
+        await apiToggleStatus(
+          userId,
+          !selectedUser.is_active,
+        );
+
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          user.id === userId
+            ? updatedUser
+            : user,
+        ),
+      );
+    } catch (error) {
+      reportClientError(error);
+
+      window.alert(
+        error.message ||
+          "Unable to update the account status.",
+      );
+    }
+  }
+
   const userRows = users.map((user) => [
-    user.fullName,
-    user.email.toLowerCase(),
-    user.role,
-    user.department || "-",
-    user.status,
-    user.lastLogin,
+    user.fullName || user.full_name || "-",
+
+    user.email?.toLowerCase() || "-",
+
+    user.roleLabel || user.role || "-",
+
+    user.departmentName ||
+      user.department?.name ||
+      "-",
+
+    user.status ||
+      (user.is_active
+        ? "Active"
+        : "Inactive"),
+
+    user.lastLogin || "Never",
+
     <div
       className="user-table-actions"
       key={`actions-${user.id}`}
@@ -809,6 +805,11 @@ function UserManagement() {
       <button
         type="button"
         className="table-action"
+        onClick={() =>
+          window.alert(
+            "Edit User will be connected next.",
+          )
+        }
       >
         <Edit3 size={15} />
         Edit
@@ -821,13 +822,13 @@ function UserManagement() {
           toggleUserStatus(user.id)
         }
       >
-        {user.status === "Active" ? (
+        {user.is_active ? (
           <UserMinus size={15} />
         ) : (
           <UserCheck size={15} />
         )}
 
-        {user.status === "Active"
+        {user.is_active
           ? "Deactivate"
           : "Activate"}
       </button>
@@ -835,12 +836,20 @@ function UserManagement() {
       <button
         type="button"
         className="table-action"
+        onClick={() =>
+          window.alert(
+            "Reset Password will be connected after the Supabase Admin API is configured.",
+          )
+        }
       >
         <KeyRound size={15} />
         Reset
       </button>
     </div>,
   ]);
+
+  const isDepartmentStaff =
+    form.role === "department_staff";
 
   return (
     <section className="page super-admin-page">
@@ -855,6 +864,13 @@ function UserManagement() {
         Public registration is disabled. User accounts
         are created and managed by the Super Admin.
       </div>
+
+      {errorMessage && (
+        <div className="security-note">
+          <AlertTriangle size={20} />
+          {errorMessage}
+        </div>
+      )}
 
       <Panel title="Create User">
         <div className="form-grid admin-form">
@@ -886,30 +902,61 @@ function UserManagement() {
               value={form.role}
               onChange={updateForm}
             >
-              <option>Department Staff</option>
-              <option>IRO Staff</option>
-              <option>IRO Admin</option>
-              <option>Legal Counsel</option>
-              <option>Super Admin</option>
+              <option value="department_staff">
+                Department Staff
+              </option>
+
+              <option value="iro_staff">
+                IRO Staff
+              </option>
+
+              <option value="iro_admin">
+                IRO Admin
+              </option>
+
+              <option value="legal_counsel">
+                Legal Counsel
+              </option>
+
+              <option value="super_admin">
+                Super Admin
+              </option>
             </select>
           </label>
 
           <label>
             Department
             <select
-              name="department"
-              value={form.department}
+              name="departmentId"
+              value={form.departmentId}
               onChange={updateForm}
+              disabled={!isDepartmentStaff}
             >
-              {departments.map((department) => (
-                <option
-                  key={department.code}
-                  value={department.code}
-                >
-                  {department.code} -{" "}
-                  {department.name}
+              {!isDepartmentStaff && (
+                <option value="">
+                  Not applicable
                 </option>
-              ))}
+              )}
+
+              {isDepartmentStaff &&
+                departments.length === 0 && (
+                  <option value="">
+                    No departments available
+                  </option>
+                )}
+
+              {isDepartmentStaff &&
+                departments.map(
+                  (department) => (
+                    <option
+                      key={department.id}
+                      value={department.id}
+                    >
+                      {department.code} -{" "}
+                      {department.name}
+                    </option>
+                  ),
+                )}
             </select>
           </label>
 
@@ -927,6 +974,7 @@ function UserManagement() {
             type="button"
             className="primary"
             onClick={createUser}
+            disabled={loading}
           >
             <UserPlus size={18} />
             Create User
@@ -940,19 +988,31 @@ function UserManagement() {
       </Panel>
 
       <div className="user-management-table">
-        <Panel title={`${users.length} User Accounts`}>
-          <DataTable
-            headers={[
-              "Name",
-              "Email Address",
-              "Role",
-              "Department",
-              "Account Status",
-              "Last Login",
-              "Actions",
-            ]}
-            rows={userRows}
-          />
+        <Panel
+          title={
+            loading
+              ? "Loading User Accounts"
+              : `${users.length} User Accounts`
+          }
+        >
+          {loading ? (
+            <p>Loading users from the database...</p>
+          ) : (
+            <DataTable
+              headers={[
+                "Name",
+                "Email Address",
+                "Role",
+                "Department",
+                "Account Status",
+                "Last Login",
+                "Actions",
+              ]}
+              rows={userRows}
+              meta={userMeta}
+              onPageChange={setUserPage}
+            />
+          )}
         </Panel>
       </div>
     </section>
@@ -1187,26 +1247,56 @@ function RoleManagement() {
    ========================================================================== */
 
 function DepartmentManagement() {
-  const [departmentList, setDepartmentList] =
-    useState(
-      departments.map((department, index) => ({
-        ...department,
-        office:
-          index === 0
-            ? "Business and Management Office"
-            : department.name,
-        staffCount: index + 2,
-        status: "Active",
-      })),
-    );
+  const [
+    departmentList,
+    setDepartmentList,
+  ] = useState([]);
+  const [departmentPage, setDepartmentPage] =
+    useState(1);
+  const [departmentMeta, setDepartmentMeta] =
+    useState(null);
 
-  const [newDepartment, setNewDepartment] =
-    useState({
-      code: "",
-      name: "",
-      email: "",
-      office: "",
-    });
+  const [loading, setLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  useEffect(() => {
+    async function loadDepartmentList() {
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const response = await getDepartments({
+          page: departmentPage,
+        });
+        const data = response.data ?? [];
+        setDepartmentMeta(response.meta ?? null);
+
+        setDepartmentList(
+          data.map((department) => ({
+            ...department,
+            office: department.name,
+            staffCount:
+              department.staff_count ?? 0,
+            status: "Active",
+          })),
+        );
+      } catch (error) {
+        reportClientError(error);
+
+        setErrorMessage(
+          error.message ||
+            "Unable to load departments.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDepartmentList();
+  }, [departmentPage]);
 
   function updateDepartmentForm(event) {
     const { name, value } = event.target;
@@ -1269,7 +1359,7 @@ function DepartmentManagement() {
       department.code,
       department.name,
       department.office || "-",
-      department.email.toLowerCase(),
+      department.email?.toLowerCase() || "-",
       department.staffCount,
       department.status,
       <div
@@ -1443,6 +1533,8 @@ function DepartmentManagement() {
             "Actions",
           ]}
           rows={rows}
+          meta={departmentMeta}
+          onPageChange={setDepartmentPage}
         />
       </Panel>
     </section>

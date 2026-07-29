@@ -1,6 +1,5 @@
 import React from "react";
 import { FileText, UploadCloud } from "lucide-react";
-import { supabase } from "../supabaseConfig";
 import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { createNotification } from "../utils/notifications";
@@ -8,6 +7,14 @@ import { Panel } from "../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, FilterBar, NotificationsView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import { NotificationsPage } from "../components/NotificationsPage";
+import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
+import {
+  createDepartmentDocument,
+  getDepartmentDocuments,
+  resubmitDepartmentDocument,
+} from "../services/departmentStaffService";
+import { uploadDocumentFile } from "../services/documentFileService";
+import { reportClientError } from "../utils/reportClientError";
 
 // Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account }) {
@@ -48,6 +55,9 @@ function SubmissionPage({ account }) {
   const [success, setSuccess] =
     React.useState("");
 
+  const [selectedFile, setSelectedFile] =
+    React.useState(null);
+
   function updateForm(event) {
     const { name, value } = event.target;
 
@@ -71,6 +81,34 @@ function SubmissionPage({ account }) {
     );
 
     return `CONEXIA-${datePart}-${randomPart}`;
+  }
+
+  function expiryPayload() {
+    const effectiveDate = new Date();
+    const expiryDate = new Date(effectiveDate);
+    const years = Number.parseInt(
+      form.expectedDuration,
+      10,
+    );
+
+    if (!Number.isFinite(years)) {
+      return {};
+    }
+
+    expiryDate.setFullYear(
+      effectiveDate.getFullYear() + years,
+    );
+
+    return {
+      effective_date: effectiveDate
+        .toISOString()
+        .slice(0, 10),
+      expiry_date: expiryDate
+        .toISOString()
+        .slice(0, 10),
+      renewal_notice_days: 30,
+      renewal_status: "active",
+    };
   }
 
   async function submitDocument(event) {
@@ -97,10 +135,11 @@ function SubmissionPage({ account }) {
     const trackingNumber =
       createTrackingNumber();
 
-    const { data, error: insertError } =
-      await supabase
-        .from("documents")
-        .insert({
+    let data;
+
+    try {
+      const response =
+        await createDepartmentDocument({
           tracking_number: trackingNumber,
           title: `${form.partnerInstitution.trim()} ${form.agreementType}`,
           document_type: form.agreementType,
@@ -110,29 +149,36 @@ function SubmissionPage({ account }) {
             form.partnerEmail.trim() || null,
           description:
             form.description.trim() || null,
-          department_id:
-            account.departmentId,
-          submitted_by:
-            account.id,
-          status: "Submitted",
-        })
-        .select(`
-          id,
-          tracking_number,
-          title,
-          status
-        `)
-        .single();
+          ...expiryPayload(),
+        });
 
-    if (insertError) {
-      console.error(
+      data =
+        response.document ??
+        response.data;
+    } catch (requestError) {
+      reportClientError(
         "Document submission failed:",
-        insertError,
+        requestError,
       );
 
-      setError(insertError.message);
+      setError(requestError.message);
       setSubmitting(false);
       return;
+    }
+
+    if (selectedFile && data?.id) {
+      try {
+        await uploadDocumentFile(data.id, selectedFile);
+      } catch (requestError) {
+        reportClientError(
+          "Document file upload failed:",
+          requestError,
+        );
+
+        setError(requestError.message);
+        setSubmitting(false);
+        return;
+      }
     }
 
     setSuccess(
@@ -147,6 +193,7 @@ function SubmissionPage({ account }) {
       description: "",
     });
 
+    setSelectedFile(null);
     setSubmitting(false);
   }
 
@@ -262,15 +309,23 @@ function SubmissionPage({ account }) {
 
             <Panel title="Document Upload Section">
               <Dropzone
-                label="Drag and drop agreement draft here"
+                label={
+                  selectedFile?.name ||
+                  "Drag and drop agreement draft here"
+                }
                 detail="PDF, DOCX, ODT - MAX 25MB"
               />
 
-              <p>
-                File upload will be connected to
-                Supabase Storage later. This form
-                currently saves the document metadata.
-              </p>
+              <input
+                type="file"
+                accept=".pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text"
+                disabled={submitting}
+                onChange={(event) =>
+                  setSelectedFile(
+                    event.target.files?.[0] || null
+                  )
+                }
+              />
             </Panel>
 
             {error && (
@@ -353,43 +408,25 @@ function MySubmissionsPage() {
 
  const [error, setError] = React.useState("");
  const [success, setSuccess] = React.useState("");
+ const [page, setPage] = React.useState(1);
+ const [meta, setMeta] = React.useState(null);
 
   React.useEffect(() => {
     async function loadDocuments() {
       setLoading(true);
       setError("");
 
-      const { data, error: queryError } = await supabase
-        .from("documents")
-        .select(`
-            id,
-            tracking_number,
-            title,
-            document_type,
-            partner_institution,
-            partner_email,
-            description,
-            status,
-            legal_notes,
-            submitted_at,
-            updated_at
-        `)
-        .order("submitted_at", {
-          ascending: false,
-        });
+      try {
+        const response =
+          await getDepartmentDocuments({ page });
 
-      if (queryError) {
-        console.error(
-          "Unable to load submissions:",
-          queryError,
-        );
-
-        setError(queryError.message);
-        setDocuments([]);
-      } else {
-        const loadedDocuments = data ?? [];
+        const loadedDocuments =
+          response.documents ??
+          response.data ??
+          [];
 
         setDocuments(loadedDocuments);
+        setMeta(response.meta ?? null);
 
         setSelectedDocument((current) => {
           if (!loadedDocuments.length) return null;
@@ -400,13 +437,21 @@ function MySubmissionsPage() {
             ) || loadedDocuments[0]
           );
         });
+      } catch (requestError) {
+        reportClientError(
+          "Unable to load submissions:",
+          requestError,
+        );
+
+        setError(requestError.message);
+        setDocuments([]);
       }
 
       setLoading(false);
     }
 
     loadDocuments();
-  }, []);
+  }, [page]);
 
   const rows = documents.map((document) => [
     document.tracking_number,
@@ -453,40 +498,24 @@ function MySubmissionsPage() {
     setError("");
     setSuccess("");
 
-    const {
-      data: updatedDocument,
-      error: updateError,
-    } = await supabase
-      .from("documents")
-      .update({
-        status: "Submitted",
-        legal_notes: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", selectedDocument.id)
-      .eq("status", "Corrections Needed")
-      .select(`
-        id,
-        tracking_number,
-        title,
-        document_type,
-        partner_institution,
-        partner_email,
-        description,
-        status,
-        legal_notes,
-        submitted_at,
-        updated_at
-      `)
-      .maybeSingle();
+    let updatedDocument;
 
-    if (updateError) {
-      console.error(
+    try {
+      const response =
+        await resubmitDepartmentDocument(
+          selectedDocument.id
+        );
+
+      updatedDocument =
+        response.document ??
+        response.data;
+    } catch (requestError) {
+      reportClientError(
         "Unable to resubmit document:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessing(false);
       return;
     }
@@ -595,6 +624,8 @@ function MySubmissionsPage() {
                   "Action",
                 ]}
                 rows={rows}
+                meta={meta}
+                onPageChange={setPage}
               />
             )}
         </Panel>
@@ -643,6 +674,18 @@ function MySubmissionsPage() {
                 </div>
               </>
             )}
+
+            <DocumentFilesPanel
+              documentId={selectedDocument.id}
+              canUpload={[
+                "Submitted",
+                "Corrections Needed",
+              ].includes(selectedDocument.status)}
+              canDelete={[
+                "Submitted",
+                "Corrections Needed",
+              ].includes(selectedDocument.status)}
+            />
 
             {error && (
               <p className="auth-error">

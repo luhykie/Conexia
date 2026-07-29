@@ -4,9 +4,14 @@ import {
   BellRing,
   CheckCheck,
 } from "lucide-react";
-import { supabase } from "../supabaseConfig";
 import { PageTitle } from "./PageTitle";
 import { Panel } from "./Panel";
+import {
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from "../services/notificationService";
+import { reportClientError } from "../utils/reportClientError";
 
 export function NotificationsPage() {
   const [notifications, setNotifications] =
@@ -20,60 +25,30 @@ export function NotificationsPage() {
 
   const [processingId, setProcessingId] =
     React.useState(null);
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
 
   async function loadNotifications() {
     setLoading(true);
     setError("");
 
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+    try {
+      const response = await getNotifications({ page });
 
-    if (authError || !authData.user) {
-      setError(
-        authError?.message ||
-          "Unable to identify the signed-in user."
+      setNotifications(
+        response.notifications ??
+          response.data ??
+          []
       );
-
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error: queryError } =
-      await supabase
-        .from("notifications")
-        .select(`
-          id,
-          title,
-          message,
-          notification_type,
-          is_read,
-          created_at,
-          read_at,
-          document_id,
-          documents (
-            tracking_number,
-            title,
-            status
-          )
-        `)
-        .eq("user_id", authData.user.id)
-        .order("created_at", {
-          ascending: false,
-        });
-
-    if (queryError) {
-      console.error(
+      setMeta(response.meta ?? null);
+    } catch (requestError) {
+      reportClientError(
         "Unable to load notifications:",
-        queryError
+        requestError
       );
 
-      setError(queryError.message);
+      setError(requestError.message);
       setNotifications([]);
-    } else {
-      setNotifications(data ?? []);
     }
 
     setLoading(false);
@@ -81,46 +56,48 @@ export function NotificationsPage() {
 
   React.useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [page]);
 
   async function markAsRead(notificationId) {
     setProcessingId(notificationId);
     setError("");
 
-    const readAt = new Date().toISOString();
+    try {
+      const response =
+        await markNotificationAsRead(
+          notificationId
+        );
 
-    const { error: updateError } =
-      await supabase
-        .from("notifications")
-        .update({
-          is_read: true,
-          read_at: readAt,
-        })
-        .eq("id", notificationId)
-        .eq("is_read", false);
+      const updatedNotification =
+        response.notification ??
+        response.data;
 
-    if (updateError) {
-      console.error(
+      const readAt =
+        updatedNotification?.read_at ||
+        new Date().toISOString();
+
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === notificationId
+            ? {
+                ...notification,
+                ...updatedNotification,
+                is_read: true,
+                read_at: readAt,
+              }
+            : notification
+        )
+      );
+    } catch (requestError) {
+      reportClientError(
         "Unable to mark notification as read:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessingId(null);
       return;
     }
-
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === notificationId
-          ? {
-              ...notification,
-              is_read: true,
-              read_at: readAt,
-            }
-          : notification
-      )
-    );
 
     setProcessingId(null);
   }
@@ -138,27 +115,20 @@ export function NotificationsPage() {
 
     setProcessingId("all");
 
-    const readAt = new Date().toISOString();
-
-    const { error: updateError } =
-      await supabase
-        .from("notifications")
-        .update({
-          is_read: true,
-          read_at: readAt,
-        })
-        .in("id", unreadIds);
-
-    if (updateError) {
-      console.error(
+    try {
+      await markAllNotificationsAsRead();
+    } catch (requestError) {
+      reportClientError(
         "Unable to mark all notifications as read:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessingId(null);
       return;
     }
+
+    const readAt = new Date().toISOString();
 
     setNotifications((current) =>
       current.map((notification) => ({
@@ -316,6 +286,33 @@ export function NotificationsPage() {
                   </article>
                 )
               )}
+            </div>
+          )}
+        {!loading &&
+          !error &&
+          notifications.length > 0 &&
+          meta && (
+            <div className="table">
+              <footer>
+                Showing {meta.from || 0}-{meta.to || 0} of {meta.total} records
+                <div>
+                  <button
+                    disabled={meta.current_page <= 1}
+                    onClick={() => setPage(meta.current_page - 1)}
+                  >
+                    &lt;
+                  </button>
+                  <button className="active-page">
+                    {meta.current_page}
+                  </button>
+                  <button
+                    disabled={meta.current_page >= meta.last_page}
+                    onClick={() => setPage(meta.current_page + 1)}
+                  >
+                    &gt;
+                  </button>
+                </div>
+              </footer>
             </div>
           )}
       </Panel>

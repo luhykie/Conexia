@@ -7,10 +7,18 @@ import {
   Folder,
 } from "lucide-react";
 
-import { supabase } from "../supabaseConfig";
 import { createNotification } from "../utils/notifications";
+import {
+  archiveIroDocument,
+  assignDocumentToLegal,
+  getActiveLegalCounselUsers,
+  getIncomingDocuments,
+  getIroStatusDocuments,
+  markDocumentAsLogged,
+} from "../services/iroStaffService";
 
 import { DataTable } from "../components/DataTable";
+import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
 import {
@@ -21,6 +29,7 @@ import {
   FilterBar,
 } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
+import { reportClientError } from "../utils/reportClientError";
 
 // Routes every IRO Staff sidebar page to its matching component.
 export function IroStaff({ page }) {
@@ -74,6 +83,8 @@ function IncomingSubmissions() {
 
   const [success, setSuccess] =
     React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
 
   const [processingId, setProcessingId] =
     React.useState(null);
@@ -83,83 +94,49 @@ function IncomingSubmissions() {
     setLoading(true);
     setError("");
 
-    const {
-      data,
-      error: queryError,
-    } = await supabase
-      .from("documents")
-      .select(`
-        id,
-        tracking_number,
-        title,
-        document_type,
-        partner_institution,
-        partner_email,
-        description,
-        department_id,
-        submitted_by,
-        assigned_legal_counsel,
-        status,
-        legal_notes,
-        submitted_at,
-        updated_at,
-        department:departments!documents_department_id_fkey (
-          id,
-          name,
-          code
-        )
-      `)
-      .order("submitted_at", {
-        ascending: false,
-      });
+    try {
+      const response = await getIncomingDocuments({ page });
 
-    if (queryError) {
-      console.error(
+      setDocuments(
+        response.documents ??
+          response.data ??
+          []
+      );
+      setMeta(response.meta ?? null);
+    } catch (requestError) {
+      reportClientError(
         "Unable to load documents:",
-        queryError
+        requestError
       );
 
-      setError(queryError.message);
+      setError(requestError.message);
       setDocuments([]);
       setLoading(false);
       return;
     }
 
-    setDocuments(data ?? []);
     setLoading(false);
   }
 
   // Loads all active Legal Counsel accounts for document assignment.
   async function loadLegalUsers() {
-    const {
-      data,
-      error: legalError,
-    } = await supabase
-      .from("profiles")
-      .select(`
-        id,
-        full_name,
-        email,
-        role,
-        is_active
-      `)
-      .eq("role", "legal_counsel")
-      .eq("is_active", true)
-      .order("full_name", {
-        ascending: true,
-      });
+    try {
+      const response =
+        await getActiveLegalCounselUsers();
 
-    if (legalError) {
-      console.error(
+      setLegalUsers(
+        response.data ??
+          response.users ??
+          []
+      );
+    } catch (requestError) {
+      reportClientError(
         "Unable to load Legal Counsel users:",
-        legalError
+        requestError
       );
 
       setLegalUsers([]);
-      return;
     }
-
-    setLegalUsers(data ?? []);
   }
 
   // Loads the page data when Incoming Submissions opens.
@@ -172,7 +149,7 @@ function IncomingSubmissions() {
     }
 
     loadPage();
-  }, []);
+  }, [page]);
 
   // Changes a newly submitted document to Logged.
   async function markAsLogged(documentId) {
@@ -188,27 +165,22 @@ function IncomingSubmissions() {
     setError("");
     setSuccess("");
 
-    const {
-      data: updatedDocument,
-      error: updateError,
-    } = await supabase
-      .from("documents")
-      .update({
-        status: "Logged",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", documentId)
-      .eq("status", "Submitted")
-      .select("id")
-      .maybeSingle();
+    let updatedDocument;
 
-    if (updateError) {
-      console.error(
+    try {
+      const response =
+        await markDocumentAsLogged(documentId);
+
+      updatedDocument =
+        response.document ??
+        response.data;
+    } catch (requestError) {
+      reportClientError(
         "Unable to mark document as Logged:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessingId(null);
       return;
     }
@@ -278,39 +250,25 @@ function IncomingSubmissions() {
     setError("");
     setSuccess("");
 
-    const {
-      data: updatedDocument,
-      error: updateError,
-    } = await supabase
-      .from("documents")
-      .update({
-        assigned_legal_counsel:
-          legalCounselId,
+    let updatedDocument;
 
-        status: "Under Legal Review",
+    try {
+      const response =
+        await assignDocumentToLegal(
+          documentId,
+          legalCounselId
+        );
 
-        // Clears remarks from the previous correction cycle.
-        legal_notes: null,
-
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq("id", documentId)
-      .eq("status", "Logged")
-      .select(`
-        id,
-        tracking_number,
-        submitted_by
-      `)
-      .maybeSingle();
-
-    if (updateError) {
-      console.error(
+      updatedDocument =
+        response.document ??
+        response.data;
+    } catch (requestError) {
+      reportClientError(
         "Unable to assign Legal Counsel:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessingId(null);
       return;
     }
@@ -336,7 +294,7 @@ function IncomingSubmissions() {
       });
 
     if (!notificationResult.success) {
-      console.error(
+      reportClientError(
         "The document was assigned, but the notification failed:",
         notificationResult.error
       );
@@ -654,6 +612,8 @@ function IncomingSubmissions() {
                 "Action",
               ]}
               rows={rows}
+              meta={meta}
+              onPageChange={setPage}
             />
           )}
       </Panel>
@@ -773,67 +733,25 @@ function StatusTracker() {
     setLoading(true);
     setError("");
 
-    const [
-      {
-        data: documentData,
-        error: documentError,
-      },
+    let documentResponse;
+    let legalResponse;
 
-      {
-        data: legalData,
-        error: legalError,
-      },
-    ] = await Promise.all([
-      supabase
-        .from("documents")
-        .select(`
-          id,
-          tracking_number,
-          title,
-          document_type,
-          partner_institution,
-          status,
-          submitted_at,
-          updated_at,
-          department_id,
-          assigned_legal_counsel,
-          legal_notes,
-          notarial_reference_number,
-          notarization_date,
-          notary_signature_code,
-          archived_at,
-          archived_by,
-          department:departments!documents_department_id_fkey (
-            id,
-            code,
-            name
-          )
-        `)
-        .order("updated_at", {
-          ascending: false,
-        }),
-
-      supabase
-        .from("profiles")
-        .select(`
-          id,
-          full_name,
-          email
-        `)
-        .eq(
-          "role",
-          "legal_counsel"
-        ),
-    ]);
-
-    if (documentError) {
-      console.error(
+    try {
+      [
+        documentResponse,
+        legalResponse,
+      ] = await Promise.all([
+        getIroStatusDocuments({ page }),
+        getActiveLegalCounselUsers(),
+      ]);
+    } catch (requestError) {
+      reportClientError(
         "Unable to load status tracker:",
-        documentError
+        requestError
       );
 
       setError(
-        documentError.message
+        requestError.message
       );
 
       setDocuments([]);
@@ -843,18 +761,18 @@ function StatusTracker() {
       return;
     }
 
-    if (legalError) {
-      console.error(
-        "Unable to load Legal Counsel users:",
-        legalError
-      );
-    }
-
     const loadedDocuments =
-      documentData ?? [];
+      documentResponse.documents ??
+      documentResponse.data ??
+      [];
 
     setDocuments(loadedDocuments);
-    setLegalUsers(legalData ?? []);
+    setMeta(documentResponse.meta ?? null);
+    setLegalUsers(
+      legalResponse.data ??
+        legalResponse.users ??
+        []
+    );
 
     setSelectedDocument(
       (currentDocument) => {
@@ -878,7 +796,7 @@ function StatusTracker() {
   // Loads the tracker when the page opens.
   React.useEffect(() => {
     loadStatusTracker();
-  }, []);
+  }, [page]);
 
   // Clears messages when another document is selected.
   React.useEffect(() => {
@@ -919,53 +837,24 @@ function StatusTracker() {
     setError("");
     setSuccess("");
 
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+    let archivedDocument;
 
-    if (
-      authError ||
-      !authData.user
-    ) {
-      setError(
-        authError?.message ||
-          "Unable to identify the signed-in IRO Staff."
-      );
+    try {
+      const response =
+        await archiveIroDocument(
+          selectedDocument.id
+        );
 
-      setProcessing(false);
-      return;
-    }
-
-    const archivedAt =
-      new Date().toISOString();
-
-    const {
-      data: archivedDocument,
-      error: updateError,
-    } = await supabase
-      .from("documents")
-      .update({
-        status: "Archived",
-        archived_at: archivedAt,
-        archived_by: authData.user.id,
-        updated_at: archivedAt,
-      })
-      .eq(
-        "id",
-        selectedDocument.id
-      )
-      .eq("status", "Notarized")
-      .select("id")
-      .maybeSingle();
-
-    if (updateError) {
-      console.error(
+      archivedDocument =
+        response.document ??
+        response.data;
+    } catch (requestError) {
+      reportClientError(
         "Unable to archive document:",
-        updateError
+        requestError
       );
 
-      setError(updateError.message);
+      setError(requestError.message);
       setProcessing(false);
 
       return;
@@ -1230,6 +1119,8 @@ function StatusTracker() {
                   "Action",
                 ]}
                 rows={rows}
+                meta={meta}
+                onPageChange={setPage}
               />
             )}
         </Panel>
@@ -1421,6 +1312,10 @@ function StatusTracker() {
                 </p>
               </div>
             )}
+
+            <DocumentFilesPanel
+              documentId={selectedDocument.id}
+            />
 
             {selectedDocument.status ===
               "Archived" && (

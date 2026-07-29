@@ -20,6 +20,15 @@ class Document extends Model
     public const STATUS_NOTARIZED = 'Notarized';
     public const STATUS_ARCHIVED = 'Archived';
 
+    public const RENEWAL_NOT_REQUIRED = 'not_required';
+    public const RENEWAL_ACTIVE = 'active';
+    public const RENEWAL_DUE = 'renewal_due';
+    public const RENEWAL_REQUESTED = 'renewal_requested';
+    public const RENEWAL_RENEWED = 'renewed';
+    public const RENEWAL_EXPIRED = 'expired';
+
+    public const DEFAULT_RENEWAL_NOTICE_DAYS = 30;
+
     public $incrementing = false;
 
     protected $keyType = 'string';
@@ -45,6 +54,10 @@ class Document extends Model
         'notary_signature_code',
         'archived_at',
         'archived_by',
+        'effective_date',
+        'expiry_date',
+        'renewal_notice_days',
+        'renewal_status',
     ];
 
     protected function casts(): array
@@ -54,7 +67,66 @@ class Document extends Model
             'updated_at' => 'datetime',
             'notarization_date' => 'date',
             'archived_at' => 'datetime',
+            'effective_date' => 'date',
+            'expiry_date' => 'date',
+            'renewal_notice_days' => 'integer',
         ];
+    }
+
+    public static function renewalStatuses(): array
+    {
+        return [
+            self::RENEWAL_NOT_REQUIRED,
+            self::RENEWAL_ACTIVE,
+            self::RENEWAL_DUE,
+            self::RENEWAL_REQUESTED,
+            self::RENEWAL_RENEWED,
+            self::RENEWAL_EXPIRED,
+        ];
+    }
+
+    public static function workflowStatuses(): array
+    {
+        return [
+            self::STATUS_SUBMITTED,
+            self::STATUS_LOGGED,
+            self::STATUS_UNDER_LEGAL_REVIEW,
+            self::STATUS_CORRECTIONS_NEEDED,
+            self::STATUS_APPROVED,
+            self::STATUS_PENDING_NOTARIZATION,
+            self::STATUS_NOTARIZED,
+            self::STATUS_ARCHIVED,
+        ];
+    }
+
+    public function scopeExpiringSoon($query, ?int $days = null)
+    {
+        $window = $days ?? self::DEFAULT_RENEWAL_NOTICE_DAYS;
+
+        return $query
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate(
+                'expiry_date',
+                '<=',
+                now()->addDays($window)->toDateString()
+            );
+    }
+
+    public function scopeExpired($query)
+    {
+        return $query
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '<', now()->toDateString());
+    }
+
+    public function scopeRenewalRequired($query)
+    {
+        return $query->whereIn('renewal_status', [
+            self::RENEWAL_DUE,
+            self::RENEWAL_REQUESTED,
+            self::RENEWAL_EXPIRED,
+        ]);
     }
 
     public function department(): BelongsTo
@@ -75,5 +147,10 @@ class Document extends Model
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
+    }
+
+    public function files(): HasMany
+    {
+        return $this->hasMany(DocumentFile::class);
     }
 }
