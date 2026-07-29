@@ -17,6 +17,11 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::get('/iro-admin/overview', [IroAdminController::class, 'overview'])
         ->middleware('role:iro_admin');
 
+    Route::patch(
+        '/iro-admin/documents/{document}/reassign',
+        [IroAdminController::class, 'reassign']
+    )->middleware('role:iro_admin');
+
     Route::get('/documents', [DocumentController::class, 'index'])
         ->middleware('role:iro_staff,iro_admin,super_admin');
 

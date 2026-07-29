@@ -13,7 +13,10 @@ import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
 import { NotificationsView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
-import { getIroAdminOverview } from "../services/documentService";
+import {
+  getIroAdminOverview,
+  reassignSubmission,
+} from "../services/documentService";
 
 export function IroAdmin({ page, account }) {
   if (page === "manage-submissions") return <ManageSubmissions account={account} />;
@@ -122,14 +125,37 @@ function IroAdminDashboard() {
 
 function ReassignSubmissions() {
   const { data, loading, error, refresh } = useAdminOverview();
-  const rows = (data?.assignedSubmissions || []).map((document) => [
-    document.tracking_number,
-    document.partner_institution,
-    document.assigned_iro_staff_profile?.full_name ||
-      document.assigned_iro_staff_profile?.email ||
-      "Profile unavailable",
-    document.status,
-  ]);
+  const [selections, setSelections] = React.useState({});
+  const [busyId, setBusyId] = React.useState("");
+  const [message, setMessage] = React.useState("");
+
+  async function handleReassign(document) {
+    const staffId = selections[document.id];
+    if (!staffId) {
+      setMessage("Select a new IRO Staff member.");
+      return;
+    }
+
+    setBusyId(document.id);
+    setMessage("");
+    try {
+      await reassignSubmission(document.id, staffId);
+      setSelections((current) => ({
+        ...current,
+        [document.id]: "",
+      }));
+      setMessage(
+        `${document.tracking_number} was reassigned successfully.`
+      );
+      await refresh();
+    } catch (actionError) {
+      setMessage(
+        actionError.message || "Unable to reassign the submission."
+      );
+    } finally {
+      setBusyId("");
+    }
+  }
 
   return (
     <section className="page iro-admin-page">
@@ -142,11 +168,90 @@ function ReassignSubmissions() {
       />
       <DataState loading={loading} error={error} onRetry={refresh}>
         <Panel title="Assigned Submissions">
-          {rows.length ? (
-            <DataTable
-              headers={["Tracking #", "Partner", "Current Assignee", "Status"]}
-              rows={rows}
-            />
+          {message && (
+            <p className="workflow-message" role="alert">
+              {message}
+            </p>
+          )}
+          {(data?.assignedSubmissions || []).length ? (
+            <div className="submission-table-wrap">
+              <table className="submission-table reassignment-table">
+                <thead>
+                  <tr>
+                    <th>Tracking #</th>
+                    <th>Partner</th>
+                    <th>Current Assignee</th>
+                    <th>Status</th>
+                    <th>New Assignee</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.assignedSubmissions.map((document) => {
+                    const currentStaffId = document.assigned_iro_staff;
+                    const currentStaff =
+                      document.assigned_iro_staff_profile;
+                    const eligibleStaff = (data.activeIroStaff || [])
+                      .filter((staff) => staff.id !== currentStaffId);
+
+                    return (
+                      <tr key={document.id}>
+                        <td>{document.tracking_number}</td>
+                        <td>{document.partner_institution}</td>
+                        <td>
+                          {currentStaff?.full_name ||
+                            currentStaff?.email ||
+                            "Profile unavailable"}
+                        </td>
+                        <td>
+                          <span className="badge">{document.status}</span>
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`New assignee for ${document.tracking_number}`}
+                            value={selections[document.id] || ""}
+                            disabled={busyId === document.id}
+                            onChange={(event) =>
+                              setSelections((current) => ({
+                                ...current,
+                                [document.id]: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">
+                              {eligibleStaff.length
+                                ? "Select IRO Staff..."
+                                : "No other active IRO Staff"}
+                            </option>
+                            {eligibleStaff.map((staff) => (
+                                <option key={staff.id} value={staff.id}>
+                                  {staff.full_name || staff.email}
+                                </option>
+                              ))}
+                          </select>
+                        </td>
+                        <td>
+                          <button
+                            className="primary"
+                            type="button"
+                            disabled={
+                              busyId === document.id ||
+                              !selections[document.id] ||
+                              eligibleStaff.length === 0
+                            }
+                            onClick={() => handleReassign(document)}
+                          >
+                            {busyId === document.id
+                              ? "Reassigning..."
+                              : "Reassign"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <p className="notification-state">No active assigned submissions.</p>
           )}
@@ -163,9 +268,6 @@ function ReassignSubmissions() {
           ) : (
             <p className="notification-state">No active IRO Staff profiles found.</p>
           )}
-          <p className="notification-state">
-            Reassignment actions will be enabled when the reassignment history API is implemented.
-          </p>
         </Panel>
       </DataState>
     </section>

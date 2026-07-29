@@ -184,6 +184,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .submission-table th, .submission-table td { padding: 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
 .revision-upload { display: flex; align-items: center; gap: 10px; min-width: 380px; }
 .revision-upload input { max-width: 220px; }
+.reassignment-table select { min-width: 210px; }
+.reassignment-table button { white-space: nowrap; }
 .wide-inline { width: calc(100% - 32px); margin: 16px; }
 
 /* Modified: filter controls share the same 44px baseline and control radius. */

@@ -366,6 +366,22 @@ export async function getIroAdminOverview() {
   return result.data ?? result;
 }
 
+export async function reassignSubmission(documentId, iroStaffId) {
+  if (!documentId || !iroStaffId) {
+    throw new Error("Document and IRO Staff member are required.");
+  }
+
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/reassign`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ iro_staff_id: iroStaffId }),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
 export async function getLegalCounsels() {
   const result = await apiRequest(
     "/legal-counsels"

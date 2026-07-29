@@ -95,6 +95,27 @@ class NotificationService
         $this->notify($recipients, $document, $type, $title, $message, $key);
     }
 
+    public function submissionReassigned(
+        Document $document,
+        Profile $previousStaff,
+        Profile $newStaff
+    ): void {
+        $previousName = $previousStaff->full_name ?: $previousStaff->email;
+        $newName = $newStaff->full_name ?: $newStaff->email;
+        $sequence = $document->workflowEvents()
+            ->where('event_type', 'submission_reassigned')
+            ->count();
+
+        $this->notify(
+            collect([$previousStaff, $newStaff]),
+            $document,
+            'submission_reassigned',
+            'Submission Reassigned',
+            "{$document->tracking_number} was reassigned from {$previousName} to {$newName}.",
+            "reassignment-{$sequence}"
+        );
+    }
+
     public function revisionNumber(Document $document): int
     {
         return max(

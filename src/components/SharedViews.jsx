@@ -225,9 +225,12 @@ function getNotificationDestination(roleKey, type = "") {
       return "status";
     }
     if (
-      ["document_logged", "revision_requested", "revision_resubmitted"].includes(
-        type
-      )
+      [
+        "document_logged",
+        "revision_requested",
+        "revision_resubmitted",
+        "submission_reassigned",
+      ].includes(type)
     ) {
       return "log-review";
     }

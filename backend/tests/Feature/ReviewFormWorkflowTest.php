@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\IroAdminController;
 use App\Http\Controllers\Api\ReviewFormController;
 use App\Models\Document;
 use App\Models\ReviewForm;
@@ -247,6 +248,80 @@ class ReviewFormWorkflowTest extends TestCase
         $this->assertSame($adminId, $form->sent_back_by);
         $this->assertNotNull($form->sent_back_at);
         $this->assertSame('Review Form Sent Back', $document->fresh()->status);
+    }
+
+    public function test_admin_can_reassign_submission_between_active_iro_staff(): void
+    {
+        $departmentId = (string) Str::uuid();
+        $submitterId = (string) Str::uuid();
+        $previousStaffId = (string) Str::uuid();
+        $newStaffId = (string) Str::uuid();
+        $adminId = (string) Str::uuid();
+
+        DB::table('departments')->insert([
+            'id' => $departmentId,
+            'name' => 'International Programs',
+        ]);
+        DB::table('profiles')->insert([
+            ['id' => $submitterId, 'role' => 'department_staff', 'full_name' => null, 'email' => 'department@example.test', 'is_active' => true],
+            ['id' => $previousStaffId, 'role' => 'iro_staff', 'full_name' => 'Previous Staff', 'email' => 'previous@example.test', 'is_active' => true],
+            ['id' => $newStaffId, 'role' => 'iro_staff', 'full_name' => 'New Staff', 'email' => 'new@example.test', 'is_active' => true],
+            ['id' => $adminId, 'role' => 'iro_admin', 'full_name' => null, 'email' => 'admin@example.test', 'is_active' => true],
+        ]);
+
+        $document = Document::create([
+            'tracking_number' => 'CONEXIA-REASSIGN-001',
+            'title' => 'Reassignment Workflow',
+            'document_type' => 'MOU',
+            'partner_institution' => 'Partner Institute',
+            'department_id' => $departmentId,
+            'submitted_by' => $submitterId,
+            'assigned_iro_staff' => $previousStaffId,
+            'status' => 'Logged',
+            'submitted_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $controller = app(IroAdminController::class);
+
+        $response = $controller->reassign(
+            $this->request(
+                ['iro_staff_id' => $newStaffId],
+                $adminId,
+                'iro_admin'
+            ),
+            $document
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(
+            $newStaffId,
+            $document->fresh()->assigned_iro_staff
+        );
+        $this->assertDatabaseHas('workflow_events', [
+            'document_id' => $document->id,
+            'actor_id' => $adminId,
+            'event_type' => 'submission_reassigned',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'document_id' => $document->id,
+            'user_id' => $previousStaffId,
+            'type' => 'submission_reassigned',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'document_id' => $document->id,
+            'user_id' => $newStaffId,
+            'type' => 'submission_reassigned',
+        ]);
+
+        $sameStaffResponse = $controller->reassign(
+            $this->request(
+                ['iro_staff_id' => $newStaffId],
+                $adminId,
+                'iro_admin'
+            ),
+            $document->fresh()
+        );
+        $this->assertSame(422, $sameStaffResponse->getStatusCode());
     }
 
     private function request(array $payload, string $profileId, string $role): Request

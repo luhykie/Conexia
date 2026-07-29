@@ -6,14 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\Profile;
 use App\Models\WorkflowEvent;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class IroAdminController extends Controller
 {
+    public function __construct(
+        private readonly NotificationService $notifications
+    ) {
+    }
+
     public function overview(Request $request): JsonResponse
     {
         $documents = Document::query()
@@ -45,7 +53,16 @@ class IroAdminController extends Controller
                 'assignedSubmissions' => $documents->filter(
                     fn (Document $document): bool =>
                         $document->assigned_iro_staff !== null
-                        && ! in_array($document->status, ['Approved', 'Archived'], true)
+                        && ! in_array(
+                            $document->status,
+                            [
+                                'Approved',
+                                'Ready for Distribution',
+                                'Distribution Complete',
+                                'Archived',
+                            ],
+                            true
+                        )
                 )->values(),
                 'activeIroStaff' => Profile::query()
                     ->where('role', 'iro_staff')
@@ -61,6 +78,95 @@ class IroAdminController extends Controller
                     ->sortBy('expiry_date')
                     ->values(),
             ],
+        ]);
+    }
+
+    public function reassign(
+        Request $request,
+        Document $document
+    ): JsonResponse {
+        $validated = $request->validate([
+            'iro_staff_id' => [
+                'required',
+                'uuid',
+                Rule::exists('profiles', 'id')
+                    ->where('role', 'iro_staff')
+                    ->where('is_active', true),
+            ],
+        ]);
+
+        if (! $document->assigned_iro_staff) {
+            return response()->json([
+                'message' => 'Only assigned submissions can be reassigned.',
+            ], 422);
+        }
+
+        if (
+            in_array($document->status, ['Approved', 'Archived'], true)
+        ) {
+            return response()->json([
+                'message' => 'Completed submissions cannot be reassigned.',
+            ], 422);
+        }
+
+        if ($document->assigned_iro_staff === $validated['iro_staff_id']) {
+            return response()->json([
+                'message' => 'Select a different IRO Staff member.',
+            ], 422);
+        }
+
+        $updatedDocument = DB::transaction(function () use (
+            $request,
+            $document,
+            $validated
+        ): Document {
+            $lockedDocument = Document::query()
+                ->whereKey($document->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $previousStaff = Profile::query()
+                ->findOrFail($lockedDocument->assigned_iro_staff);
+            $newStaff = Profile::query()
+                ->whereKey($validated['iro_staff_id'])
+                ->where('role', 'iro_staff')
+                ->where('is_active', true)
+                ->firstOrFail();
+
+            $lockedDocument->update([
+                'assigned_iro_staff' => $newStaff->id,
+                'updated_at' => now(),
+            ]);
+
+            WorkflowEvent::create([
+                'document_id' => $lockedDocument->id,
+                'actor_id' =>
+                    $request->attributes->get('auth_profile')->id,
+                'actor_role' => 'iro_admin',
+                'event_type' => 'submission_reassigned',
+                'from_status' => $lockedDocument->status,
+                'to_status' => $lockedDocument->status,
+                'notes' => sprintf(
+                    'IRO Staff assignment changed from %s to %s.',
+                    $previousStaff->full_name ?: $previousStaff->email,
+                    $newStaff->full_name ?: $newStaff->email
+                ),
+                'created_at' => now(),
+            ]);
+
+            $this->notifications->submissionReassigned(
+                $lockedDocument,
+                $previousStaff,
+                $newStaff
+            );
+
+            return $lockedDocument;
+        });
+
+        return response()->json([
+            'message' => 'Submission reassigned successfully.',
+            'data' => $updatedDocument->fresh(
+                'assignedIroStaffProfile:id,full_name,email,role'
+            ),
         ]);
     }
 
