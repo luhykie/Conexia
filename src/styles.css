@@ -232,6 +232,8 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .doc-preview { margin: var(--space-8); min-height: 600px; background: white; border: 1px solid #e1e5e8; padding: var(--space-12); font-family: Georgia, serif; line-height: 1.8; box-shadow: var(--shadow-card); }
 .doc-preview h3 { text-align: center; letter-spacing: .06em; }
 .status-card { padding: var(--space-6); margin-bottom: var(--space-6); border-color: var(--green-700); }
+.status-card[role="button"] { cursor: pointer; }
+.status-card[aria-pressed="true"] { outline: 3px solid rgba(0, 109, 72, .2); border-color: var(--green-950); }
 .progress-steps, .pipeline { display: flex; justify-content: space-between; align-items: center; margin: var(--space-8); position: relative; }
 .progress-steps span, .pipeline span { display: grid; gap: 8px; text-align: center; color: #777; font-weight: 900; }
 .progress-steps span::before { content: "•"; width: 48px; height: 48px; margin: 0 auto; border-radius: 16px; border: 3px solid var(--line); display: grid; place-items: center; font-size: 0; }

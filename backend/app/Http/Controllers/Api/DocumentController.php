@@ -758,6 +758,7 @@ class DocumentController extends Controller
             'reviewForm.preparer:id,full_name,email',
             'reviewForm.validator:id,full_name,email',
             'reviewForm.sentBackBy:id,full_name,email',
+            'workflowEvents',
         ];
     }
 

@@ -176,6 +176,9 @@ function StatusTracker() {
     location.state?.filterStatus || null;
 
   const [documents, setDocuments] = useState([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState(
+    linkedDocumentId || ""
+  );
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -196,8 +199,11 @@ function StatusTracker() {
     setErrorMessage("");
 
     try {
-      const data = await getIncomingDocuments();
+      const data = await getDocuments();
       setDocuments(data ?? []);
+      setSelectedDocumentId((current) =>
+        current || data?.[0]?.id || ""
+      );
     } catch (error) {
       console.error(
         "Failed to load status documents:",
@@ -222,22 +228,63 @@ function StatusTracker() {
       })
     : documents;
 
-  function getProgressClass(status, stage) {
-    const stages = [
-      "Submitted",
-      "Logged",
-      "Under Legal Review",
-      "Corrections Needed",
-      "Approved",
-      "Pending Notarization",
-      "Notarized",
-      "Archived",
+  const selectedDocument =
+    visibleDocuments.find(
+      (document) => document.id === selectedDocumentId
+    ) || visibleDocuments[0] || null;
+  const auditEvents = [...(selectedDocument?.workflow_events || [])]
+    .sort(
+      (first, second) =>
+        new Date(second.created_at) - new Date(first.created_at)
+    );
+
+  function exportAuditLog() {
+    if (!selectedDocument || auditEvents.length === 0) return;
+    const escapeCsv = (value) =>
+      `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [
+      ["Tracking Number", "Event", "From Status", "To Status", "Actor Role", "Notes", "Timestamp"],
+      ...auditEvents.map((event) => [
+        selectedDocument.tracking_number,
+        event.event_type,
+        event.from_status,
+        event.to_status,
+        event.actor_role,
+        event.notes,
+        event.created_at,
+      ]),
     ];
+    const blob = new Blob(
+      [rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n")],
+      { type: "text/csv;charset=utf-8" }
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedDocument.tracking_number}-audit-log.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
-    const currentIndex = stages.indexOf(status);
-    const stageIndex = stages.indexOf(stage);
-
-    return currentIndex >= stageIndex ? "done" : "";
+  function getProgressClass(status, stage) {
+    const statusRank = {
+      Submitted: 0,
+      Logged: 1,
+      "Review Form Submitted": 1,
+      "Review Form Sent Back": 1,
+      "Admin Validated": 1,
+      "Under Legal Review": 2,
+      "Corrections Needed": 2,
+      Approved: 3,
+      "Pending Notarization": 4,
+      Notarized: 5,
+      "Ready for Distribution": 6,
+      "Distribution Complete": 7,
+      Archived: 8,
+    };
+    return (statusRank[status] ?? -1) >= (statusRank[stage] ?? 0)
+      ? "done"
+      : "";
   }
 
   if (loading) {
@@ -278,6 +325,16 @@ function StatusTracker() {
                 : ""
             }`}
             key={document.id}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedDocument?.id === document.id}
+            onClick={() => setSelectedDocumentId(document.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSelectedDocumentId(document.id);
+              }
+            }}
           >
             <span className="badge active">
               ID: {document.tracking_number}
@@ -336,31 +393,53 @@ function StatusTracker() {
       <aside className="detail-drawer">
         <h2>Audit Trail</h2>
 
-        {[
-          "Status Changed to Under Review",
-          "Logged & Verified",
-          "Initial Submission",
-        ].map((entry) => (
+        {!selectedDocument ? (
+          <p className="notification-state">
+            Select a document to view its audit trail.
+          </p>
+        ) : auditEvents.length === 0 ? (
+          <p className="notification-state">
+            No workflow events have been recorded for this document.
+          </p>
+        ) : auditEvents.map((event) => (
           <div
             className="timeline-item"
-            key={entry}
+            key={event.id || `${event.event_type}-${event.created_at}`}
           >
-            <b>{entry}</b>
+            <b>{formatEventName(event.event_type)}</b>
 
             <p>
-              Submission lifecycle event recorded for
-              export and audit.
+              {event.from_status
+                ? `${event.from_status} → ${event.to_status}`
+                : event.to_status}
+              {event.notes ? ` — ${event.notes}` : ""}
             </p>
 
-            <small>Recent activity</small>
+            <small>
+              {event.actor_role?.replaceAll("_", " ") || "System"} ·{" "}
+              {event.created_at
+                ? new Date(event.created_at).toLocaleString()
+                : "Time unavailable"}
+            </small>
           </div>
         ))}
 
-        <button className="primary wide-inline">
+        <button
+          className="primary wide-inline"
+          type="button"
+          disabled={!selectedDocument || auditEvents.length === 0}
+          onClick={exportAuditLog}
+        >
           <Download size={18} />
           Generate Export Log
         </button>
       </aside>
     </section>
   );
+}
+
+function formatEventName(eventType) {
+  return String(eventType || "workflow event")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
