@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Filter } from "lucide-react";
 import {
   useLocation,
   useNavigate,
@@ -9,10 +9,9 @@ import {
 import { DashboardHeader } from "../components/DashboardHeader";
 import { DashboardStats } from "../components/DashboardStats";
 import { PageTitle } from "../components/PageTitle";
-import {
-  ExpiryView,
-  NotificationsView,
-} from "../components/SharedViews";
+import { NotificationsView } from "../components/SharedViews";
+import { Panel } from "../components/Panel";
+import { StatGrid } from "../components/StatGrid";
 import { QueuePreview } from "../components/QueuePreview";
 import { WorkflowActivity } from "../components/WorkflowActivity";
 import IncomingSubmissions from "../components/IncomingSubmissions";
@@ -38,12 +37,7 @@ export function IroStaff({ page, account }) {
   }
 
   if (page === "expiry") {
-    return (
-      <ExpiryView
-        title="Global Expiry List"
-        action="Bulk Notify Offices"
-      />
-    );
+    return <IroStaffExpiry />;
   }
 
   if (page === "notifications") {
@@ -164,6 +158,202 @@ function IroStaffDashboard({ account }) {
 // Opens the IRO Staff Log & Review page.
 function LogReview({ account }) {
   return <LogReviewPage account={account} />;
+}
+
+function IroStaffExpiry() {
+  const navigate = useNavigate();
+  const [documents, setDocuments] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getDocuments()
+      .then((items) =>
+        setDocuments(
+          (items || [])
+            .filter((item) => item.expiry_date)
+            .sort(
+              (first, second) =>
+                new Date(first.expiry_date) - new Date(second.expiry_date)
+            )
+        )
+      )
+      .catch((loadError) =>
+        setError(loadError.message || "Unable to load expiry records.")
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
+  const records = documents.map((document) => ({
+    ...document,
+    daysRemaining: daysUntil(document.expiry_date),
+  }));
+  const visibleRecords = records.filter((document) => {
+    if (filter === "expired") return document.daysRemaining < 0;
+    if (filter === "urgent") {
+      return document.daysRemaining >= 0 && document.daysRemaining <= 30;
+    }
+    if (filter === "upcoming") {
+      return document.daysRemaining > 30 && document.daysRemaining <= 90;
+    }
+    return true;
+  });
+  const expiringSoon = records.filter(
+    (document) =>
+      document.daysRemaining >= 0 && document.daysRemaining <= 90
+  ).length;
+  const urgent = records.filter(
+    (document) =>
+      document.daysRemaining >= 0 && document.daysRemaining <= 30
+  ).length;
+  const expired = records.filter(
+    (document) => document.daysRemaining < 0
+  ).length;
+
+  function exportExpiryList() {
+    const escapeCsv = (value) =>
+      `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [
+      ["Tracking Number", "Title", "Partner", "Type", "Expiry Date", "Days Remaining", "Status"],
+      ...visibleRecords.map((document) => [
+        document.tracking_number,
+        document.title,
+        document.partner_institution,
+        document.document_type,
+        document.expiry_date,
+        document.daysRemaining,
+        expiryLabel(document.daysRemaining),
+      ]),
+    ];
+    const blob = new Blob(
+      [rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n")],
+      { type: "text/csv;charset=utf-8" }
+    );
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement("a");
+    link.href = url;
+    link.download = "iro-staff-expiry-list.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="page iro-staff-page">
+      <PageTitle
+        title="Global Expiry List"
+        subtitle="Authorized agreements with persisted expiry dates."
+        action="Export Expiry List"
+        onAction={exportExpiryList}
+        actionDisabled={visibleRecords.length === 0}
+      />
+      {error && <div className="notice">{error}</div>}
+      <StatGrid
+        stats={[
+          [String(records.length), "Tracked Agreements", Filter],
+          [String(expiringSoon), "Expiring Within 90 Days", Filter],
+          [String(urgent), "Urgent: Next 30 Days", Filter, "", "danger"],
+          [String(expired), "Expired", Filter, "", "danger"],
+        ]}
+      />
+      <Panel
+        title="Agreement Expiry Records"
+        tools={
+          <label className="expiry-filter">
+            <Filter size={18} />
+            <span className="sr-only">Filter expiry records</span>
+            <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <option value="all">All records</option>
+              <option value="expired">Expired</option>
+              <option value="urgent">Next 30 days</option>
+              <option value="upcoming">31–90 days</option>
+            </select>
+          </label>
+        }
+      >
+        {loading ? (
+          <p className="notification-state">Loading expiry records...</p>
+        ) : visibleRecords.length === 0 ? (
+          <p className="notification-state">
+            No authorized agreements match this expiry filter.
+          </p>
+        ) : (
+          <div className="submission-table-wrap">
+            <table className="submission-table">
+              <thead>
+                <tr>
+                  <th>Document / ID</th>
+                  <th>Partner</th>
+                  <th>Expiry</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRecords.map((document) => (
+                  <tr key={document.id}>
+                    <td>
+                      <b>{document.title}</b>
+                      <small>{document.tracking_number}</small>
+                    </td>
+                    <td>{document.partner_institution}</td>
+                    <td>
+                      {new Date(document.expiry_date).toLocaleDateString()}
+                      <small>{expiryDaysLabel(document.daysRemaining)}</small>
+                    </td>
+                    <td>
+                      <span className={`badge ${expiryTone(document.daysRemaining)}`}>
+                        {expiryLabel(document.daysRemaining)}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="outline"
+                        type="button"
+                        onClick={() =>
+                          navigate(`/app/status?document=${document.id}`)
+                        }
+                      >
+                        View Document
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+    </section>
+  );
+}
+
+function daysUntil(value) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(value);
+  expiry.setHours(0, 0, 0, 0);
+  return Math.ceil((expiry - today) / 86400000);
+}
+
+function expiryLabel(days) {
+  if (days < 0) return "Expired";
+  if (days <= 30) return "Urgent";
+  if (days <= 90) return "Expiring Soon";
+  return "Active";
+}
+
+function expiryTone(days) {
+  if (days < 0) return "danger";
+  if (days <= 30) return "urgent";
+  if (days <= 90) return "expiring";
+  return "active";
+}
+
+function expiryDaysLabel(days) {
+  if (days < 0) return `Expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
+  if (days === 0) return "Expires today";
+  return `${days} day${days === 1 ? "" : "s"} remaining`;
 }
 
 // Displays document workflow progress using Supabase records.
