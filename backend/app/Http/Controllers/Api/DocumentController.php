@@ -671,6 +671,8 @@ class DocumentController extends Controller
                 $previousStatus,
                 'Approved'
             );
+
+            $this->notifications->legalApproved($document);
         });
 
         return response()->json([

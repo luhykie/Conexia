@@ -95,6 +95,24 @@ class NotificationService
         $this->notify($recipients, $document, $type, $title, $message, $key);
     }
 
+    public function legalApproved(Document $document): void
+    {
+        $recipients = $this->activeProfiles(['iro_admin'])
+            ->merge($this->profilesByIds([$document->assigned_iro_staff]));
+        $sequence = $document->workflowEvents()
+            ->where('event_type', 'legal_approved')
+            ->count();
+
+        $this->notify(
+            $recipients,
+            $document,
+            'legal_approved',
+            'Document Approved by Legal Counsel',
+            "{$document->tracking_number} was approved by Legal Counsel and is ready for notarization.",
+            "legal-approved-{$sequence}"
+        );
+    }
+
     public function submissionReassigned(
         Document $document,
         Profile $previousStaff,

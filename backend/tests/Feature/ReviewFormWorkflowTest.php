@@ -197,6 +197,26 @@ class ReviewFormWorkflowTest extends TestCase
             'Validated by IRO Admin.',
             $queueData[0]['review_form']['admin_remarks']
         );
+
+        $approval = $documentController->approve(
+            $this->request([], $legalId, 'legal_counsel'),
+            $document->fresh()
+        );
+
+        $this->assertSame(200, $approval->getStatusCode());
+        $this->assertSame('Approved', $document->fresh()->status);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $adminId,
+            'document_id' => $document->id,
+            'type' => 'legal_approved',
+            'title' => 'Document Approved by Legal Counsel',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $staffId,
+            'document_id' => $document->id,
+            'type' => 'legal_approved',
+            'title' => 'Document Approved by Legal Counsel',
+        ]);
     }
 
     public function test_admin_can_send_submitted_form_back_with_persisted_reason(): void
