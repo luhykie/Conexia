@@ -1,4 +1,5 @@
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   CalendarClock,
   FileCheck2,
@@ -22,8 +23,7 @@ import {
 
 export function IroAdmin({ page, account }) {
   if (page === "incoming") return <IncomingSubmissions roleKey="admin" />;
-  if (page === "log-review") return <LogReviewPage account={account} />;
-  if (page === "manage-submissions") return <ManageSubmissions account={account} />;
+  if (page === "manage-submissions") return <AdminReviewForms account={account} />;
   if (page === "reassign") return <ReassignSubmissions />;
   if (page === "distribution-lists") return <DistributionLists />;
   if (page === "reports") return <PerformanceReports />;
@@ -32,6 +32,17 @@ export function IroAdmin({ page, account }) {
   if (page === "notifications") return <NotificationsView roleKey="admin" />;
 
   return <IroAdminDashboard />;
+}
+
+function AdminReviewForms({ account }) {
+  const [searchParams] = useSearchParams();
+  const isPreparing =
+    searchParams.get("mode") === "prepare" &&
+    Boolean(searchParams.get("document"));
+
+  return isPreparing
+    ? <LogReviewPage account={account} />
+    : <ManageSubmissions account={account} />;
 }
 
 function useAdminOverview() {

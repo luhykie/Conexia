@@ -5,6 +5,7 @@ export function ReviewActions({
   submitting = false,
   onSaveDraft,
   onSubmit,
+  submitLabel = "Submit for Validation",
 }) {
   return (
     <div className="review-actions">
@@ -16,7 +17,7 @@ export function ReviewActions({
       >
         {submitting
           ? "Submitting..."
-          : "Submit to IRO Admin"}
+          : submitLabel}
       </button>
 
       <button

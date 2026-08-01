@@ -99,19 +99,32 @@ export function LogReviewPage({ account }) {
         break;
 
       case "Logged Today":
-        navigate("/app/log-review");
+        navigate(
+          account?.roleKey === "admin"
+            ? "/app/manage-submissions"
+            : "/app/log-review"
+        );
         break;
 
       case "Awaiting Check":
-        navigate("/app/log-review", {
-          state: { filterStatus: "awaiting" },
-        });
+        if (account?.roleKey === "admin") {
+          navigate("/app/manage-submissions");
+        } else {
+          navigate("/app/log-review", {
+            state: { filterStatus: "awaiting" },
+          });
+        }
         break;
 
       case "Routed to Legal":
-        navigate("/app/status", {
-          state: { filterStatus: "routed" },
-        });
+        navigate(
+          account?.roleKey === "admin"
+            ? "/app/manage-submissions"
+            : "/app/status",
+          account?.roleKey === "admin"
+            ? undefined
+            : { state: { filterStatus: "routed" } }
+        );
         break;
 
       default:
@@ -151,10 +164,6 @@ export function LogReviewPage({ account }) {
   }
 
 async function handleSubmitToAdmin() {
-  console.log("Submit to IRO Admin clicked");
-  console.log("Document ID:", documentId);
-  console.log("IRO Staff account:", account);
-
   if (!documentId) {
     setStatusMessage(
       "No document is selected. Return to Incoming Submissions and click Start Logging."
@@ -170,7 +179,7 @@ async function handleSubmitToAdmin() {
   }
 
   setIsSubmitting(true);
-  setStatusMessage("Submitting document to IRO Admin...");
+  setStatusMessage("Submitting Review Form for validation...");
 
   try {
     const form = await submitReviewForm(documentId, {
@@ -179,9 +188,7 @@ async function handleSubmitToAdmin() {
     });
     setReviewFormStatus(form.review_form_status);
 
-    setStatusMessage(
-      "Document successfully submitted to IRO Admin for validation."
-    );
+    setStatusMessage("Review Form successfully submitted for validation.");
 
     setTimeout(() => {
       navigate(
@@ -191,10 +198,7 @@ async function handleSubmitToAdmin() {
       );
     }, 1200);
   } catch (error) {
-    console.error(
-      "Submit to IRO Admin failed:",
-      error
-    );
+    console.error("Review Form submission failed:", error);
 
     setStatusMessage(
       error?.message ||
@@ -259,6 +263,7 @@ async function handleSubmitToAdmin() {
             submitting={isSubmitting}
             onSaveDraft={handleSaveDraft}
             onSubmit={handleSubmitToAdmin}
+            submitLabel="Submit for Validation"
           />
 
           {statusMessage && (

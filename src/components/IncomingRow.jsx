@@ -54,11 +54,14 @@ export function IncomingRow({
 
   function handleStartLogging() {
     onOpening?.();
-    navigate("/app/log-review", {
-      state: {
-        documentId: row.id,
-      },
-    });
+    if (roleKey === "admin") {
+      navigate(
+        `/app/manage-submissions?mode=prepare&document=${row.id}`
+      );
+      return;
+    }
+
+    navigate(`/app/log-review?document=${row.id}`);
   }
 
   return (
