@@ -17,8 +17,11 @@ import { Panel } from "../components/Panel";
 import { NotificationsView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import {
+  createDistributionRecipient,
+  getDistributionRecipients,
   getIroAdminOverview,
   reassignSubmission,
+  updateDistributionRecipient,
 } from "../services/documentService";
 
 export function IroAdmin({ page, account }) {
@@ -314,16 +317,264 @@ function ReassignSubmissions() {
 }
 
 function DistributionLists() {
+  const emptyForm = {
+    document_type: "MOA",
+    recipient_name: "",
+    recipient_email: "",
+    organization: "",
+    role_scope: "CC",
+    access_level: "View Only",
+    is_active: true,
+  };
+  const [recipients, setRecipients] = React.useState([]);
+  const [filter, setFilter] = React.useState("MOA");
+  const [form, setForm] = React.useState(emptyForm);
+  const [editingId, setEditingId] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [message, setMessage] = React.useState("");
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setRecipients(await getDistributionRecipients());
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load distribution recipients.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  function resetForm() {
+    setForm({ ...emptyForm, document_type: filter });
+    setEditingId("");
+  }
+
+  function editRecipient(recipient) {
+    setEditingId(recipient.id);
+    setForm({
+      document_type: recipient.document_type,
+      recipient_name: recipient.recipient_name,
+      recipient_email: recipient.recipient_email,
+      organization: recipient.organization || "",
+      role_scope: recipient.role_scope,
+      access_level: recipient.access_level,
+      is_active: recipient.is_active,
+    });
+    setMessage("");
+    setError("");
+  }
+
+  async function saveRecipient(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      if (editingId) {
+        await updateDistributionRecipient(editingId, form);
+        setMessage("Distribution recipient updated.");
+      } else {
+        await createDistributionRecipient(form);
+        setMessage("Distribution recipient added.");
+      }
+      resetForm();
+      await refresh();
+    } catch (saveError) {
+      setError(saveError.message || "Unable to save the distribution recipient.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleRecipient(recipient) {
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await updateDistributionRecipient(recipient.id, {
+        document_type: recipient.document_type,
+        recipient_name: recipient.recipient_name,
+        recipient_email: recipient.recipient_email,
+        organization: recipient.organization,
+        role_scope: recipient.role_scope,
+        access_level: recipient.access_level,
+        is_active: !recipient.is_active,
+      });
+      setMessage(
+        `${recipient.recipient_name} was ${recipient.is_active ? "deactivated" : "activated"}.`
+      );
+      await refresh();
+    } catch (actionError) {
+      setError(actionError.message || "Unable to update recipient status.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const visibleRecipients = recipients.filter(
+    (recipient) => recipient.document_type === filter
+  );
+  const summary = [
+    [String(recipients.filter((recipient) => recipient.is_active).length), "Active Recipients", FileCheck2],
+    [String(recipients.filter((recipient) => recipient.document_type === "MOA").length), "MOA Recipients", Folder],
+    [String(recipients.filter((recipient) => recipient.document_type === "MOU").length), "MOU Recipients", ShieldCheck],
+    [String(recipients.filter((recipient) => recipient.document_type === "MOF").length), "MOF Recipients", Gauge, "", "dark"],
+  ];
+
   return (
     <section className="page iro-admin-page">
       <PageTitle
         title="Distribution Lists"
-        subtitle="Recipients configured for MOA, MOU, and MOF distribution."
+        subtitle="Configure recipient groups for MOA, MOU, and MOF document routing."
+        action="New Recipient"
+        onAction={resetForm}
+        actionDisabled={saving}
       />
+      <StatGrid stats={summary} />
+      <Panel title={editingId ? "Edit Distribution Recipient" : "Add Distribution Recipient"}>
+        <form className="distribution-recipient-form" onSubmit={saveRecipient}>
+          <label>
+            Document Type
+            <select
+              value={form.document_type}
+              disabled={saving}
+              onChange={(event) => setForm({ ...form, document_type: event.target.value })}
+            >
+              <option value="MOA">MOA</option>
+              <option value="MOU">MOU</option>
+              <option value="MOF">MOF</option>
+            </select>
+          </label>
+          <label>
+            Recipient Name
+            <input
+              required
+              maxLength={255}
+              value={form.recipient_name}
+              disabled={saving}
+              onChange={(event) => setForm({ ...form, recipient_name: event.target.value })}
+            />
+          </label>
+          <label>
+            Email Address
+            <input
+              required
+              type="email"
+              maxLength={255}
+              value={form.recipient_email}
+              disabled={saving}
+              onChange={(event) => setForm({ ...form, recipient_email: event.target.value })}
+            />
+          </label>
+          <label>
+            Organization
+            <input
+              maxLength={255}
+              value={form.organization}
+              disabled={saving}
+              onChange={(event) => setForm({ ...form, organization: event.target.value })}
+            />
+          </label>
+          <label>
+            Role Scope
+            <select
+              value={form.role_scope}
+              disabled={saving}
+              onChange={(event) => setForm({ ...form, role_scope: event.target.value })}
+            >
+              <option value="Signatory">Signatory</option>
+              <option value="Reviewer">Reviewer</option>
+              <option value="CC">CC</option>
+            </select>
+          </label>
+          <label>
+            Access Level
+            <select
+              value={form.access_level}
+              disabled={saving}
+              onChange={(event) => setForm({ ...form, access_level: event.target.value })}
+            >
+              <option value="Full Access">Full Access</option>
+              <option value="View Only">View Only</option>
+            </select>
+          </label>
+          <div className="distribution-form-actions">
+            <button className="primary" type="submit" disabled={saving}>
+              {saving ? "Saving..." : editingId ? "Save Changes" : "Add Recipient"}
+            </button>
+            {editingId && (
+              <button className="outline" type="button" disabled={saving} onClick={resetForm}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+      </Panel>
       <Panel title="Distribution Recipients">
-        <p className="notification-state">
-          No distribution-list records are configured. The former prototype recipients were removed.
-        </p>
+        <div className="distribution-tabs" role="tablist" aria-label="Distribution document types">
+          {["MOA", "MOU", "MOF"].map((type) => (
+            <button
+              className={filter === type ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={filter === type}
+              key={type}
+              onClick={() => setFilter(type)}
+            >
+              {type} Recipients
+            </button>
+          ))}
+        </div>
+        {message && <p className="workflow-message" role="status">{message}</p>}
+        {error && <p className="workflow-message error" role="alert">{error}</p>}
+        {loading ? (
+          <p className="notification-state">Loading distribution recipients...</p>
+        ) : visibleRecipients.length ? (
+          <div className="submission-table-wrap">
+            <table className="submission-table distribution-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Recipient</th>
+                  <th>Email</th>
+                  <th>Role Scope</th>
+                  <th>Access Level</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRecipients.map((recipient) => (
+                  <tr key={recipient.id}>
+                    <td>{recipient.document_type}</td>
+                    <td>{recipient.recipient_name}</td>
+                    <td>{recipient.recipient_email}</td>
+                    <td><span className={`scope-badge scope-${recipient.role_scope.toLowerCase()}`}>{recipient.role_scope}</span></td>
+                    <td>{recipient.access_level}</td>
+                    <td><span className="badge">{recipient.is_active ? "Active" : "Inactive"}</span></td>
+                    <td className="distribution-row-actions">
+                      <button className="outline" type="button" disabled={saving} onClick={() => editRecipient(recipient)}>
+                        Edit
+                      </button>
+                      <button className="outline" type="button" disabled={saving} onClick={() => toggleRecipient(recipient)}>
+                        {recipient.is_active ? "Deactivate" : "Activate"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="notification-state">No distribution recipients match this filter.</p>
+        )}
       </Panel>
     </section>
   );

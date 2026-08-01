@@ -385,6 +385,38 @@ export async function reassignSubmission(documentId, iroStaffId, reason) {
   return result.data ?? result;
 }
 
+export async function getDistributionRecipients(documentType = "") {
+  const query = documentType
+    ? `?document_type=${encodeURIComponent(documentType)}`
+    : "";
+  const result = await apiRequest(
+    `/iro-admin/distribution-recipients${query}`
+  );
+  return result.data ?? result;
+}
+
+export async function createDistributionRecipient(values) {
+  const result = await apiRequest(
+    "/iro-admin/distribution-recipients",
+    {
+      method: "POST",
+      body: JSON.stringify(values),
+    }
+  );
+  return result.data ?? result;
+}
+
+export async function updateDistributionRecipient(recipientId, values) {
+  const result = await apiRequest(
+    `/iro-admin/distribution-recipients/${recipientId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(values),
+    }
+  );
+  return result.data ?? result;
+}
+
 export async function getLegalCounsels() {
   const result = await apiRequest(
     "/legal-counsels"

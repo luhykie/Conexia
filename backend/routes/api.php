@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\DistributionRecipientController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\IroAdminController;
 use App\Http\Controllers\Api\ProfileController;
@@ -20,6 +21,21 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::patch(
         '/iro-admin/documents/{document}/reassign',
         [IroAdminController::class, 'reassign']
+    )->middleware('role:iro_admin');
+
+    Route::get(
+        '/iro-admin/distribution-recipients',
+        [DistributionRecipientController::class, 'index']
+    )->middleware('role:iro_admin');
+
+    Route::post(
+        '/iro-admin/distribution-recipients',
+        [DistributionRecipientController::class, 'store']
+    )->middleware('role:iro_admin');
+
+    Route::put(
+        '/iro-admin/distribution-recipients/{distributionRecipient}',
+        [DistributionRecipientController::class, 'update']
     )->middleware('role:iro_admin');
 
     Route::get('/documents', [DocumentController::class, 'index'])
