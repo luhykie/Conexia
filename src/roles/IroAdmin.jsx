@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../components/DataTable";
+import IncomingSubmissions from "../components/IncomingSubmissions";
+import LogReviewPage from "../components/LogReviewPage";
 import ManageSubmissions from "../components/ManageSubmissions";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
@@ -19,6 +21,8 @@ import {
 } from "../services/documentService";
 
 export function IroAdmin({ page, account }) {
+  if (page === "incoming") return <IncomingSubmissions roleKey="admin" />;
+  if (page === "log-review") return <LogReviewPage account={account} />;
   if (page === "manage-submissions") return <ManageSubmissions account={account} />;
   if (page === "reassign") return <ReassignSubmissions />;
   if (page === "distribution-lists") return <DistributionLists />;

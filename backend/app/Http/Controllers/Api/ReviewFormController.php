@@ -59,7 +59,10 @@ class ReviewFormController extends Controller
             ]);
             $form->save();
 
-            if (! $document->assigned_iro_staff) {
+            if (
+                $profile->role === 'iro_staff'
+                && ! $document->assigned_iro_staff
+            ) {
                 $document->update([
                     'assigned_iro_staff' => $profile->id,
                     'updated_at' => now(),
@@ -104,11 +107,14 @@ class ReviewFormController extends Controller
             $form->save();
 
             $previousStatus = $lockedDocument->status;
-            $lockedDocument->update([
-                'assigned_iro_staff' => $profile->id,
+            $documentUpdates = [
                 'status' => 'Review Form Submitted',
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($profile->role === 'iro_staff') {
+                $documentUpdates['assigned_iro_staff'] = $profile->id;
+            }
+            $lockedDocument->update($documentUpdates);
             $this->recordEvent($request, $lockedDocument, 'review_form_submitted', $previousStatus, 'Review Form Submitted');
             $this->notifications->documentLogged($lockedDocument, $profile);
 

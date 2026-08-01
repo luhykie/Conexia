@@ -330,11 +330,15 @@ class DocumentController extends Controller
             $isRevision = $revisionEvent
                 && (! $lastCheck || $revisionEvent->created_at->gt($lastCheck->created_at));
 
-            $document->update([
-                'assigned_iro_staff' => $this->profile($request)->id,
+            $profile = $this->profile($request);
+            $updates = [
                 'status' => 'Logged',
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($profile->role === 'iro_staff') {
+                $updates['assigned_iro_staff'] = $profile->id;
+            }
+            $document->update($updates);
 
             if ($isRevision) {
                 $version = DocumentFile::query()
@@ -504,11 +508,14 @@ class DocumentController extends Controller
         DB::transaction(function () use ($request, $document, $version): void {
             $previousStatus = $document->status;
             $staff = $this->profile($request);
-            $document->update([
-                'assigned_iro_staff' => $staff->id,
+            $updates = [
                 'status' => 'Logged',
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($staff->role === 'iro_staff') {
+                $updates['assigned_iro_staff'] = $staff->id;
+            }
+            $document->update($updates);
 
             $this->recordWorkflowEvent(
                 $request,

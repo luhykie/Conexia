@@ -381,6 +381,68 @@ class ReviewFormWorkflowTest extends TestCase
         );
     }
 
+    public function test_admin_staff_actions_do_not_assign_admin_as_iro_staff(): void
+    {
+        $departmentId = (string) Str::uuid();
+        $submitterId = (string) Str::uuid();
+        $staffId = (string) Str::uuid();
+        $adminId = (string) Str::uuid();
+
+        DB::table('departments')->insert([
+            'id' => $departmentId,
+            'name' => 'International Partnerships',
+        ]);
+        DB::table('profiles')->insert([
+            ['id' => $submitterId, 'role' => 'department_staff', 'email' => 'department@example.test', 'is_active' => true],
+            ['id' => $staffId, 'role' => 'iro_staff', 'email' => 'staff@example.test', 'is_active' => true],
+            ['id' => $adminId, 'role' => 'iro_admin', 'email' => 'admin@example.test', 'is_active' => true],
+        ]);
+
+        $unassigned = Document::create([
+            'tracking_number' => 'CONEXIA-ADMIN-LOG-001',
+            'title' => 'Admin Logged Agreement',
+            'document_type' => 'MOA',
+            'partner_institution' => 'Partner A',
+            'department_id' => $departmentId,
+            'submitted_by' => $submitterId,
+            'status' => 'Submitted',
+            'submitted_at' => now(),
+            'updated_at' => now(),
+        ]);
+        app(DocumentController::class)->log(
+            $this->request([], $adminId, 'iro_admin'),
+            $unassigned
+        );
+        $this->assertNull($unassigned->fresh()->assigned_iro_staff);
+
+        $assigned = Document::create([
+            'tracking_number' => 'CONEXIA-ADMIN-REVIEW-001',
+            'title' => 'Admin Prepared Review',
+            'document_type' => 'MOU',
+            'partner_institution' => 'Partner B',
+            'department_id' => $departmentId,
+            'submitted_by' => $submitterId,
+            'assigned_iro_staff' => $staffId,
+            'status' => 'Logged',
+            'submitted_at' => now(),
+            'updated_at' => now(),
+        ]);
+        app(ReviewFormController::class)->submit(
+            $this->request([
+                'checklist_answers' => [
+                    'signatures' => true,
+                    'terms' => true,
+                    'attachments' => true,
+                    'gdpr' => true,
+                ],
+                'staff_remarks' => 'Completed by IRO Admin.',
+            ], $adminId, 'iro_admin'),
+            $assigned
+        );
+        $this->assertSame($staffId, $assigned->fresh()->assigned_iro_staff);
+        $this->assertSame('Review Form Submitted', $assigned->fresh()->status);
+    }
+
     public function test_assigned_legal_counsel_can_store_a_notarized_pdf(): void
     {
         Storage::fake('local');

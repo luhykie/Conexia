@@ -99,6 +99,8 @@ export const navItems = {
 
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],
+    ["incoming", "Incoming Submissions", Folder],
+    ["log-review", "Log & Review Form", FileCheck2],
     ["manage-submissions", "Review & Validate", ClipboardCheck],
     ["reassign", "Reassign Submissions", RefreshCw],
     ["distribution-lists", "Distribution Lists", Users],
