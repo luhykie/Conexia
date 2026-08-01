@@ -57,6 +57,19 @@ class DocumentController extends Controller
             ->limit(5)
             ->get();
 
+        $assignedQueue = Document::query()
+            ->with($this->documentRelationships())
+            ->where('assigned_iro_staff', $profile->id)
+            ->whereNotIn('status', [
+                'Approved',
+                'Notarized',
+                'Ready for Distribution',
+                'Distribution Complete',
+                'Archived',
+            ])
+            ->orderByDesc('updated_at')
+            ->get();
+
         $activities = WorkflowEvent::query()
             ->with('document:id,tracking_number,partner_institution')
             ->whereHas('document', function ($query) use ($profile): void {
@@ -108,6 +121,7 @@ class DocumentController extends Controller
                         ->count(),
                 ],
                 'queue' => $queue,
+                'assignedQueue' => $assignedQueue,
                 'activities' => $activities,
             ],
         ]);
@@ -294,6 +308,8 @@ class DocumentController extends Controller
      */
     public function log(Request $request, Document $document): JsonResponse
     {
+        $this->ensureCanProcessAsIro($request, $document);
+
         if ($document->status !== 'Submitted') {
             return response()->json([
                 'message' =>
@@ -464,6 +480,8 @@ class DocumentController extends Controller
         Request $request,
         Document $document
     ): JsonResponse {
+        $this->ensureCanProcessAsIro($request, $document);
+
         if ($document->status !== 'Submitted') {
             return response()->json([
                 'message' => 'Only resubmitted revisions can be checked.',
@@ -715,6 +733,119 @@ class DocumentController extends Controller
     }
 
     /**
+     * Return approved and notarized records assigned to Legal Counsel.
+     */
+    public function notarizationQueue(Request $request): JsonResponse
+    {
+        $profile = $this->profile($request);
+
+        $documents = Document::query()
+            ->with($this->documentRelationships())
+            ->where('assigned_legal_counsel', $profile->id)
+            ->whereIn('status', ['Approved', 'Notarized'])
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return response()->json(['data' => $documents]);
+    }
+
+    /**
+     * Store the final notarized PDF in private storage and record its metadata.
+     */
+    public function recordNotarization(
+        Request $request,
+        Document $document
+    ): JsonResponse {
+        $profile = $this->profile($request);
+
+        if (
+            $profile->role === 'legal_counsel'
+            && $document->assigned_legal_counsel !== $profile->id
+        ) {
+            abort(404);
+        }
+
+        if ($document->status !== 'Approved') {
+            return response()->json([
+                'message' => 'Only approved documents can be notarized.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'max:25600', 'mimes:pdf'],
+            'notarial_reference_number' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'notarization_date' => ['required', 'date', 'before_or_equal:today'],
+            'notary_signature_code' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $file = $validated['file'];
+        $path = $file->store("documents/{$document->id}/notarized", 'local');
+
+        try {
+            $fileRecord = DB::transaction(function () use (
+                $request,
+                $document,
+                $profile,
+                $validated,
+                $file,
+                $path
+            ): DocumentFile {
+                $version = (int) (DocumentFile::query()
+                    ->where('document_id', $document->id)
+                    ->max('version') ?? 0) + 1;
+
+                $fileRecord = DocumentFile::create([
+                    'document_id' => $document->id,
+                    'uploaded_by' => $profile->id,
+                    'file_category' => 'notarized_copy',
+                    'original_filename' => $file->getClientOriginalName(),
+                    'stored_filename' => basename($path),
+                    'storage_disk' => 'local',
+                    'storage_path' => $path,
+                    'mime_type' => $file->getMimeType(),
+                    'size' => $file->getSize(),
+                    'version' => $version,
+                ]);
+
+                $document->update([
+                    'status' => 'Notarized',
+                    'notarial_reference_number' =>
+                        $validated['notarial_reference_number'],
+                    'notarization_date' => $validated['notarization_date'],
+                    'notary_signature_code' =>
+                        $validated['notary_signature_code'] ?? null,
+                    'updated_at' => now(),
+                ]);
+
+                $this->recordWorkflowEvent(
+                    $request,
+                    $document,
+                    'document_notarized',
+                    'Approved',
+                    'Notarized',
+                    "Notarial reference: {$validated['notarial_reference_number']}"
+                );
+                $this->notifications->documentNotarized($document);
+
+                return $fileRecord;
+            });
+        } catch (\Throwable $error) {
+            Storage::disk('local')->delete($path);
+            throw $error;
+        }
+
+        return response()->json([
+            'message' => 'Notarized copy recorded successfully.',
+            'data' => $document->fresh()->load($this->documentRelationships()),
+            'file' => $fileRecord,
+        ], 201);
+    }
+
+    /**
      * GET /api/departments/{departmentId}/documents
      * Return documents owned by one department.
      */
@@ -793,6 +924,21 @@ class DocumentController extends Controller
         };
 
         if (! $allowed) {
+            abort(404);
+        }
+    }
+
+    private function ensureCanProcessAsIro(
+        Request $request,
+        Document $document
+    ): void {
+        $profile = $this->profile($request);
+
+        if (
+            $profile->role === 'iro_staff'
+            && $document->assigned_iro_staff
+            && $document->assigned_iro_staff !== $profile->id
+        ) {
             abort(404);
         }
     }

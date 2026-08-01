@@ -53,6 +53,7 @@ function IroStaffDashboard({ account }) {
   const [dashboard, setDashboard] = useState({
     stats: {},
     queue: [],
+    assignedQueue: [],
     activities: [],
   });
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,9 @@ function IroStaffDashboard({ account }) {
       setDashboard({
         stats: data?.stats ?? {},
         queue: Array.isArray(data?.queue) ? data.queue : [],
+        assignedQueue: Array.isArray(data?.assignedQueue)
+          ? data.assignedQueue
+          : [],
         activities: Array.isArray(data?.activities)
           ? data.activities
           : [],
@@ -151,6 +155,47 @@ function IroStaffDashboard({ account }) {
         />
         <WorkflowActivity activities={dashboard.activities} />
       </div>
+
+      <Panel title="My Assigned Submissions">
+        {dashboard.assignedQueue.length === 0 ? (
+          <p className="notification-state">No active submissions are assigned to you.</p>
+        ) : (
+          <div className="submission-table-wrap">
+            <table className="submission-table">
+              <thead>
+                <tr>
+                  <th>Tracking #</th>
+                  <th>Partner</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboard.assignedQueue.map((document) => (
+                  <tr key={document.id}>
+                    <td>{document.tracking_number}</td>
+                    <td>{document.partner_institution}</td>
+                    <td>{document.document_type}</td>
+                    <td><span className="badge">{document.status}</span></td>
+                    <td>
+                      <button
+                        className="outline"
+                        type="button"
+                        onClick={() =>
+                          navigate(`/app/log-review?document=${document.id}`)
+                        }
+                      >
+                        Open Assignment
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </section>
   );
 }

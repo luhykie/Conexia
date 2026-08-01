@@ -126,24 +126,31 @@ function IroAdminDashboard() {
 function ReassignSubmissions() {
   const { data, loading, error, refresh } = useAdminOverview();
   const [selections, setSelections] = React.useState({});
+  const [reasons, setReasons] = React.useState({});
   const [busyId, setBusyId] = React.useState("");
   const [message, setMessage] = React.useState("");
 
   async function handleReassign(document) {
     const staffId = selections[document.id];
+    const reason = reasons[document.id]?.trim();
     if (!staffId) {
       setMessage("Select a new IRO Staff member.");
+      return;
+    }
+    if (!reason) {
+      setMessage("Enter a reason for the reassignment.");
       return;
     }
 
     setBusyId(document.id);
     setMessage("");
     try {
-      await reassignSubmission(document.id, staffId);
+      await reassignSubmission(document.id, staffId, reason);
       setSelections((current) => ({
         ...current,
         [document.id]: "",
       }));
+      setReasons((current) => ({ ...current, [document.id]: "" }));
       setMessage(
         `${document.tracking_number} was reassigned successfully.`
       );
@@ -183,6 +190,7 @@ function ReassignSubmissions() {
                     <th>Current Assignee</th>
                     <th>Status</th>
                     <th>New Assignee</th>
+                    <th>Reason</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -231,12 +239,28 @@ function ReassignSubmissions() {
                           </select>
                         </td>
                         <td>
+                          <textarea
+                            aria-label={`Reassignment reason for ${document.tracking_number}`}
+                            placeholder="Reason for reassignment"
+                            maxLength={2000}
+                            value={reasons[document.id] || ""}
+                            disabled={busyId === document.id}
+                            onChange={(event) =>
+                              setReasons((current) => ({
+                                ...current,
+                                [document.id]: event.target.value,
+                              }))
+                            }
+                          />
+                        </td>
+                        <td>
                           <button
                             className="primary"
                             type="button"
                             disabled={
                               busyId === document.id ||
                               !selections[document.id] ||
+                              !reasons[document.id]?.trim() ||
                               eligibleStaff.length === 0
                             }
                             onClick={() => handleReassign(document)}

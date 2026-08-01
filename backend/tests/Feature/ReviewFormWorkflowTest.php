@@ -10,9 +10,12 @@ use App\Models\ReviewForm;
 use App\Services\NotificationService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tests\TestCase;
 
 class ReviewFormWorkflowTest extends TestCase
@@ -47,6 +50,9 @@ class ReviewFormWorkflowTest extends TestCase
             $table->uuid('assigned_legal_counsel')->nullable();
             $table->string('status');
             $table->text('legal_notes')->nullable();
+            $table->string('notarial_reference_number')->nullable();
+            $table->date('notarization_date')->nullable();
+            $table->string('notary_signature_code')->nullable();
             $table->timestamp('submitted_at');
             $table->timestamp('updated_at');
         });
@@ -285,7 +291,10 @@ class ReviewFormWorkflowTest extends TestCase
 
         $response = $controller->reassign(
             $this->request(
-                ['iro_staff_id' => $newStaffId],
+                [
+                    'iro_staff_id' => $newStaffId,
+                    'reason' => 'Balance the active review workload.',
+                ],
                 $adminId,
                 'iro_admin'
             ),
@@ -301,6 +310,7 @@ class ReviewFormWorkflowTest extends TestCase
             'document_id' => $document->id,
             'actor_id' => $adminId,
             'event_type' => 'submission_reassigned',
+            'notes' => 'IRO Staff assignment changed from Previous Staff to New Staff. Reason: Balance the active review workload.',
         ]);
         $this->assertDatabaseHas('notifications', [
             'document_id' => $document->id,
@@ -315,13 +325,143 @@ class ReviewFormWorkflowTest extends TestCase
 
         $sameStaffResponse = $controller->reassign(
             $this->request(
-                ['iro_staff_id' => $newStaffId],
+                [
+                    'iro_staff_id' => $newStaffId,
+                    'reason' => 'Balance the active review workload.',
+                ],
                 $adminId,
                 'iro_admin'
             ),
             $document->fresh()
         );
         $this->assertSame(422, $sameStaffResponse->getStatusCode());
+    }
+
+    public function test_previous_assignee_cannot_process_a_reassigned_submission(): void
+    {
+        $departmentId = (string) Str::uuid();
+        $submitterId = (string) Str::uuid();
+        $previousStaffId = (string) Str::uuid();
+        $newStaffId = (string) Str::uuid();
+
+        DB::table('departments')->insert([
+            'id' => $departmentId,
+            'name' => 'External Relations',
+        ]);
+        DB::table('profiles')->insert([
+            ['id' => $submitterId, 'role' => 'department_staff', 'email' => 'department@example.test', 'is_active' => true],
+            ['id' => $previousStaffId, 'role' => 'iro_staff', 'email' => 'previous@example.test', 'is_active' => true],
+            ['id' => $newStaffId, 'role' => 'iro_staff', 'email' => 'new@example.test', 'is_active' => true],
+        ]);
+        $document = Document::create([
+            'tracking_number' => 'CONEXIA-OWNERSHIP-001',
+            'title' => 'Reassigned Submission',
+            'document_type' => 'MOF',
+            'partner_institution' => 'Partner Office',
+            'department_id' => $departmentId,
+            'submitted_by' => $submitterId,
+            'assigned_iro_staff' => $newStaffId,
+            'status' => 'Submitted',
+            'submitted_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $controller = app(DocumentController::class);
+        $dashboard = $controller->iroStaffDashboard(
+            $this->request([], $newStaffId, 'iro_staff')
+        );
+        $assigned = json_decode($dashboard->getContent(), true)['data']['assignedQueue'];
+        $this->assertCount(1, $assigned);
+        $this->assertSame($document->id, $assigned[0]['id']);
+
+        $this->expectException(NotFoundHttpException::class);
+        $controller->log(
+            $this->request([], $previousStaffId, 'iro_staff'),
+            $document
+        );
+    }
+
+    public function test_assigned_legal_counsel_can_store_a_notarized_pdf(): void
+    {
+        Storage::fake('local');
+        $departmentId = (string) Str::uuid();
+        $submitterId = (string) Str::uuid();
+        $staffId = (string) Str::uuid();
+        $adminId = (string) Str::uuid();
+        $legalId = (string) Str::uuid();
+
+        DB::table('departments')->insert([
+            'id' => $departmentId,
+            'name' => 'International Office',
+        ]);
+        DB::table('profiles')->insert([
+            ['id' => $submitterId, 'role' => 'department_staff', 'email' => 'department@example.test', 'is_active' => true],
+            ['id' => $staffId, 'role' => 'iro_staff', 'email' => 'staff@example.test', 'is_active' => true],
+            ['id' => $adminId, 'role' => 'iro_admin', 'email' => 'admin@example.test', 'is_active' => true],
+            ['id' => $legalId, 'role' => 'legal_counsel', 'email' => 'legal@example.test', 'is_active' => true],
+        ]);
+
+        $document = Document::create([
+            'tracking_number' => 'CONEXIA-NOTARY-001',
+            'title' => 'Approved Agreement',
+            'document_type' => 'MOA',
+            'partner_institution' => 'Partner University',
+            'department_id' => $departmentId,
+            'submitted_by' => $submitterId,
+            'assigned_iro_staff' => $staffId,
+            'assigned_legal_counsel' => $legalId,
+            'status' => 'Approved',
+            'submitted_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = Request::create(
+            '/',
+            'POST',
+            [
+                'notarial_reference_number' => 'NOT-2026-001',
+                'notarization_date' => now()->toDateString(),
+                'notary_signature_code' => 'SIG-001',
+            ],
+            [],
+            [
+                'file' => UploadedFile::fake()->create(
+                    'notarized-agreement.pdf',
+                    250,
+                    'application/pdf'
+                ),
+            ]
+        );
+        $request->attributes->set('auth_profile', (object) [
+            'id' => $legalId,
+            'role' => 'legal_counsel',
+            'department_id' => null,
+            'email' => 'legal@example.test',
+        ]);
+
+        $response = app(DocumentController::class)
+            ->recordNotarization($request, $document);
+
+        $this->assertSame(201, $response->getStatusCode());
+        $this->assertSame('Notarized', $document->fresh()->status);
+        $this->assertSame(
+            'NOT-2026-001',
+            $document->fresh()->notarial_reference_number
+        );
+        $fileRecord = DB::table('document_files')->first();
+        $this->assertSame('notarized_copy', $fileRecord->file_category);
+        Storage::disk('local')->assertExists($fileRecord->storage_path);
+        $this->assertDatabaseHas('workflow_events', [
+            'document_id' => $document->id,
+            'event_type' => 'document_notarized',
+            'from_status' => 'Approved',
+            'to_status' => 'Notarized',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'document_id' => $document->id,
+            'user_id' => $adminId,
+            'type' => 'document_notarized',
+        ]);
     }
 
     private function request(array $payload, string $profileId, string $role): Request

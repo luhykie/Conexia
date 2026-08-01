@@ -98,7 +98,8 @@ class NotificationService
     public function submissionReassigned(
         Document $document,
         Profile $previousStaff,
-        Profile $newStaff
+        Profile $newStaff,
+        string $reason
     ): void {
         $previousName = $previousStaff->full_name ?: $previousStaff->email;
         $newName = $newStaff->full_name ?: $newStaff->email;
@@ -111,8 +112,27 @@ class NotificationService
             $document,
             'submission_reassigned',
             'Submission Reassigned',
-            "{$document->tracking_number} was reassigned from {$previousName} to {$newName}.",
+            "{$document->tracking_number} was reassigned from {$previousName} to {$newName}. Reason: {$reason}",
             "reassignment-{$sequence}"
+        );
+    }
+
+    public function documentNotarized(Document $document): void
+    {
+        $recipients = $this->activeProfiles(['iro_admin'])
+            ->merge($this->profilesByIds([
+                $document->assigned_iro_staff,
+                $document->assigned_legal_counsel,
+                $document->submitted_by,
+            ]));
+
+        $this->notify(
+            $recipients,
+            $document,
+            'document_notarized',
+            'Document Notarized',
+            "{$document->tracking_number} was notarized under reference {$document->notarial_reference_number}.",
+            'notarized'
         );
     }
 

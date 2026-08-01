@@ -93,6 +93,11 @@ class IroAdminController extends Controller
                     ->where('role', 'iro_staff')
                     ->where('is_active', true),
             ],
+            'reason' => [
+                'required',
+                'string',
+                'max:2000',
+            ],
         ]);
 
         if (! $document->assigned_iro_staff) {
@@ -146,9 +151,10 @@ class IroAdminController extends Controller
                 'from_status' => $lockedDocument->status,
                 'to_status' => $lockedDocument->status,
                 'notes' => sprintf(
-                    'IRO Staff assignment changed from %s to %s.',
+                    'IRO Staff assignment changed from %s to %s. Reason: %s',
                     $previousStaff->full_name ?: $previousStaff->email,
-                    $newStaff->full_name ?: $newStaff->email
+                    $newStaff->full_name ?: $newStaff->email,
+                    $validated['reason']
                 ),
                 'created_at' => now(),
             ]);
@@ -156,7 +162,8 @@ class IroAdminController extends Controller
             $this->notifications->submissionReassigned(
                 $lockedDocument,
                 $previousStaff,
-                $newStaff
+                $newStaff,
+                $validated['reason']
             );
 
             return $lockedDocument;

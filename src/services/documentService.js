@@ -366,16 +366,19 @@ export async function getIroAdminOverview() {
   return result.data ?? result;
 }
 
-export async function reassignSubmission(documentId, iroStaffId) {
-  if (!documentId || !iroStaffId) {
-    throw new Error("Document and IRO Staff member are required.");
+export async function reassignSubmission(documentId, iroStaffId, reason) {
+  if (!documentId || !iroStaffId || !reason?.trim()) {
+    throw new Error("Document, IRO Staff member, and reason are required.");
   }
 
   const result = await apiRequest(
     `/iro-admin/documents/${documentId}/reassign`,
     {
       method: "PATCH",
-      body: JSON.stringify({ iro_staff_id: iroStaffId }),
+      body: JSON.stringify({
+        iro_staff_id: iroStaffId,
+        reason: reason.trim(),
+      }),
     }
   );
   announceWorkflowChange();
@@ -471,5 +474,38 @@ export async function requestCorrections(
   );
   announceWorkflowChange();
 
+  return result.data ?? result;
+}
+
+export async function getNotarizationQueue() {
+  const result = await apiRequest(
+    "/legal-counsel/notarization-queue"
+  );
+  return result.data ?? result;
+}
+
+export async function recordNotarization(documentId, values) {
+  if (!documentId) throw new Error("Document ID is required.");
+  if (!values?.file) throw new Error("A notarized PDF is required.");
+
+  const formData = new FormData();
+  formData.append("file", values.file);
+  formData.append(
+    "notarial_reference_number",
+    values.notarialReferenceNumber.trim()
+  );
+  formData.append("notarization_date", values.notarizationDate);
+  if (values.notarySignatureCode?.trim()) {
+    formData.append(
+      "notary_signature_code",
+      values.notarySignatureCode.trim()
+    );
+  }
+
+  const result = await apiRequest(
+    `/documents/${documentId}/notarization`,
+    { method: "POST", body: formData }
+  );
+  announceWorkflowChange();
   return result.data ?? result;
 }

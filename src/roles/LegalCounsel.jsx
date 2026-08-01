@@ -22,6 +22,8 @@ import { StatGrid } from "../components/StatGrid";
 import {
   approveDocument,
   getLegalReviewQueue,
+  getNotarizationQueue,
+  recordNotarization,
   requestCorrections,
 } from "../services/documentService";
 
@@ -488,6 +490,84 @@ function ValidatedReviewForm({ form }) {
 
 // Records and verifies notarization events.
 function NotarizationTracker() {
+  const [documents, setDocuments] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [notarizationDate, setNotarizationDate] = useState("");
+  const [signatureCode, setSignatureCode] = useState("");
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  async function loadQueue() {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getNotarizationQueue();
+      const queue = Array.isArray(data) ? data : [];
+      setDocuments(queue);
+      setSelectedId((current) =>
+        queue.some((document) => document.id === current)
+          ? current
+          : queue.find((document) => document.status === "Approved")?.id || ""
+      );
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load the notarization queue.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadQueue();
+  }, []);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!selectedId || !referenceNumber.trim() || !notarizationDate || !file) {
+      setError("Select an approved document and complete all required fields.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage("");
+    setError("");
+    try {
+      await recordNotarization(selectedId, {
+        file,
+        notarialReferenceNumber: referenceNumber,
+        notarizationDate,
+        notarySignatureCode: signatureCode,
+      });
+      setMessage("The notarized copy was securely recorded.");
+      setReferenceNumber("");
+      setNotarizationDate("");
+      setSignatureCode("");
+      setFile(null);
+      form.reset();
+      await loadQueue();
+    } catch (submitError) {
+      setError(submitError.message || "Unable to record notarization.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const pending = documents.filter((document) => document.status === "Approved");
+  const completed = documents.filter((document) => document.status === "Notarized");
+  const rows = documents.map((document) => [
+    document.tracking_number,
+    document.partner_institution,
+    document.status,
+    document.notarization_date
+      ? new Date(document.notarization_date).toLocaleDateString()
+      : new Date(document.updated_at || document.submitted_at).toLocaleString(),
+    document.notarial_reference_number || (document.status === "Approved" ? "Ready to record" : "—"),
+  ]);
+
   return (
     <section className="page legal-page">
       <PageTitle
@@ -497,91 +577,68 @@ function NotarizationTracker() {
 
       <StatGrid
         stats={[
-          ["42", "Total Queue", Gavel],
-          [
-            "18",
-            "Pending Approval",
-            CalendarClock,
-            "",
-            "blue",
-          ],
-          [
-            "124",
-            "Completed (MTD)",
-            CheckCircle2,
-          ],
+          [String(documents.length), "Total Queue", Gavel],
+          [String(pending.length), "Pending Notarization", CalendarClock, "", "blue"],
+          [String(completed.length), "Completed", CheckCircle2],
         ]}
       />
 
+      {error && <p className="error-message" role="alert">{error}</p>}
+      {message && <p className="review-status legal-message" role="status">{message}</p>}
+
       <div className="two-col">
         <Panel title="Document Tracking Queue">
-          <DataTable
-            headers={[
-              "Document ID",
-              "Entity / Client",
-              "Status",
-              "Last Activity",
-              "Action",
-            ]}
-            rows={[
-              [
-                "#DOC-2024-881",
-                "Sterling-Cooper Ltd.",
-                "Pending Notarization",
-                "2h ago",
-                "Record",
-              ],
-              [
-                "#DOC-2024-879",
-                "Arasaka Corp.",
-                "Notarized",
-                "Yesterday",
-                "View",
-              ],
-              [
-                "#DOC-2024-875",
-                "Weyland-Yutani",
-                "Pending Notarization",
-                "3 days ago",
-                "Record",
-              ],
-              [
-                "#DOC-2024-870",
-                "Massive Dynamic",
-                "Notarized",
-                "1 week ago",
-                "View",
-              ],
-            ]}
-          />
+          {loading ? (
+            <p>Loading notarization records...</p>
+          ) : rows.length ? (
+            <DataTable
+              headers={["Document ID", "Entity / Client", "Status", "Last Activity", "Reference"]}
+              rows={rows}
+            />
+          ) : (
+            <p className="empty-state">No approved or notarized documents are assigned to you.</p>
+          )}
         </Panel>
 
-        <aside className="form-card">
+        <form className="form-card" onSubmit={handleSubmit}>
           <h2>Record Notarization</h2>
 
-          {[
-            "Selected Document ID",
-            "Notarial Reference Number",
-            "Date of Notarization",
-            "Notary Public Signature Code",
-          ].map((field) => (
-            <label key={field}>
-              {field}
+          <label>
+            Approved Document
+            <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={submitting} required>
+              <option value="">Select an approved document</option>
+              {pending.map((document) => (
+                <option key={document.id} value={document.id}>
+                  {document.tracking_number} — {document.partner_institution}
+                </option>
+              ))}
+            </select>
+          </label>
 
-              <input
-                placeholder={
-                  field === "Selected Document ID"
-                    ? "#DOC-2024-881"
-                    : field
-                }
-              />
-            </label>
-          ))}
+          <label>
+            Notarial Reference Number
+            <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} maxLength={255} disabled={submitting} required />
+          </label>
 
-          <button type="button">
-            Submit for Verification
+          <label>
+            Date of Notarization
+            <input type="date" value={notarizationDate} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setNotarizationDate(event.target.value)} disabled={submitting} required />
+          </label>
+
+          <label>
+            Notary Public Signature Code
+            <input value={signatureCode} onChange={(event) => setSignatureCode(event.target.value)} maxLength={255} disabled={submitting} />
+          </label>
+
+          <label>
+            Notarized PDF
+            <input type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} disabled={submitting} required />
+          </label>
+
+          <button type="submit" disabled={submitting || pending.length === 0}>
+            {submitting ? "Recording..." : "Record Notarization"}
           </button>
-        </aside>
+        </form>
       </div>
     </section>
   );

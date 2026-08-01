@@ -112,6 +112,16 @@ Route::middleware('supabase.auth')->group(function (): void {
     )->middleware('role:legal_counsel');
 
     Route::get(
+        '/legal-counsel/notarization-queue',
+        [DocumentController::class, 'notarizationQueue']
+    )->middleware('role:legal_counsel');
+
+    Route::post(
+        '/documents/{document}/notarization',
+        [DocumentController::class, 'recordNotarization']
+    )->middleware('role:legal_counsel,iro_admin');
+
+    Route::get(
         '/departments/{departmentId}/documents',
         [DocumentController::class, 'departmentDocuments']
     )->middleware('role:department_staff,iro_staff,iro_admin,super_admin');
