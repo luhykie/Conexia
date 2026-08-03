@@ -6,18 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\DocumentFile;
 use App\Models\WorkflowEvent;
+use App\Services\SignedDocumentSummaryService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
     public function __construct(
-        private readonly NotificationService $notifications
+        private readonly NotificationService $notifications,
+        private readonly ?SignedDocumentSummaryService $summaryService = null
     ) {
     }
     /**
@@ -279,6 +282,13 @@ class DocumentController extends Controller
         Document $document,
         DocumentFile $documentFile
     ): StreamedResponse {
+        // IRO Staff may see and log incoming submission records, but the
+        // submitted agreement itself is restricted to authorized content
+        // viewers. Return 404 so file metadata cannot be used to probe it.
+        if ($this->profile($request)->role === 'iro_staff') {
+            abort(404);
+        }
+
         $this->ensureCanView($request, $document);
 
         if ($documentFile->document_id !== $document->id) {
@@ -387,7 +397,9 @@ class DocumentController extends Controller
     {
         $documents = Document::query()
             ->with($this->documentRelationships())
+            ->whereNotNull('assigned_iro_staff')
             ->whereIn('status', [
+                'Logged',
                 'Review Form Submitted',
                 'Admin Validated',
             ])
@@ -829,6 +841,18 @@ class DocumentController extends Controller
                         $validated['notary_signature_code'] ?? null,
                     'updated_at' => now(),
                 ]);
+
+                if (Schema::hasColumn('documents', 'signed_document_summary')) {
+                    $document->refresh()->load('department');
+                    $document->update([
+                        'signed_document_summary' => ($this->summaryService
+                            ?? app(SignedDocumentSummaryService::class))->extract(
+                            $document,
+                            Storage::disk('local')->path($path)
+                        ),
+                        'summary_extracted_at' => now(),
+                    ]);
+                }
 
                 $this->recordWorkflowEvent(
                     $request,
