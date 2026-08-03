@@ -41,7 +41,7 @@ class IroAdminController extends Controller
             'data' => [
                 'stats' => [
                     'totalSubmissions' => $documents->count(),
-                    'pendingValidation' => $documents->where('status', 'Review Form Submitted')->count(),
+                    'pendingValidation' => $documents->whereIn('status', ['Logged', 'Review Form Submitted'])->count(),
                     'averageTurnaroundHours' => $this->averageTurnaroundHours($documents),
                     'notarizedThisMonth' => $documents->filter(
                         fn (Document $document): bool =>
@@ -72,6 +72,9 @@ class IroAdminController extends Controller
                 'reports' => $this->reportData($documents, $events),
                 'archivedDocuments' => $documents
                     ->filter(fn (Document $document): bool => $document->archived_at !== null)
+                    ->values(),
+                'readyToArchive' => $documents
+                    ->where('status', 'Distribution Complete')
                     ->values(),
                 'expiringDocuments' => $documents
                     ->filter(fn (Document $document): bool => $document->expiry_date !== null)
@@ -174,6 +177,40 @@ class IroAdminController extends Controller
             'data' => $updatedDocument->fresh(
                 'assignedIroStaffProfile:id,full_name,email,role'
             ),
+        ]);
+    }
+
+    public function archive(Request $request, Document $document): JsonResponse
+    {
+        if ($document->status !== 'Distribution Complete') {
+            return response()->json([
+                'message' => 'Only records with completed distribution can be archived.',
+            ], 422);
+        }
+
+        $profile = $request->attributes->get('auth_profile');
+        DB::transaction(function () use ($document, $profile): void {
+            $document->update([
+                'status' => 'Archived',
+                'archived_at' => now(),
+                'archived_by' => $profile->id,
+                'updated_at' => now(),
+            ]);
+            WorkflowEvent::create([
+                'document_id' => $document->id,
+                'actor_id' => $profile->id,
+                'actor_role' => $profile->role,
+                'event_type' => 'document_archived',
+                'from_status' => 'Distribution Complete',
+                'to_status' => 'Archived',
+                'notes' => 'Distribution was completed before archival.',
+                'created_at' => now(),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Record archived successfully.',
+            'data' => $document->fresh(),
         ]);
     }
 
