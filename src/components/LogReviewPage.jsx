@@ -5,6 +5,7 @@ import {
   getDocumentById,
   getReviewForm,
   getIroStaffDashboard,
+  logDocument,
   saveReviewForm,
   submitReviewForm,
 } from "../services/documentService";
@@ -28,6 +29,7 @@ export function LogReviewPage({ account }) {
   const documentId =
     searchParams.get("document") || location.state?.documentId;
   const filterStatus = location.state?.filterStatus || null;
+  const isStaff = account?.roleKey === "staff";
 
   const checklistItems = [
     { key: "signatures", label: "Signatures Present" },
@@ -74,6 +76,8 @@ export function LogReviewPage({ account }) {
     try {
       const data = await getDocumentById(documentId);
       setDocument(data);
+      if (isStaff) return;
+
       const form = data.review_form || await getReviewForm(documentId);
       if (form) {
         setChecklist((current) => ({
@@ -89,6 +93,26 @@ export function LogReviewPage({ account }) {
     } catch (error) {
       console.error("Unable to load selected document:", error);
       setStatusMessage("Unable to load the selected document.");
+    }
+  }
+
+  async function handleLogSubmission() {
+    if (!documentId) {
+      setStatusMessage("Select an incoming submission before logging it.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage("Logging submission...");
+    try {
+      await logDocument(documentId);
+      setStatusMessage("Submission logged successfully.");
+      await loadDashboardStats();
+      setTimeout(() => navigate("/app/status"), 800);
+    } catch (error) {
+      setStatusMessage(error?.message || "Unable to log the submission.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -211,7 +235,7 @@ async function handleSubmitToAdmin() {
 
   return (
     <section className="page iro-staff-page log-review-page">
-      <LogReviewHeader />
+      <LogReviewHeader staffOnly={isStaff} />
 
       <DashboardStats
         stats={stats}
@@ -228,12 +252,29 @@ async function handleSubmitToAdmin() {
         </div>
       )}
 
-      <div className="two-col">
+      <div className={isStaff ? "log-submission-layout" : "two-col"}>
         <div>
-          <DocumentPreview document={document} />
+          <DocumentPreview
+            document={document}
+            canViewContent={!isStaff}
+          />
+
+          {isStaff && document && (
+            <div className="panel log-submission-actions">
+              <button
+                className="btn primary large"
+                type="button"
+                disabled={isSubmitting || document.status !== "Submitted"}
+                onClick={handleLogSubmission}
+              >
+                {isSubmitting ? "Logging..." : "Log Submission"}
+              </button>
+              {statusMessage && <p className="review-status">{statusMessage}</p>}
+            </div>
+          )}
         </div>
 
-        <aside className="review-sidebar dark-card admin-review">
+        {!isStaff && <aside className="review-sidebar dark-card admin-review">
           <h2>IRO Review Form</h2>
           <p className="review-form-status">
             Status: {reviewFormStatus.replaceAll("_", " ")}
@@ -271,7 +312,7 @@ async function handleSubmitToAdmin() {
               {statusMessage}
             </p>
           )}
-        </aside>
+        </aside>}
       </div>
     </section>
   );

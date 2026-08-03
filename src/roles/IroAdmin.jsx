@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../components/DataTable";
-import IncomingSubmissions from "../components/IncomingSubmissions";
 import LogReviewPage from "../components/LogReviewPage";
 import ManageSubmissions from "../components/ManageSubmissions";
 import { PageTitle } from "../components/PageTitle";
@@ -25,7 +24,7 @@ import {
 } from "../services/documentService";
 
 export function IroAdmin({ page, account }) {
-  if (page === "incoming") return <IncomingSubmissions roleKey="admin" />;
+  if (page === "incoming") return <ManageSubmissions queueMode />;
   if (page === "manage-submissions") return <AdminReviewForms account={account} />;
   if (page === "reassign") return <ReassignSubmissions />;
   if (page === "distribution-lists") return <DistributionLists />;
@@ -39,13 +38,14 @@ export function IroAdmin({ page, account }) {
 
 function AdminReviewForms({ account }) {
   const [searchParams] = useSearchParams();
+  const selectedDocumentId = searchParams.get("document") || "";
   const isPreparing =
     searchParams.get("mode") === "prepare" &&
-    Boolean(searchParams.get("document"));
+    Boolean(selectedDocumentId);
 
   return isPreparing
     ? <LogReviewPage account={account} />
-    : <ManageSubmissions account={account} />;
+    : <ManageSubmissions selectedDocumentId={selectedDocumentId} />;
 }
 
 function useAdminOverview() {

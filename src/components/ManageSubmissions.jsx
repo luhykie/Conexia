@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import DocumentPreview from "./DocumentPreview";
 import { PageTitle } from "./PageTitle";
@@ -11,6 +11,7 @@ import {
   getLoggedDocuments,
   routeToLegal,
   sendBackReviewForm,
+  submitReviewForm,
   validateReviewForm,
 } from "../services/documentService";
 
@@ -73,8 +74,12 @@ function formatUpdatedAt(value) {
   }).format(date);
 }
 
-export function ManageSubmissions() {
-  const [searchParams, setSearchParams] = useSearchParams();
+export function ManageSubmissions({
+  queueMode = false,
+  selectedDocumentId = "",
+}) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [documents, setDocuments] = useState([]);
   const [selectedDocument, setSelectedDocument] =
     useState(null);
@@ -111,12 +116,13 @@ export function ManageSubmissions() {
   }, []);
 
   useEffect(() => {
-    const documentId = searchParams.get("document");
+    const documentId =
+      selectedDocumentId || searchParams.get("document");
 
     if (documentId) {
       handleReview(documentId);
     }
-  }, []);
+  }, [selectedDocumentId]);
 
   async function loadDocuments() {
     setLoading(true);
@@ -169,6 +175,11 @@ export function ManageSubmissions() {
   }
 
   async function handleReview(documentId) {
+    if (queueMode) {
+      navigate(`/app/manage-submissions?document=${documentId}`);
+      return;
+    }
+
     setLoadingDocumentId(documentId);
     setErrorMessage("");
     setStatusMessage("");
@@ -201,7 +212,7 @@ export function ManageSubmissions() {
   }
 
   function handleBackToQueue() {
-    setSearchParams({}, { replace: true });
+    navigate("/app/incoming");
     setSelectedDocument(null);
     setChecklist(INITIAL_CHECKLIST);
     setLegalCounselId("");
@@ -246,6 +257,15 @@ export function ManageSubmissions() {
     setSubmitting(true);
 
     try {
+      if (
+        selectedDocument.status === "Logged" ||
+        !selectedDocument.review_form
+      ) {
+        await submitReviewForm(selectedDocument.id, {
+          checklist_answers: checklist,
+          staff_remarks: null,
+        });
+      }
       await validateReviewForm(selectedDocument.id, adminRemarks);
       await refreshSelectedDocument();
       setStatusMessage("Review Form validated. You may now route it to Legal Counsel.");
@@ -302,6 +322,57 @@ export function ManageSubmissions() {
       window.setTimeout(handleBackToQueue, 1200);
     } catch (error) {
       setStatusMessage(error.message || "Unable to route the document.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSubmitToLegal() {
+    if (!selectedDocument?.id) {
+      setStatusMessage("No submission is selected.");
+      return;
+    }
+
+    const incompleteItems = CHECKLIST_ITEMS.filter(
+      (item) => !checklist[item.key]
+    );
+    if (!selectedDocument.review_form?.validated_at && incompleteItems.length) {
+      setStatusMessage(
+        `Complete the following requirements: ${incompleteItems
+          .map((item) => item.label)
+          .join(", ")}.`
+      );
+      return;
+    }
+    if (!legalCounselId) {
+      setStatusMessage("Select a Legal Counsel before submitting.");
+      return;
+    }
+
+    setSubmitting(true);
+    setStatusMessage("Validating and submitting to Legal Counsel...");
+    try {
+      if (
+        !["submitted", "validated"].includes(
+          selectedDocument.review_form?.review_form_status
+        )
+      ) {
+        await submitReviewForm(selectedDocument.id, {
+          checklist_answers: checklist,
+          staff_remarks: null,
+        });
+      }
+      if (selectedDocument.review_form?.review_form_status !== "validated") {
+        await validateReviewForm(selectedDocument.id, adminRemarks);
+      }
+      await routeToLegal(selectedDocument.id, legalCounselId);
+      await loadDocuments();
+      setStatusMessage("Document submitted to Legal Counsel for checking.");
+      window.setTimeout(handleBackToQueue, 1200);
+    } catch (error) {
+      setStatusMessage(
+        error?.message || "Unable to submit the document to Legal Counsel."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -364,10 +435,13 @@ export function ManageSubmissions() {
   ]);
 
   if (selectedDocument) {
+    const hasReviewForm = Boolean(selectedDocument.review_form);
     const reviewFormStatus =
       selectedDocument.review_form?.review_form_status;
-    const isSubmitted = reviewFormStatus === "submitted";
+    const isSubmitted = hasReviewForm && reviewFormStatus === "submitted";
     const isValidated = reviewFormStatus === "validated";
+    const isLogged =
+      selectedDocument.status === "Logged" || !hasReviewForm;
 
     return (
       <section className="page iro-admin-page manage-review-page">
@@ -397,23 +471,22 @@ export function ManageSubmissions() {
 
             {!selectedDocument.review_form && (
               <div className="card-block">
-                <h3>Waiting for IRO Staff</h3>
+                <h3>Ready for Administrative Review</h3>
                 <p>
-                  This document has not yet received a submitted Review Form.
-                  IRO Admin validation and legal routing are unavailable until
-                  IRO Staff completes and submits the form.
+                  IRO Staff logged this submission. Review its contents and
+                  complete the checklist below.
                 </p>
               </div>
             )}
 
             <div className="card-block">
               <h3>Completeness Check</h3>
-              <p>
+              {selectedDocument.review_form && <p>
                 Staff:{" "}
                 {selectedDocument.review_form?.preparer?.full_name ||
                   selectedDocument.review_form?.preparer?.email ||
                   "Not available"}
-              </p>
+              </p>}
 
               {CHECKLIST_ITEMS.map((item) => (
                 <label
@@ -423,23 +496,29 @@ export function ManageSubmissions() {
                   <input
                     type="checkbox"
                     checked={checklist[item.key]}
-                    readOnly
-                    disabled
+                    readOnly={!isLogged}
+                    disabled={!isLogged || submitting}
+                    onChange={() =>
+                      isLogged && setChecklist((current) => ({
+                        ...current,
+                        [item.key]: !current[item.key],
+                      }))
+                    }
                   />
 
                   <span>{item.label}</span>
                 </label>
               ))}
-              <label>
+              {selectedDocument.review_form && <label>
                 Staff Remarks
                 <textarea
                   value={selectedDocument.review_form?.staff_remarks || ""}
                   readOnly
                 />
-              </label>
+              </label>}
             </div>
 
-            {isValidated && (
+            {(isLogged || isSubmitted || isValidated) && (
             <div className="card-block route-card">
               <label>
                 Route To
@@ -453,8 +532,7 @@ export function ManageSubmissions() {
                   }
                   disabled={
                     submitting ||
-                    loadingCounsels ||
-                    !isValidated
+                    loadingCounsels
                   }
                 >
                   <option value="">
@@ -521,7 +599,7 @@ export function ManageSubmissions() {
                   disabled={submitting}
                 />
               </label>
-              {isSubmitted && (
+              {isSubmitted && hasReviewForm && (
               <label>
                 Send-back Reason
                 <textarea
@@ -555,19 +633,7 @@ export function ManageSubmissions() {
                 </p>
               )}
 
-              {isSubmitted && (
-                <>
-                  <button
-                    className="btn primary large wide-inline"
-                    type="button"
-                    onClick={handleValidate}
-                    disabled={submitting}
-                  >
-                    {submitting
-                      ? "Processing..."
-                      : "Validate Review Form"}
-                  </button>
-
+              {isSubmitted && hasReviewForm && (
                   <button
                     className="btn outline wide-inline"
                     type="button"
@@ -576,19 +642,18 @@ export function ManageSubmissions() {
                   >
                     Send Back as Incomplete
                   </button>
-                </>
               )}
 
-              {isValidated && (
+              {(isLogged || isSubmitted || isValidated) && (
                 <button
                   className="btn primary large wide-inline route-action"
                   type="button"
-                  onClick={handleRouteToLegal}
+                  onClick={handleSubmitToLegal}
                   disabled={submitting || !legalCounselId}
                 >
                   {submitting
-                    ? "Routing..."
-                    : "Route Validated Form to Legal"}
+                    ? "Submitting..."
+                    : "Submit to Legal for Checking"}
                 </button>
               )}
 
@@ -607,11 +672,60 @@ export function ManageSubmissions() {
     );
   }
 
+  if (!queueMode) {
+    if (loadingDocumentId) {
+      return (
+        <section className="page iro-admin-page">
+          <PageTitle
+            title="Review Forms"
+            subtitle="Loading the selected submission for administrative review."
+          />
+          <Panel title="Opening Submission">
+            <p className="empty-state">Loading document...</p>
+          </Panel>
+        </section>
+      );
+    }
+
+    return (
+      <section className="page iro-admin-page">
+        <PageTitle
+          title="Review Forms"
+          subtitle="Select a submission from Incoming Submissions to validate it and route it to Legal Counsel."
+          action="Open Incoming Submissions"
+          onAction={() => navigate("/app/incoming")}
+        />
+        <Panel title="No Submission Selected">
+          {errorMessage ? (
+            <div className="error-message">
+              <p>{errorMessage}</p>
+              <button
+                className="btn outline"
+                type="button"
+                onClick={() =>
+                  handleReview(
+                    selectedDocumentId || searchParams.get("document")
+                  )
+                }
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <p className="empty-state">
+              Open Incoming Submissions and choose Review Submission.
+            </p>
+          )}
+        </Panel>
+      </section>
+    );
+  }
+
   return (
     <section className="page iro-admin-page">
       <PageTitle
-        title="Review & Validate"
-        subtitle="Review submitted IRO Staff forms, validate complete records, and route validated documents to Legal Counsel."
+        title="Incoming Submissions"
+        subtitle="Documents logged and forwarded by IRO Staff for administrative review."
         action="Refresh Queue"
         onAction={loadDocuments}
         actionDisabled={loading}
@@ -634,6 +748,7 @@ export function ManageSubmissions() {
           }
         >
           <option value="All">All Statuses</option>
+          <option value="Logged">Logged by IRO Staff</option>
           <option value="Review Form Submitted">
             Awaiting Validation
           </option>
@@ -661,7 +776,7 @@ export function ManageSubmissions() {
         </select>
       </div>
 
-      <Panel title="Review Forms Awaiting Admin Action">
+      <Panel title="Submissions Awaiting Admin Action">
         {loading && <p>Loading submissions...</p>}
 
         {loadingDocumentId && (
@@ -686,7 +801,7 @@ export function ManageSubmissions() {
           !errorMessage &&
           filteredDocuments.length === 0 && (
             <p className="empty-state">
-              No submitted Review Forms match the selected filters.
+              No submissions from IRO Staff match the selected filters.
             </p>
           )}
 
@@ -764,7 +879,7 @@ export function ManageSubmissions() {
                           >
                             {loadingDocumentId === document.id
                               ? "Opening..."
-                              : "Review"}
+                              : "Review Submission"}
                           </button>
                         </td>
                       </tr>

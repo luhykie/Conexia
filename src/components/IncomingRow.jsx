@@ -104,7 +104,7 @@ export function IncomingRow({
       </td>
 
       <td className="actions">
-        {["staff", "admin"].includes(roleKey) ? (
+        {roleKey === "staff" ? (
           <>
             <button
               className="btn small"
@@ -124,6 +124,15 @@ export function IncomingRow({
               {opening ? "Opening..." : "Start Logging"}
             </button>
           </>
+        ) : roleKey === "admin" ? (
+          <button
+            className="btn small"
+            type="button"
+            onClick={handleStartLogging}
+            disabled={opening}
+          >
+            {opening ? "Opening..." : "View Details"}
+          </button>
         ) : (
           <span className="muted-text">IRO Staff action</span>
         )}

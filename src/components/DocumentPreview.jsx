@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ExternalLink, FileText } from "lucide-react";
 import { getDocumentFileBlob } from "../services/documentService";
 
-export function DocumentPreview({ document }) {
+export function DocumentPreview({ document, canViewContent = true }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [fileError, setFileError] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
@@ -19,7 +19,7 @@ export function DocumentPreview({ document }) {
     let objectUrl = "";
 
     async function loadAttachment() {
-      if (!document?.id || !attachment?.id) {
+      if (!canViewContent || !document?.id || !attachment?.id) {
         setPreviewUrl("");
         return;
       }
@@ -51,7 +51,7 @@ export function DocumentPreview({ document }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [document?.id, attachment?.id]);
+  }, [canViewContent, document?.id, attachment?.id]);
 
   if (!document) {
     return (
@@ -85,15 +85,32 @@ export function DocumentPreview({ document }) {
       </header>
 
       <div className="doc-canvas">
-        {loadingFile && (
+        {!canViewContent && (
+          <div className="doc-placeholder">
+            <div className="doc-inner">
+              <h2>Submission record</h2>
+              <p>
+                You can view and log this incoming submission, but the
+                document contents are restricted.
+              </p>
+              <p><strong>Tracking Number:</strong> {document.tracking_number}</p>
+              <p><strong>Department:</strong> {document.departments?.name || document.department?.name || "Not available"}</p>
+              <p><strong>Partner Institution:</strong> {document.partner_institution}</p>
+              <p><strong>Document Type:</strong> {document.document_type}</p>
+              <p><strong>Status:</strong> {document.status}</p>
+            </div>
+          </div>
+        )}
+
+        {canViewContent && loadingFile && (
           <div className="doc-file-state">Loading submitted document...</div>
         )}
 
-        {!loadingFile && fileError && (
+        {canViewContent && !loadingFile && fileError && (
           <div className="doc-file-state error">{fileError}</div>
         )}
 
-        {!loadingFile && !fileError && attachment && previewUrl &&
+        {canViewContent && !loadingFile && !fileError && attachment && previewUrl &&
           attachment.mime_type === "application/pdf" && (
             <iframe
               className="document-file-frame"
@@ -102,7 +119,7 @@ export function DocumentPreview({ document }) {
             />
           )}
 
-        {!loadingFile && !fileError && attachment && previewUrl &&
+        {canViewContent && !loadingFile && !fileError && attachment && previewUrl &&
           attachment.mime_type !== "application/pdf" && (
             <div className="doc-file-state">
               <FileText size={48} />
@@ -123,7 +140,7 @@ export function DocumentPreview({ document }) {
             </div>
           )}
 
-        {!loadingFile && !attachment && (
+        {canViewContent && !loadingFile && !attachment && (
           <div className="doc-placeholder">
           <div className="doc-inner">
 

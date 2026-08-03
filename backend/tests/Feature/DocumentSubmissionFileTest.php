@@ -158,17 +158,16 @@ class DocumentSubmissionFileTest extends TestCase
             'department_id' => null,
         ]);
 
-        $viewResponse = app(DocumentController::class)->viewFile(
-            $iroRequest,
-            $document,
-            $documentFile
-        );
-
-        $this->assertSame(200, $viewResponse->getStatusCode());
-        $this->assertStringStartsWith(
-            'inline;',
-            $viewResponse->headers->get('Content-Disposition')
-        );
+        try {
+            app(DocumentController::class)->viewFile(
+                $iroRequest,
+                $document,
+                $documentFile
+            );
+            $this->fail('IRO Staff must not be able to view document contents.');
+        } catch (NotFoundHttpException) {
+            $this->assertTrue(true);
+        }
 
         $otherDepartmentRequest = Request::create('/file', 'GET');
         $otherDepartmentRequest->attributes->set('auth_profile', (object) [

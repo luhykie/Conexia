@@ -227,6 +227,7 @@ export function IncomingSubmissions({ roleKey = "staff" }) {
   return (
     <section className="page iro-staff-page incoming-page">
       <IncomingHeader
+        roleKey={roleKey}
         onAdvancedFilters={() =>
           document.getElementById("incoming-search")?.focus()
         }
