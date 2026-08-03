@@ -149,53 +149,72 @@ function IroStaffDashboard({ account }) {
       />
 
       <div className="iro-dashboard-grid">
-        <QueuePreview
-          documents={dashboard.queue}
-          onViewAll={() => navigate("/app/incoming")}
-        />
+        <div className="iro-dashboard-primary">
+          {dashboard.queue.length > 0 && (
+            <QueuePreview
+              documents={dashboard.queue}
+              onViewAll={() => navigate("/app/incoming")}
+            />
+          )}
+
+          <Panel
+            title="My Assigned Submissions"
+            tools={<span className="assigned-count">{dashboard.assignedQueue.length} active</span>}
+          >
+            {dashboard.assignedQueue.length === 0 ? (
+              <p className="notification-state">No active submissions are assigned to you.</p>
+            ) : (
+              <div className="submission-table-wrap">
+                <table className="submission-table iro-assigned-table">
+                  <thead>
+                    <tr>
+                      <th>Tracking #</th>
+                      <th>Partner</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboard.assignedQueue.map((document) => {
+                      const canContinue = [
+                        "Logged",
+                        "Review Form Sent Back",
+                      ].includes(document.status);
+
+                      return (
+                        <tr key={document.id}>
+                          <td><strong>{document.tracking_number}</strong></td>
+                          <td>{document.partner_institution}</td>
+                          <td>{document.document_type}</td>
+                          <td><span className="badge">{document.status}</span></td>
+                          <td>
+                            <button
+                              className="outline"
+                              type="button"
+                              onClick={() => navigate(
+                                canContinue
+                                  ? `/app/log-review?document=${document.id}`
+                                  : "/app/status",
+                                canContinue ? undefined : {
+                                  state: { documentId: document.id },
+                                }
+                              )}
+                            >
+                              {canContinue ? "Continue Work" : "View Status"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+        </div>
         <WorkflowActivity activities={dashboard.activities} />
       </div>
-
-      <Panel title="My Assigned Submissions">
-        {dashboard.assignedQueue.length === 0 ? (
-          <p className="notification-state">No active submissions are assigned to you.</p>
-        ) : (
-          <div className="submission-table-wrap">
-            <table className="submission-table">
-              <thead>
-                <tr>
-                  <th>Tracking #</th>
-                  <th>Partner</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboard.assignedQueue.map((document) => (
-                  <tr key={document.id}>
-                    <td>{document.tracking_number}</td>
-                    <td>{document.partner_institution}</td>
-                    <td>{document.document_type}</td>
-                    <td><span className="badge">{document.status}</span></td>
-                    <td>
-                      <button
-                        className="outline"
-                        type="button"
-                        onClick={() =>
-                          navigate(`/app/log-review?document=${document.id}`)
-                        }
-                      >
-                        Open Assignment
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
     </section>
   );
 }
