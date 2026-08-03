@@ -385,6 +385,15 @@ export async function reassignSubmission(documentId, iroStaffId, reason) {
   return result.data ?? result;
 }
 
+export async function archiveDocument(documentId) {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/archive`,
+    { method: "PATCH" }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
 export async function getDistributionRecipients(documentType = "") {
   const query = documentType
     ? `?document_type=${encodeURIComponent(documentType)}`
@@ -414,6 +423,47 @@ export async function updateDistributionRecipient(recipientId, values) {
       body: JSON.stringify(values),
     }
   );
+  return result.data ?? result;
+}
+
+export async function getDocumentDistributions() {
+  const result = await apiRequest("/iro-admin/document-distributions");
+  return result.data ?? result;
+}
+
+export async function prepareDocumentDistribution(documentId) {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/distribution/prepare`,
+    { method: "POST" }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function markDistributionDelivered(
+  documentId,
+  distributionId,
+  deliveryNotes = ""
+) {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/distribution/${distributionId}/delivered`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        delivery_notes: deliveryNotes.trim() || null,
+      }),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function completeDocumentDistribution(documentId) {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/distribution/complete`,
+    { method: "PATCH" }
+  );
+  announceWorkflowChange();
   return result.data ?? result;
 }
 

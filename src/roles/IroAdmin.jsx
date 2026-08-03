@@ -16,9 +16,14 @@ import { Panel } from "../components/Panel";
 import { NotificationsView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import {
+  archiveDocument,
+  completeDocumentDistribution,
   createDistributionRecipient,
+  getDocumentDistributions,
   getDistributionRecipients,
   getIroAdminOverview,
+  markDistributionDelivered,
+  prepareDocumentDistribution,
   reassignSubmission,
   updateDistributionRecipient,
 } from "../services/documentService";
@@ -317,6 +322,8 @@ function ReassignSubmissions() {
 }
 
 function DistributionLists() {
+  const [searchParams] = useSearchParams();
+  const selectedDocumentId = searchParams.get("document") || "";
   const emptyForm = {
     document_type: "MOA",
     recipient_name: "",
@@ -324,6 +331,7 @@ function DistributionLists() {
     organization: "",
     role_scope: "CC",
     access_level: "View Only",
+    is_required: true,
     is_active: true,
   };
   const [recipients, setRecipients] = React.useState([]);
@@ -365,6 +373,7 @@ function DistributionLists() {
       organization: recipient.organization || "",
       role_scope: recipient.role_scope,
       access_level: recipient.access_level,
+      is_required: recipient.is_required ?? true,
       is_active: recipient.is_active,
     });
     setMessage("");
@@ -405,6 +414,7 @@ function DistributionLists() {
         organization: recipient.organization,
         role_scope: recipient.role_scope,
         access_level: recipient.access_level,
+        is_required: recipient.is_required,
         is_active: !recipient.is_active,
       });
       setMessage(
@@ -505,6 +515,20 @@ function DistributionLists() {
               <option value="View Only">View Only</option>
             </select>
           </label>
+          <label>
+            Delivery Requirement
+            <select
+              value={form.is_required ? "required" : "optional"}
+              disabled={saving}
+              onChange={(event) => setForm({
+                ...form,
+                is_required: event.target.value === "required",
+              })}
+            >
+              <option value="required">Required</option>
+              <option value="optional">Optional</option>
+            </select>
+          </label>
           <div className="distribution-form-actions">
             <button className="primary" type="submit" disabled={saving}>
               {saving ? "Saving..." : editingId ? "Save Changes" : "Add Recipient"}
@@ -546,6 +570,7 @@ function DistributionLists() {
                   <th>Email</th>
                   <th>Role Scope</th>
                   <th>Access Level</th>
+                  <th>Delivery</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -558,6 +583,7 @@ function DistributionLists() {
                     <td>{recipient.recipient_email}</td>
                     <td><span className={`scope-badge scope-${recipient.role_scope.toLowerCase()}`}>{recipient.role_scope}</span></td>
                     <td>{recipient.access_level}</td>
+                    <td><span className="badge">{recipient.is_required ? "Required" : "Optional"}</span></td>
                     <td><span className="badge">{recipient.is_active ? "Active" : "Inactive"}</span></td>
                     <td className="distribution-row-actions">
                       <button className="outline" type="button" disabled={saving} onClick={() => editRecipient(recipient)}>
@@ -576,7 +602,205 @@ function DistributionLists() {
           <p className="notification-state">No distribution recipients match this filter.</p>
         )}
       </Panel>
+      <DocumentDistributionWorkflow selectedDocumentId={selectedDocumentId} />
     </section>
+  );
+}
+
+function DocumentDistributionWorkflow({ selectedDocumentId = "" }) {
+  const [documents, setDocuments] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [busyId, setBusyId] = React.useState("");
+  const [notes, setNotes] = React.useState({});
+  const [message, setMessage] = React.useState("");
+  const [error, setError] = React.useState("");
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setDocuments(await getDocumentDistributions());
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load documents for distribution.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  React.useEffect(() => {
+    if (!loading && selectedDocumentId) {
+      document
+        .getElementById(`distribution-document-${selectedDocumentId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [loading, selectedDocumentId]);
+
+  async function runAction(id, action, successMessage) {
+    setBusyId(id);
+    setError("");
+    setMessage("");
+    try {
+      await action();
+      setMessage(successMessage);
+      await refresh();
+    } catch (actionError) {
+      setError(actionError.message || "Unable to update document distribution.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  return (
+    <Panel
+      title="Document Distribution"
+      tools={(
+        <button className="outline" type="button" disabled={loading || busyId} onClick={refresh}>
+          Refresh
+        </button>
+      )}
+    >
+      {message && <p className="workflow-message" role="status">{message}</p>}
+      {error && <p className="workflow-message error" role="alert">{error}</p>}
+      {loading ? (
+        <p className="notification-state">Loading notarized documents...</p>
+      ) : documents.length ? (
+        <div className="distribution-document-list">
+          {documents.map((document) => {
+            const distributions = document.distributions || [];
+            const delivered = distributions.filter(
+              (item) => item.delivery_status === "Delivered"
+            ).length;
+            const requiredDistributions = distributions.filter(
+              (item) => item.is_required !== false
+            );
+            const requiredDelivered = requiredDistributions.filter(
+              (item) => item.delivery_status === "Delivered"
+            ).length;
+            const readyToComplete = requiredDistributions.length > 0
+              && requiredDelivered === requiredDistributions.length;
+
+            return (
+              <article
+                className={`distribution-document-card${selectedDocumentId === document.id ? " selected" : ""}`}
+                id={`distribution-document-${document.id}`}
+                key={document.id}
+              >
+                <div className="distribution-document-heading">
+                  <div>
+                    <strong>{document.tracking_number}</strong>
+                    <p>{document.document_type} · {document.partner_institution}</p>
+                  </div>
+                  <span className="badge">{document.status}</span>
+                </div>
+                {document.status === "Notarized" ? (
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={busyId === document.id}
+                    onClick={() => runAction(
+                      document.id,
+                      () => prepareDocumentDistribution(document.id),
+                      `${document.tracking_number} is ready for distribution.`
+                    )}
+                  >
+                    Prepare Distribution
+                  </button>
+                ) : (
+                  <>
+                    <p className="distribution-progress">
+                      {requiredDelivered} of {requiredDistributions.length} required deliveries recorded
+                      {distributions.length > requiredDistributions.length
+                        ? ` (${delivered} of ${distributions.length} total)`
+                        : ""}
+                    </p>
+                    <div className="submission-table-wrap">
+                      <table className="submission-table distribution-delivery-table">
+                        <thead>
+                          <tr>
+                            <th>Recipient</th>
+                            <th>Role</th>
+                            <th>Access</th>
+                            <th>Delivery</th>
+                            <th>Status</th>
+                            <th>Delivery Notes</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {distributions.map((item) => (
+                            <tr key={item.id}>
+                              <td>{item.recipient_name}<small>{item.recipient_email}</small></td>
+                              <td>{item.role_scope}</td>
+                              <td>{item.access_level}</td>
+                              <td><span className="badge">{item.is_required ? "Required" : "Optional"}</span></td>
+                              <td><span className="badge">{item.delivery_status}</span></td>
+                              <td>
+                                {item.delivery_status === "Delivered"
+                                  ? item.delivery_notes || "—"
+                                  : (
+                                    <input
+                                      aria-label={`Delivery notes for ${item.recipient_name}`}
+                                      maxLength={2000}
+                                      placeholder="Optional reference or method"
+                                      value={notes[item.id] || ""}
+                                      onChange={(event) => setNotes((current) => ({
+                                        ...current,
+                                        [item.id]: event.target.value,
+                                      }))}
+                                    />
+                                  )}
+                              </td>
+                              <td>
+                                {item.delivery_status === "Delivered" ? (
+                                  new Date(item.distributed_at).toLocaleString()
+                                ) : (
+                                  <button
+                                    className="outline"
+                                    type="button"
+                                    disabled={busyId === item.id || document.status !== "Ready for Distribution"}
+                                    onClick={() => runAction(
+                                      item.id,
+                                      () => markDistributionDelivered(document.id, item.id, notes[item.id]),
+                                      `Delivery to ${item.recipient_name} recorded.`
+                                    )}
+                                  >
+                                    Mark Delivered
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {document.status === "Ready for Distribution" && (
+                      <button
+                        className="primary distribution-complete-button"
+                        type="button"
+                        disabled={!readyToComplete || busyId === document.id}
+                        onClick={() => runAction(
+                          document.id,
+                          () => completeDocumentDistribution(document.id),
+                          `${document.tracking_number} distribution is complete and ready for archival.`
+                        )}
+                      >
+                        Mark Distribution Complete
+                      </button>
+                    )}
+                  </>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="notification-state">No notarized documents are waiting for distribution.</p>
+      )}
+    </Panel>
   );
 }
 
@@ -639,6 +863,8 @@ function PerformanceReports() {
 
 function ArchivePage() {
   const { data, loading, error, refresh } = useAdminOverview();
+  const [busyId, setBusyId] = React.useState("");
+  const [actionError, setActionError] = React.useState("");
   const rows = (data?.archivedDocuments || []).map((document) => [
     document.tracking_number,
     document.partner_institution,
@@ -646,6 +872,19 @@ function ArchivePage() {
     formatDateTime(document.archived_at),
     document.status,
   ]);
+
+  async function archive(document) {
+    setBusyId(document.id);
+    setActionError("");
+    try {
+      await archiveDocument(document.id);
+      await refresh();
+    } catch (archiveError) {
+      setActionError(archiveError.message || "Unable to archive this record.");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   return (
     <section className="page iro-admin-page">
@@ -657,6 +896,26 @@ function ArchivePage() {
         actionDisabled={loading}
       />
       <DataState loading={loading} error={error} onRetry={refresh}>
+        <Panel title="Ready to Archive">
+          {actionError && <p className="workflow-message error" role="alert">{actionError}</p>}
+          {(data?.readyToArchive || []).length ? (
+            <div className="submission-table-wrap">
+              <table className="submission-table">
+                <thead><tr><th>Tracking ID</th><th>Partner</th><th>Type</th><th>Action</th></tr></thead>
+                <tbody>
+                  {data.readyToArchive.map((document) => (
+                    <tr key={document.id}>
+                      <td>{document.tracking_number}</td>
+                      <td>{document.partner_institution}</td>
+                      <td>{document.document_type}</td>
+                      <td><button className="primary" type="button" disabled={busyId === document.id} onClick={() => archive(document)}>{busyId === document.id ? "Archiving..." : "Archive Record"}</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="notification-state">No distribution-complete records are waiting for archival.</p>}
+        </Panel>
         <Panel title="Archive Records">
           {rows.length ? (
             <DataTable

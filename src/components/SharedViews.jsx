@@ -214,9 +214,9 @@ function getNotificationDestination(roleKey, type = "") {
   if (roleKey === "department") return "submissions";
   if (roleKey === "legal") return "review";
   if (roleKey === "admin") {
-    return type === "document_submitted"
-      ? "dashboard"
-      : "manage-submissions";
+    if (type === "document_notarized") return "distribution-lists";
+    if (type === "document_submitted") return "dashboard";
+    return "manage-submissions";
   }
   if (roleKey === "staff") {
     if (

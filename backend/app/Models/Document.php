@@ -40,6 +40,10 @@ class Document extends Model
         'notary_signature_code',
         'archived_at',
         'archived_by',
+        'signed_document_summary',
+        'summary_extracted_at',
+        'effective_date',
+        'expiry_date',
     ];
 
     protected function casts(): array
@@ -49,6 +53,7 @@ class Document extends Model
             'updated_at' => 'datetime',
             'notarization_date' => 'date',
             'archived_at' => 'datetime',
+            'summary_extracted_at' => 'datetime',
             'effective_date' => 'date',
             'expiry_date' => 'date',
         ];
@@ -103,6 +108,11 @@ class Document extends Model
     public function files(): HasMany
     {
         return $this->hasMany(DocumentFile::class);
+    }
+
+    public function distributions(): HasMany
+    {
+        return $this->hasMany(DocumentDistribution::class);
     }
 
     public function reviewForm(): HasOne

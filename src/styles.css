@@ -195,6 +195,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .scope-reviewer { background: #e7f8ef; color: #08784c; }
 .scope-cc { background: #fff1cf; color: #9a6500; }
 .distribution-table button { white-space: nowrap; }
+.distribution-document-list { display: grid; gap: var(--space-5); padding: var(--space-5); }
+.distribution-document-card { border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--space-5); display: grid; gap: var(--space-4); }
+.distribution-document-card.selected { border-color: var(--green-600); box-shadow: 0 0 0 3px rgba(0, 108, 74, 0.12); }
+.distribution-document-heading { display: flex; justify-content: space-between; gap: var(--space-4); align-items: start; }
+.distribution-document-heading p { margin: 5px 0 0; color: #66716c; }
+.distribution-progress { margin: 0; color: var(--green-800); font-weight: 800; }
+.distribution-delivery-table small { display: block; margin-top: 4px; color: #66716c; }
+.distribution-delivery-table input { min-width: 230px; }
+.distribution-complete-button { justify-self: end; }
 @media (max-width: 1100px) {
   .distribution-recipient-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -807,6 +816,8 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 
 /* Log & Review page specific styles */
 .log-review-page { padding-top: 6px; }
+.log-submission-actions { margin-top: 16px; display: flex; align-items: center; gap: 16px; }
+.log-submission-actions .review-status { margin: 0; }
 .log-review-header .title-block h1 { font-size: 34px; }
 
 .document-preview-panel { margin-bottom: 0; }

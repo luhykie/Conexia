@@ -36,6 +36,7 @@ class DistributionRecipientController extends Controller
         $recipient = DistributionRecipient::create([
             ...$validated,
             'recipient_email' => strtolower($validated['recipient_email']),
+            'is_required' => $validated['is_required'] ?? true,
             'is_active' => $validated['is_active'] ?? true,
             'created_by' => $profileId,
             'updated_by' => $profileId,
@@ -92,6 +93,7 @@ class DistributionRecipientController extends Controller
                 'required',
                 Rule::in(['Full Access', 'View Only']),
             ],
+            'is_required' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
     }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\DistributionRecipientController;
+use App\Http\Controllers\Api\DocumentDistributionController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\IroAdminController;
 use App\Http\Controllers\Api\ProfileController;
@@ -23,6 +24,11 @@ Route::middleware('supabase.auth')->group(function (): void {
         [IroAdminController::class, 'reassign']
     )->middleware('role:iro_admin');
 
+    Route::patch(
+        '/iro-admin/documents/{document}/archive',
+        [IroAdminController::class, 'archive']
+    )->middleware('role:iro_admin');
+
     Route::get(
         '/iro-admin/distribution-recipients',
         [DistributionRecipientController::class, 'index']
@@ -36,6 +42,26 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::put(
         '/iro-admin/distribution-recipients/{distributionRecipient}',
         [DistributionRecipientController::class, 'update']
+    )->middleware('role:iro_admin');
+
+    Route::get(
+        '/iro-admin/document-distributions',
+        [DocumentDistributionController::class, 'index']
+    )->middleware('role:iro_admin');
+
+    Route::post(
+        '/iro-admin/documents/{document}/distribution/prepare',
+        [DocumentDistributionController::class, 'prepare']
+    )->middleware('role:iro_admin');
+
+    Route::patch(
+        '/iro-admin/documents/{document}/distribution/{documentDistribution}/delivered',
+        [DocumentDistributionController::class, 'markDelivered']
+    )->middleware('role:iro_admin');
+
+    Route::patch(
+        '/iro-admin/documents/{document}/distribution/complete',
+        [DocumentDistributionController::class, 'complete']
     )->middleware('role:iro_admin');
 
     Route::get('/documents', [DocumentController::class, 'index'])
