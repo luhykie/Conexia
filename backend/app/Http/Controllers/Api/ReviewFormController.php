@@ -44,6 +44,7 @@ class ReviewFormController extends Controller
 
         $form = DB::transaction(function () use ($document, $validated, $profile): ReviewForm {
             $form = $document->reviewForm()->firstOrNew();
+            $isNewForm = ! $form->exists;
 
             if ($form->exists && $form->review_form_status === 'validated') {
                 abort(422, 'A validated Review Form cannot be edited.');
@@ -57,6 +58,9 @@ class ReviewFormController extends Controller
                 'validated_by' => null,
                 'validated_at' => null,
             ]);
+            if ($isNewForm && ! array_key_exists('checklist_answers', $validated)) {
+                $form->checklist_answers = array_fill_keys(self::CHECKLIST_KEYS, false);
+            }
             $form->save();
 
             if (
@@ -92,6 +96,7 @@ class ReviewFormController extends Controller
             }
 
             $form = ReviewForm::query()->firstOrNew(['document_id' => $lockedDocument->id]);
+            $isNewForm = ! $form->exists;
             if ($form->exists && $form->review_form_status === 'validated') {
                 abort(422, 'A validated Review Form cannot be resubmitted.');
             }
@@ -104,6 +109,9 @@ class ReviewFormController extends Controller
                 'validated_by' => null,
                 'validated_at' => null,
             ]);
+            if ($isNewForm && ! array_key_exists('checklist_answers', $validated)) {
+                $form->checklist_answers = array_fill_keys(self::CHECKLIST_KEYS, false);
+            }
             $form->save();
 
             $previousStatus = $lockedDocument->status;
@@ -131,6 +139,11 @@ class ReviewFormController extends Controller
     {
         $validated = $request->validate([
             'admin_remarks' => ['nullable', 'string', 'max:5000'],
+            'checklist_answers' => ['required', 'array'],
+            'checklist_answers.signatures' => ['required', 'boolean'],
+            'checklist_answers.terms' => ['required', 'boolean'],
+            'checklist_answers.attachments' => ['required', 'boolean'],
+            'checklist_answers.gdpr' => ['required', 'boolean'],
         ]);
         $profile = $this->profile($request);
 
@@ -143,12 +156,13 @@ class ReviewFormController extends Controller
             }
 
             if (collect(self::CHECKLIST_KEYS)->contains(
-                fn (string $key): bool => ($form->checklist_answers[$key] ?? false) !== true
+                fn (string $key): bool => ($validated['checklist_answers'][$key] ?? false) !== true
             )) {
                 abort(422, 'Every Review Form checklist item must be complete before validation.');
             }
 
             $form->update([
+                'checklist_answers' => $validated['checklist_answers'],
                 'review_form_status' => 'validated',
                 'admin_remarks' => $validated['admin_remarks'] ?? null,
                 'validated_by' => $profile->id,
@@ -213,14 +227,21 @@ class ReviewFormController extends Controller
 
     private function validateForm(Request $request): array
     {
-        return $request->validate([
+        $rules = [
+            'staff_remarks' => ['nullable', 'string', 'max:5000'],
+        ];
+
+        if ($this->profile($request)->role !== 'iro_staff') {
+            $rules += [
             'checklist_answers' => ['required', 'array'],
             'checklist_answers.signatures' => ['required', 'boolean'],
             'checklist_answers.terms' => ['required', 'boolean'],
             'checklist_answers.attachments' => ['required', 'boolean'],
             'checklist_answers.gdpr' => ['required', 'boolean'],
-            'staff_remarks' => ['nullable', 'string', 'max:5000'],
-        ]);
+            ];
+        }
+
+        return $request->validate($rules);
     }
 
     private function ensureCanAccess(Request $request, Document $document): void

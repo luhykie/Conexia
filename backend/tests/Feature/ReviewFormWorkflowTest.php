@@ -153,20 +153,26 @@ class ReviewFormWorkflowTest extends TestCase
 
         $reviewController->submit(
             $this->request([
+                'staff_remarks' => 'Logged and ready for administrative validation.',
+            ], $staffId, 'iro_staff'),
+            $document
+        );
+        $this->assertSame('Review Form Submitted', $document->fresh()->status);
+        $this->assertSame(
+            array_fill_keys(['signatures', 'terms', 'attachments', 'gdpr'], false),
+            $document->fresh()->reviewForm->checklist_answers
+        );
+
+        $reviewController->validateReview(
+            $this->request([
+                'admin_remarks' => 'Validated by IRO Admin.',
                 'checklist_answers' => [
                     'signatures' => true,
                     'terms' => true,
                     'attachments' => true,
                     'gdpr' => true,
                 ],
-                'staff_remarks' => 'Complete and ready for validation.',
-            ], $staffId, 'iro_staff'),
-            $document
-        );
-        $this->assertSame('Review Form Submitted', $document->fresh()->status);
-
-        $reviewController->validateReview(
-            $this->request(['admin_remarks' => 'Validated by IRO Admin.'], $adminId, 'iro_admin'),
+            ], $adminId, 'iro_admin'),
             $document->fresh()
         );
 

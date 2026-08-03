@@ -76,7 +76,6 @@ export function LogReviewPage({ account }) {
     try {
       const data = await getDocumentById(documentId);
       setDocument(data);
-      if (isStaff) return;
 
       const form = data.review_form || await getReviewForm(documentId);
       if (form) {
@@ -106,9 +105,9 @@ export function LogReviewPage({ account }) {
     setStatusMessage("Logging submission...");
     try {
       await logDocument(documentId);
-      setStatusMessage("Submission logged successfully.");
+      setStatusMessage("Submission logged. Complete the Review Form to route it to IRO Admin.");
       await loadDashboardStats();
-      setTimeout(() => navigate("/app/status"), 800);
+      await loadDocument();
     } catch (error) {
       setStatusMessage(error?.message || "Unable to log the submission.");
     } finally {
@@ -175,7 +174,6 @@ export function LogReviewPage({ account }) {
     setStatusMessage("Saving Review Form draft...");
     try {
       const form = await saveReviewForm(documentId, {
-        checklist_answers: checklist,
         staff_remarks: staffRemarks,
       });
       setReviewFormStatus(form.review_form_status);
@@ -207,7 +205,6 @@ async function handleSubmitToAdmin() {
 
   try {
     const form = await submitReviewForm(documentId, {
-      checklist_answers: checklist,
       staff_remarks: staffRemarks,
     });
     setReviewFormStatus(form.review_form_status);
@@ -233,9 +230,23 @@ async function handleSubmitToAdmin() {
   }
 }
 
+  const isSubmittedDocument = document?.status === "Submitted";
+  const canEditReviewForm = isStaff && [
+    "Logged",
+    "Review Form Sent Back",
+  ].includes(document?.status);
+  const showReviewForm = !isStaff || canEditReviewForm;
+  const reviewFormLocked = ["submitted", "validated"].includes(reviewFormStatus)
+    || (isStaff && !canEditReviewForm);
+  const staffStage = document?.status === "Review Form Sent Back"
+    ? "revise"
+    : canEditReviewForm
+      ? "review"
+      : "log";
+
   return (
     <section className="page iro-staff-page log-review-page">
-      <LogReviewHeader staffOnly={isStaff} />
+      <LogReviewHeader staffOnly={isStaff} stage={staffStage} />
 
       <DashboardStats
         stats={stats}
@@ -252,19 +263,19 @@ async function handleSubmitToAdmin() {
         </div>
       )}
 
-      <div className={isStaff ? "log-submission-layout" : "two-col"}>
+      <div className={showReviewForm ? "two-col" : "log-submission-layout"}>
         <div>
           <DocumentPreview
             document={document}
             canViewContent={!isStaff}
           />
 
-          {isStaff && document && (
+          {isStaff && document && isSubmittedDocument && (
             <div className="panel log-submission-actions">
               <button
                 className="btn primary large"
                 type="button"
-                disabled={isSubmitting || document.status !== "Submitted"}
+                disabled={isSubmitting}
                 onClick={handleLogSubmission}
               >
                 {isSubmitting ? "Logging..." : "Log Submission"}
@@ -274,37 +285,37 @@ async function handleSubmitToAdmin() {
           )}
         </div>
 
-        {!isStaff && <aside className="review-sidebar dark-card admin-review">
-          <h2>IRO Review Form</h2>
+        {showReviewForm && <aside className="review-sidebar dark-card admin-review">
+          <h2>{isStaff ? "Review Form" : "IRO Review Form"}</h2>
           <p className="review-form-status">
             Status: {reviewFormStatus.replaceAll("_", " ")}
           </p>
 
-          <div className="card-block">
+          {!isStaff && <div className="card-block">
             <h3>Completeness Check</h3>
             <Checklist
               items={checklistItems}
               values={checklist}
               onChange={toggleChecklist}
-              disabled={isSubmitting || reviewFormStatus === "validated"}
+              disabled={isSubmitting || reviewFormLocked}
             />
-          </div>
+          </div>}
 
           <div className="card-block">
             <h3>Staff Remarks</h3>
             <StaffRemarks
               value={staffRemarks}
               onChange={setStaffRemarks}
-              disabled={isSubmitting || reviewFormStatus === "validated"}
+              disabled={isSubmitting || reviewFormLocked}
             />
           </div>
 
           <ReviewActions
-            disabled={isSubmitting}
+            disabled={isSubmitting || reviewFormLocked}
             submitting={isSubmitting}
             onSaveDraft={handleSaveDraft}
             onSubmit={handleSubmitToAdmin}
-            submitLabel="Submit for Validation"
+            submitLabel={isStaff ? "Submit to IRO Admin" : "Submit for Validation"}
           />
 
           {statusMessage && (

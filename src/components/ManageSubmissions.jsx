@@ -266,7 +266,7 @@ export function ManageSubmissions({
           staff_remarks: null,
         });
       }
-      await validateReviewForm(selectedDocument.id, adminRemarks);
+      await validateReviewForm(selectedDocument.id, adminRemarks, checklist);
       await refreshSelectedDocument();
       setStatusMessage("Review Form validated. You may now route it to Legal Counsel.");
     } catch (error) {
@@ -363,7 +363,7 @@ export function ManageSubmissions({
         });
       }
       if (selectedDocument.review_form?.review_form_status !== "validated") {
-        await validateReviewForm(selectedDocument.id, adminRemarks);
+        await validateReviewForm(selectedDocument.id, adminRemarks, checklist);
       }
       await routeToLegal(selectedDocument.id, legalCounselId);
       await loadDocuments();
@@ -496,10 +496,10 @@ export function ManageSubmissions({
                   <input
                     type="checkbox"
                     checked={checklist[item.key]}
-                    readOnly={!isLogged}
-                    disabled={!isLogged || submitting}
+                    readOnly={isValidated}
+                    disabled={isValidated || submitting}
                     onChange={() =>
-                      isLogged && setChecklist((current) => ({
+                      !isValidated && setChecklist((current) => ({
                         ...current,
                         [item.key]: !current[item.key],
                       }))

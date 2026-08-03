@@ -155,13 +155,14 @@ export async function submitReviewForm(documentId, form) {
   return result.data ?? result;
 }
 
-export async function validateReviewForm(documentId, adminRemarks) {
+export async function validateReviewForm(documentId, adminRemarks, checklistAnswers) {
   const result = await apiRequest(
     `/documents/${documentId}/review-form/validate`,
     {
       method: "PATCH",
       body: JSON.stringify({
         admin_remarks: adminRemarks?.trim() || null,
+        checklist_answers: checklistAnswers,
       }),
     }
   );
