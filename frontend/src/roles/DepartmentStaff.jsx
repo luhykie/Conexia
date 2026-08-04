@@ -726,7 +726,14 @@ function EngagementsPage() {
         <FilterBar labels={["All Institutions", "All", "Active", "Pending", "Expiring"]} />
         <Panel title="Partner Engagements">
           <DataTable
-            headers={["Partner Organization", "Agreement", "Duration", "Documents", "Status"]}
+            headers={[
+              "Partner Organization",
+              "Agreement",
+              "Duration",
+              "Documents",
+              "Status",
+            ]}
+            rows={[]}
           />
         </Panel>
       </div>

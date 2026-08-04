@@ -159,9 +159,12 @@ function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const selectedTrend = dashboard.trend?.[selectedPeriod];
+
   const currentData =
-    dashboard.trend?.[selectedPeriod] ||
-    fallbackTrend()[selectedPeriod];
+    Array.isArray(selectedTrend) && selectedTrend.length >= 2
+      ? selectedTrend
+      : fallbackTrend()[selectedPeriod];
 
   const latestEntry =
     currentData[currentData.length - 1];
@@ -256,10 +259,10 @@ function SuperAdminDashboard() {
               selectedMetrics.includes(metricKey);
 
             const currentValue =
-              latestEntry[metricKey];
+              Number(latestEntry?.[metricKey] ?? 0);
 
             const previousValue =
-              previousEntry[metricKey];
+              Number(previousEntry?.[metricKey] ?? 0);
 
             const difference =
               currentValue - previousValue;
@@ -1262,6 +1265,13 @@ function DepartmentManagement() {
   const [errorMessage, setErrorMessage] =
     useState("");
 
+  const [newDepartment, setNewDepartment] = useState({
+    code: "",
+    name: "",
+    email: "",
+    office: "",
+  });
+
   useEffect(() => {
     async function loadDepartmentList() {
       setLoading(true);
@@ -1603,6 +1613,7 @@ function SystemMonitoring() {
             "Last Activity",
             "Status",
           ]}
+          rows={[]}
         />
       </Panel>
 
@@ -1616,6 +1627,7 @@ function SystemMonitoring() {
             "Attempts",
             "Status",
           ]}
+          rows={[]}
         />
       </Panel>
 
@@ -2055,6 +2067,7 @@ function SystemSettings() {
               "Created By",
               "Status",
             ]}
+            rows={[]}
           />
         </SettingsSection>
 

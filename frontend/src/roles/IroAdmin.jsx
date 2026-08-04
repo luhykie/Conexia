@@ -72,19 +72,45 @@ function FormPanel({ title, fields }) {
 
 // Prioritizes pending validations and high-urgency cases.
 function ValidationQueue() {
+  const rows = [];
+
   return (
     <section className="page iro-admin-page">
-      <PageTitle title="Validation Queue" subtitle="Pending document verifications and institutional submission approvals." action="Refresh Queue" />
-      <StatGrid stats={[
-        ["124 Cases", "Pending Total", CalendarClock],
-        ["18 Cases", "Urgent", Info, "", "danger"],
-        ["4.2 Hours", "Avg. Wait Time", CalendarClock, "", "blue"],
-        ["42 Cases", "Validated Today", CheckCircle2],
-      ]} />
-      <FilterBar labels={["All Departments", "All Priorities", "All Statuses"]} />
+      <PageTitle
+        title="Validation Queue"
+        subtitle="Pending document verifications and institutional submission approvals."
+        action="Refresh Queue"
+      />
+
+      <StatGrid
+        stats={[
+          ["0 Cases", "Pending Total", CalendarClock],
+          ["0 Cases", "Urgent", Info, "", "danger"],
+          ["0 Hours", "Avg. Wait Time", CalendarClock, "", "blue"],
+          ["0 Cases", "Validated Today", CheckCircle2],
+        ]}
+      />
+
+      <FilterBar
+        labels={[
+          "All Departments",
+          "All Priorities",
+          "All Statuses",
+        ]}
+      />
+
       <Panel title="Validation Queue">
         <DataTable
-          headers={["ID / Case Ref", "Submission Date", "Department", "Entity Name", "Priority", "Status", "Actions"]}
+          headers={[
+            "ID / Case Ref",
+            "Submission Date",
+            "Department",
+            "Entity Name",
+            "Priority",
+            "Status",
+            "Actions",
+          ]}
+          rows={[]}
         />
       </Panel>
     </section>
@@ -100,6 +126,7 @@ function ReassignSubmissions() {
         <Panel title="Pending Submissions">
           <DataTable
             headers={["Submission ID", "Requester", "Current Assignee", "Priority"]}
+            rows={[]}
           />
         </Panel>
         <aside className="form-card">
@@ -300,7 +327,7 @@ function EngagementsPage() {
         <FilterBar labels={["All Departments", "All Agreement Types"]} />
         <Panel title="Engagement Registry" tools={<ExportButton label="Export" />}>
           <DataTable headers={["Partner Organization", "Type / Department", "Validity Period", "Status", "Action"]} 
-          
+          rows={[]}
           />
         </Panel>
       </div>
