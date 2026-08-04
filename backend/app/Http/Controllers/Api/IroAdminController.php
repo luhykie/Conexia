@@ -12,6 +12,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -81,6 +82,39 @@ class IroAdminController extends Controller
                     ->sortBy('expiry_date')
                     ->values(),
             ],
+        ]);
+    }
+
+    public function reports(): JsonResponse
+    {
+        $report = Cache::remember('iro-admin:reports:v1', 60, function (): array {
+            $documents = Document::query()
+                ->select([
+                    'id',
+                    'department_id',
+                    'status',
+                    'submitted_at',
+                    'notarization_date',
+                ])
+                ->with('department:id,name')
+                ->get();
+            $events = WorkflowEvent::query()
+                ->select(['document_id', 'event_type', 'created_at'])
+                ->whereIn('event_type', [
+                    'document_logged',
+                    'review_form_submitted',
+                    'review_form_validated',
+                    'legal_approved',
+                    'corrections_requested',
+                ])
+                ->orderBy('created_at')
+                ->get();
+
+            return $this->reportData($documents, $events);
+        });
+
+        return response()->json([
+            'data' => $report,
         ]);
     }
 

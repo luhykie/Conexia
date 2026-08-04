@@ -4,10 +4,50 @@ const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   "http://127.0.0.1:8000/api";
 
+const API_TIMEOUT_MS = 15000;
+
+function withTimeout(promise, message) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(
+      () => reject(new Error(message)),
+      API_TIMEOUT_MS
+    );
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
+}
+
+function createRequestSignal(externalSignal) {
+  const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
+
+  return externalSignal
+    ? AbortSignal.any([externalSignal, timeoutSignal])
+    : timeoutSignal;
+}
+
+function connectionError(error) {
+  if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+    return new Error(
+      "The server took too long to respond. Confirm that the API is running, then try again."
+    );
+  }
+
+  return new Error(
+    "Unable to connect to the server. Confirm that the API is running, then try again."
+  );
+}
+
 async function getAccessToken(forceRefresh = false) {
-  const result = forceRefresh
-    ? await supabase.auth.refreshSession()
-    : await supabase.auth.getSession();
+  const sessionRequest = forceRefresh
+    ? supabase.auth.refreshSession()
+    : supabase.auth.getSession();
+  const result = await withTimeout(
+    sessionRequest,
+    "Authentication took too long. Please sign out and sign in again."
+  );
 
   if (result.error) {
     throw result.error;
@@ -24,46 +64,76 @@ async function getAccessToken(forceRefresh = false) {
 
 async function sendRequest(path, options, accessToken) {
   const isFormData = options.body instanceof FormData;
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Accept: "application/json",
-      ...(!isFormData && { "Content-Type": "application/json" }),
-      Authorization: `Bearer ${accessToken}`,
-      ...options.headers,
-    },
-  });
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: createRequestSignal(options.signal),
+      headers: {
+        Accept: "application/json",
+        ...(!isFormData && { "Content-Type": "application/json" }),
+        Authorization: `Bearer ${accessToken}`,
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    throw connectionError(error);
+  }
 
   const result = await response.json().catch(() => null);
 
   return { response, result };
 }
 
-export async function apiRequest(path, options = {}) {
-  let accessToken = await getAccessToken();
-  let { response, result } = await sendRequest(
-    path,
-    options,
-    accessToken
-  );
+const pendingGetRequests = new Map();
 
-  if (response.status === 401) {
-    accessToken = await getAccessToken(true);
-    ({ response, result } = await sendRequest(
+export function apiRequest(path, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+
+  if (method === "GET" && pendingGetRequests.has(path)) {
+    return pendingGetRequests.get(path);
+  }
+
+  const request = withTimeout((async () => {
+    let accessToken = await getAccessToken();
+    let { response, result } = await sendRequest(
       path,
       options,
       accessToken
-    ));
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      result?.message ||
-        `Request failed with status ${response.status}.`
     );
+
+    if (response.status === 401) {
+      accessToken = await getAccessToken(true);
+      ({ response, result } = await sendRequest(
+        path,
+        options,
+        accessToken
+      ));
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        result?.message ||
+          `Request failed with status ${response.status}.`
+      );
+    }
+
+    return result;
+  })(), "The request took too long. Please try again.");
+
+  if (method !== "GET") {
+    return request;
   }
 
-  return result;
+  const trackedRequest = request.finally(() => {
+    if (pendingGetRequests.get(path) === trackedRequest) {
+      pendingGetRequests.delete(path);
+    }
+  });
+  pendingGetRequests.set(path, trackedRequest);
+
+  return trackedRequest;
 }
 
 function announceWorkflowChange() {
@@ -97,15 +167,20 @@ export async function getDocumentFileBlob(documentId, fileId) {
   }
 
   async function fetchFile(accessToken) {
-    return fetch(
-      `${API_BASE_URL}/documents/${documentId}/files/${fileId}/view`,
-      {
-        headers: {
-          Accept: "*/*",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
+    try {
+      return await fetch(
+        `${API_BASE_URL}/documents/${documentId}/files/${fileId}/view`,
+        {
+          signal: createRequestSignal(),
+          headers: {
+            Accept: "*/*",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+    } catch (error) {
+      throw connectionError(error);
+    }
   }
 
   let response = await fetchFile(await getAccessToken());
@@ -365,6 +440,20 @@ export async function getLoggedDocuments() {
 export async function getIroAdminOverview() {
   const result = await apiRequest("/iro-admin/overview");
   return result.data ?? result;
+}
+
+let reportsRequest = null;
+
+export async function getIroAdminReports() {
+  if (!reportsRequest) {
+    reportsRequest = apiRequest("/iro-admin/reports")
+      .then((result) => result.data ?? result)
+      .finally(() => {
+        reportsRequest = null;
+      });
+  }
+
+  return reportsRequest;
 }
 
 export async function reassignSubmission(documentId, iroStaffId, reason) {

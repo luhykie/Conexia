@@ -22,6 +22,7 @@ import {
   getDocumentDistributions,
   getDistributionRecipients,
   getIroAdminOverview,
+  getIroAdminReports,
   markDistributionDelivered,
   prepareDocumentDistribution,
   reassignSubmission,
@@ -805,8 +806,28 @@ function DocumentDistributionWorkflow({ selectedDocumentId = "" }) {
 }
 
 function PerformanceReports() {
-  const { data, loading, error, refresh } = useAdminOverview();
-  const report = data?.reports;
+  const [report, setReport] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setReport(await getIroAdminReports());
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load performance reports.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    refresh();
+    window.addEventListener("conexia:workflow-changed", refresh);
+    return () =>
+      window.removeEventListener("conexia:workflow-changed", refresh);
+  }, [refresh]);
+
   const stats = report
     ? [
         [String(report.reviewed), "Review Forms Validated", FileCheck2],
