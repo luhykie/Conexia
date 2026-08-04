@@ -23,6 +23,7 @@ export function LogReviewPage({ account }) {
   const [searchParams] = useSearchParams();
 
   const [document, setDocument] = useState(null);
+  const [loadingDocument, setLoadingDocument] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,6 +58,9 @@ export function LogReviewPage({ account }) {
     loadDashboardStats();
     if (documentId) {
       loadDocument();
+    } else {
+      setDocument(null);
+      setLoadingDocument(false);
     }
   }, [documentId]);
 
@@ -73,6 +77,8 @@ export function LogReviewPage({ account }) {
   }
 
   async function loadDocument() {
+    setLoadingDocument(true);
+    setStatusMessage("");
     try {
       const data = await getDocumentById(documentId);
       setDocument(data);
@@ -92,6 +98,8 @@ export function LogReviewPage({ account }) {
     } catch (error) {
       console.error("Unable to load selected document:", error);
       setStatusMessage("Unable to load the selected document.");
+    } finally {
+      setLoadingDocument(false);
     }
   }
 
@@ -265,10 +273,43 @@ async function handleSubmitToAdmin() {
 
       <div className={showReviewForm ? "two-col" : "log-submission-layout"}>
         <div>
-          <DocumentPreview
-            document={document}
-            canViewContent={!isStaff}
-          />
+          {!documentId ? (
+            <section className="panel document-selection-state">
+              <h2>Select a submission</h2>
+              <p>
+                Open Incoming Submissions and choose a document to begin
+                logging or continue its review form.
+              </p>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => navigate("/app/incoming")}
+              >
+                View Incoming Submissions
+              </button>
+            </section>
+          ) : loadingDocument ? (
+            <section className="panel document-selection-state" aria-live="polite">
+              <p>Loading the selected submission...</p>
+            </section>
+          ) : document ? (
+            <DocumentPreview
+              document={document}
+              canViewContent={!isStaff}
+            />
+          ) : (
+            <section className="panel document-selection-state error">
+              <h2>Document unavailable</h2>
+              <p>{statusMessage || "The selected submission could not be loaded."}</p>
+              <button
+                className="outline"
+                type="button"
+                onClick={() => navigate("/app/incoming")}
+              >
+                Return to Incoming Submissions
+              </button>
+            </section>
+          )}
 
           {isStaff && document && isSubmittedDocument && (
             <div className="panel log-submission-actions">

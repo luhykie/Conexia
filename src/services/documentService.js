@@ -442,6 +442,11 @@ export async function getIroAdminOverview() {
   return result.data ?? result;
 }
 
+export async function getIroStaffDocuments() {
+  const result = await apiRequest("/iro-staff/documents");
+  return result.data ?? result;
+}
+
 let reportsRequest = null;
 
 export async function getIroAdminReports() {

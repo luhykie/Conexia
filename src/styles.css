@@ -80,6 +80,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .workspace { min-width: 0; }
 .topbar { height: 72px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: var(--space-6); padding: 0 var(--space-8); justify-content: flex-end; }
+.topbar-spacer { flex: 1 1 auto; }
 /* Modified: search control now follows the shared form-control dimensions. */
 .search { margin-right: auto; width: min(520px, 48vw); background: #eef3fb; border: 1px solid var(--line); border-radius: var(--radius-control); height: 48px; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: #6d7775; }
 .search input { height: 48px; min-height: 48px; border: 0; background: transparent; outline: 0; width: 100%; font-size: 16px; box-shadow: none; }
@@ -211,6 +212,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .distribution-recipient-form { grid-template-columns: 1fr; }
 }
 .wide-inline { width: calc(100% - 32px); margin: 16px; }
+.document-selection-state { padding: clamp(28px, 5vw, 56px); display: grid; justify-items: start; gap: 12px; }
+.document-selection-state h2, .document-selection-state p { margin: 0; }
+.document-selection-state p { max-width: 62ch; color: #5f6866; line-height: 1.55; }
+.document-selection-state.error { border-color: #efb5b5; }
 
 /* Modified: filter controls share the same 44px baseline and control radius. */
 .filter-bar { min-height: 76px; display: flex; gap: var(--space-3); align-items: center; border: 1px solid var(--line); border-radius: var(--radius-card); background: white; padding: var(--space-4) var(--space-5); margin-bottom: var(--space-6); box-shadow: var(--shadow-card); }
@@ -1454,10 +1459,26 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 @media (max-width: 900px) {
   body { min-width: 0; }
   .app-shell, .role-screen, .dashboard-grid, .two-col, .split-page, .stats-grid, .feature-grid, .welcome-grid, .metric-row, .welcome-footer { grid-template-columns: 1fr; }
-  .sidebar { position: static; min-height: auto; }
-  .brand-mark { height: 160px; }
-  .topbar { padding: 0 16px; }
+  .sidebar { position: static; min-height: auto; overflow: hidden; }
+  .brand-mark { height: auto; min-height: 96px; grid-template-columns: auto 1fr; grid-template-rows: auto auto; justify-content: start; padding: 16px; column-gap: 12px; }
+  .seal { width: 54px; height: 54px; grid-row: 1 / span 2; }
+  .brand-mark h1 { align-self: end; font-size: 24px; }
+  .brand-mark p { align-self: start; font-size: 12px; }
+  .sidebar nav { display: flex; overflow-x: auto; padding: 0 16px 14px; gap: 8px; scrollbar-width: thin; }
+  .sidebar nav button { width: auto; min-width: max-content; padding: 0 14px; }
+  .sidebar button.active { box-shadow: inset 0 -3px 0 var(--gold); }
+  .sidebar-footer { margin-top: 0; padding: 12px 16px; display: flex; justify-content: flex-end; }
+  .sidebar-footer button { width: auto; }
+  .topbar { min-height: 68px; height: auto; padding: 12px 16px; gap: 12px; }
+  .profile { min-width: 0; }
+  .profile > div:first-child { min-width: 0; overflow-wrap: anywhere; }
   .page { padding: 24px 16px; }
+  .page-title { align-items: stretch; flex-direction: column; }
+  .page-title button { align-self: flex-start; }
+  .panel > header { height: auto; min-height: 60px; padding: 14px 16px; flex-wrap: wrap; }
+  .distribution-document-heading, .distribution-form-actions, .distribution-row-actions { align-items: stretch; flex-direction: column; }
+  .distribution-complete-button { justify-self: stretch; }
+  .revision-upload { min-width: 260px; flex-wrap: wrap; }
   .role-hero { min-height: 520px; }
   .detail-drawer { min-height: auto; }
   .admin-form { grid-template-columns: 1fr; }
@@ -1470,8 +1491,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .cert-row { min-width: 0; grid-template-columns: repeat(2, 1fr); }
   .welcome-cta { margin: 0 16px 24px; }
   .auth-card { width: min(520px, calc(100vw - 32px)); }
-  .staff-shell .topbar { height: auto; min-height: 76px; flex-wrap: wrap; justify-content: flex-start; padding: 16px; }
-  .staff-shell .topbar .search { order: 3; width: 100%; }
+  .staff-shell .topbar { height: auto; min-height: 68px; justify-content: flex-end; padding: 12px 16px; }
   .iro-staff-dashboard { max-width: none; padding: 24px 16px; }
   .iro-dashboard-header { display: grid; }
   .iro-dashboard-actions { justify-content: flex-start; }

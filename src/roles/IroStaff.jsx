@@ -18,7 +18,7 @@ import IncomingSubmissions from "../components/IncomingSubmissions";
 import LogReviewPage from "../components/LogReviewPage";
 
 import {
-  getDocuments,
+  getIroStaffDocuments,
   getIncomingDocuments,
   getIroStaffDashboard,
 } from "../services/documentService";
@@ -232,7 +232,7 @@ function IroStaffExpiry() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getDocuments()
+    getIroStaffDocuments()
       .then((items) =>
         setDocuments(
           (items || [])
@@ -453,7 +453,7 @@ function StatusTracker() {
     setErrorMessage("");
 
     try {
-      const data = await getDocuments();
+      const data = await getIroStaffDocuments();
       setDocuments(data ?? []);
       setSelectedDocumentId((current) =>
         current || data?.[0]?.id || ""

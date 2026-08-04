@@ -1,5 +1,5 @@
 import React from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import { getUnreadNotificationCount } from "../services/notificationService";
 
 // Shared top navigation with search and role profile context.
@@ -37,10 +37,7 @@ export function Topbar({ role, account, onOpenNotifications }) {
 
   return (
     <header className="topbar">
-      <div className="search">
-        <Search size={24} />
-        <input placeholder="Search tracking ID, partner, or department..." />
-      </div>
+      <div className="topbar-spacer" aria-hidden="true" />
       {onOpenNotifications && (
         <button
           className="notification-bell"

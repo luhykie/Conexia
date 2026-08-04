@@ -54,14 +54,13 @@ class DocumentController extends Controller
         $profile = $this->profile($request);
 
         $queue = Document::query()
-            ->with($this->documentRelationships())
+            ->with('departments:id,name')
             ->where('status', 'Submitted')
             ->orderBy('submitted_at')
             ->limit(5)
             ->get();
 
         $assignedQueue = Document::query()
-            ->with($this->documentRelationships())
             ->where('assigned_iro_staff', $profile->id)
             ->whereNotIn('status', [
                 'Approved',
@@ -84,44 +83,42 @@ class DocumentController extends Controller
             ->get();
 
         $today = now()->startOfDay();
+        $staffScoped = $profile->role === 'iro_staff';
+        $assignmentClause = $staffScoped
+            ? ' AND assigned_iro_staff = ?'
+            : '';
+        $documentStats = Document::query()
+            ->selectRaw(
+                'SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS incoming',
+                ['Submitted']
+            )
+            ->selectRaw(
+                "SUM(CASE WHEN status = ?{$assignmentClause} THEN 1 ELSE 0 END) AS awaiting_check",
+                $staffScoped ? ['Logged', $profile->id] : ['Logged']
+            )
+            ->selectRaw(
+                "SUM(CASE WHEN status = ?{$assignmentClause} THEN 1 ELSE 0 END) AS routed_to_legal",
+                $staffScoped
+                    ? ['Under Legal Review', $profile->id]
+                    : ['Under Legal Review']
+            )
+            ->first();
+        $loggedToday = WorkflowEvent::query()
+            ->where('event_type', 'document_logged')
+            ->where('created_at', '>=', $today)
+            ->when(
+                $staffScoped,
+                fn ($query) => $query->where('actor_id', $profile->id)
+            )
+            ->count();
 
         return response()->json([
             'data' => [
                 'stats' => [
-                    'incoming' => Document::query()
-                        ->where('status', 'Submitted')
-                        ->count(),
-                    'loggedToday' => WorkflowEvent::query()
-                        ->where('event_type', 'document_logged')
-                        ->where('created_at', '>=', $today)
-                        ->when(
-                            $profile->role === 'iro_staff',
-                            fn ($query) => $query->where(
-                                'actor_id',
-                                $profile->id
-                            )
-                        )
-                        ->count(),
-                    'awaitingCheck' => Document::query()
-                        ->where('status', 'Logged')
-                        ->when(
-                            $profile->role === 'iro_staff',
-                            fn ($query) => $query->where(
-                                'assigned_iro_staff',
-                                $profile->id
-                            )
-                        )
-                        ->count(),
-                    'routedToLegal' => Document::query()
-                        ->where('status', 'Under Legal Review')
-                        ->when(
-                            $profile->role === 'iro_staff',
-                            fn ($query) => $query->where(
-                                'assigned_iro_staff',
-                                $profile->id
-                            )
-                        )
-                        ->count(),
+                    'incoming' => (int) $documentStats->incoming,
+                    'loggedToday' => $loggedToday,
+                    'awaitingCheck' => (int) $documentStats->awaiting_check,
+                    'routedToLegal' => (int) $documentStats->routed_to_legal,
                 ],
                 'queue' => $queue,
                 'assignedQueue' => $assignedQueue,
@@ -247,7 +244,7 @@ class DocumentController extends Controller
     public function incoming(): JsonResponse
     {
         $documents = Document::query()
-            ->with($this->documentRelationships())
+            ->with('department:id,name')
             ->where('status', 'Submitted')
             ->orderByDesc('submitted_at')
             ->get();
@@ -255,6 +252,38 @@ class DocumentController extends Controller
         return response()->json([
             'data' => $documents,
         ]);
+    }
+
+    public function iroStaffDocuments(Request $request): JsonResponse
+    {
+        $profile = $this->profile($request);
+        $documents = Document::query()
+            ->select([
+                'id',
+                'tracking_number',
+                'title',
+                'document_type',
+                'partner_institution',
+                'department_id',
+                'assigned_iro_staff',
+                'status',
+                'submitted_at',
+                'updated_at',
+                'effective_date',
+                'expiry_date',
+            ])
+            ->with([
+                'departments:id,name',
+                'workflowEvents:id,document_id,actor_role,event_type,from_status,to_status,notes,created_at',
+            ])
+            ->where(function ($query) use ($profile): void {
+                $query->where('status', 'Submitted')
+                    ->orWhere('assigned_iro_staff', $profile->id);
+            })
+            ->orderByDesc('submitted_at')
+            ->get();
+
+        return response()->json(['data' => $documents]);
     }
 
     /**

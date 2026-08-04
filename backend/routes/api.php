@@ -118,6 +118,11 @@ Route::middleware('supabase.auth')->group(function (): void {
         [DocumentController::class, 'iroStaffDashboard']
     )->middleware('role:iro_staff,iro_admin');
 
+    Route::get(
+        '/iro-staff/documents',
+        [DocumentController::class, 'iroStaffDocuments']
+    )->middleware('role:iro_staff');
+
     Route::patch('/documents/{document}/log', [DocumentController::class, 'log'])
         ->middleware('role:iro_staff,iro_admin');
 

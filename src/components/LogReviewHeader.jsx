@@ -1,5 +1,4 @@
 import React from "react";
-import { Filter } from "lucide-react";
 
 export function LogReviewHeader({ staffOnly = false, stage = "log" }) {
   const staffHeading = stage === "review"
@@ -22,12 +21,6 @@ export function LogReviewHeader({ staffOnly = false, stage = "log" }) {
             ? staffSubtitle
             : "Register institutional agreements and perform initial administrative reviews. Ensure all mandatory data fields are populated before routing to relevant departments."}
         </p>
-      </div>
-
-      <div className="header-actions">
-        <button className="outline">
-          <Filter size={16} /> Advanced Filters
-        </button>
       </div>
     </header>
   );
