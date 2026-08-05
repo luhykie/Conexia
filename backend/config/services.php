@@ -4,6 +4,7 @@ return [
     'supabase' => [
         'url' => env('SUPABASE_URL'),
         'anon_key' => env('SUPABASE_ANON_KEY'),
+        'storage_bucket' => env('SUPABASE_STORAGE_BUCKET', 'submissions'),
         'auth_cache_ttl' => env('SUPABASE_AUTH_CACHE_TTL', 30),
     ],
 
