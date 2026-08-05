@@ -852,7 +852,7 @@ function PerformanceReports() {
     <section className="page iro-admin-page">
       <PageTitle
         title="Institutional Performance Reports"
-        subtitle="Metrics calculated from current documents and workflow events."
+        subtitle="Metrics calculated from submissions and recorded workflow events."
         action="Refresh"
         onAction={refresh}
         actionDisabled={loading}

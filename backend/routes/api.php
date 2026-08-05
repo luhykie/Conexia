@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ReviewFormController;
 use App\Http\Controllers\Api\SubmissionRoutingController;
 use App\Http\Controllers\Api\SubmissionFileController;
+use App\Http\Controllers\Api\SubmissionReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('supabase.auth')->group(function (): void {
@@ -31,6 +32,11 @@ Route::middleware('supabase.auth')->group(function (): void {
 
     Route::get('/iro-admin/reports', [IroAdminController::class, 'reports'])
         ->middleware('role:iro_admin');
+
+    Route::get(
+        '/iro-admin/reports/review-turnaround',
+        [SubmissionReportController::class, 'reviewTurnaround']
+    )->middleware('role:iro_admin');
 
     Route::patch(
         '/iro-admin/documents/{document}/reassign',

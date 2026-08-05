@@ -452,7 +452,7 @@ let reportsRequest = null;
 
 export async function getIroAdminReports() {
   if (!reportsRequest) {
-    reportsRequest = apiRequest("/iro-admin/reports")
+    reportsRequest = apiRequest("/iro-admin/reports/review-turnaround")
       .then((result) => result.data ?? result)
       .finally(() => {
         reportsRequest = null;
