@@ -35,16 +35,44 @@ class NotificationService
 
     public function revisionRequested(Document $document, string $remarks): void
     {
-        $recipients = $this->activeProfiles(['iro_admin'])
-            ->merge($this->profilesByIds([
-                $document->submitted_by,
-                $document->assigned_iro_staff,
-            ]));
+        // Legal Counsel returns the result to IRO Admin first. IRO Staff and
+        // the department are notified only by their authorized handoff steps.
+        $recipients = $this->activeProfiles(['iro_admin']);
 
         $message = "{$document->tracking_number} was returned by Legal Counsel and requires revision. Remarks: {$remarks}";
         $version = $this->revisionNumber($document);
 
         $this->notify($recipients, $document, 'revision_requested', 'Revision Requested', $message, "revision-{$version}-requested");
+    }
+
+    public function revisionAssignedToStaff(Document $document, Profile $staff): void
+    {
+        $this->notify(
+            collect([$staff]),
+            $document,
+            'revision_assigned_to_iro_staff',
+            'Revision Handling Assigned',
+            "{$document->tracking_number} was assigned to you to forward Legal Counsel's revision request to the designated department.",
+            'revision-assigned-to-staff'
+        );
+    }
+
+    public function revisionSentToDepartment(Document $document): void
+    {
+        $recipients = Profile::query()
+            ->where('role', 'department_staff')
+            ->where('department_id', $document->department_id)
+            ->where('is_active', true)
+            ->get();
+
+        $this->notify(
+            $recipients,
+            $document,
+            'revision_sent_to_department',
+            'Document Revision Required',
+            "{$document->tracking_number} requires revision. Review Legal Counsel's comments and upload the corrected document.",
+            'revision-sent-to-department'
+        );
     }
 
     public function revisionResubmitted(Document $document, int $version): void
@@ -115,22 +143,27 @@ class NotificationService
 
     public function submissionReassigned(
         Document $document,
-        Profile $previousStaff,
+        ?Profile $previousStaff,
         Profile $newStaff,
         string $reason
     ): void {
-        $previousName = $previousStaff->full_name ?: $previousStaff->email;
+        $previousName = $previousStaff
+            ? ($previousStaff->full_name ?: $previousStaff->email)
+            : 'Unassigned';
         $newName = $newStaff->full_name ?: $newStaff->email;
+        $sameStaff = $previousStaff && $previousStaff->id === $newStaff->id;
         $sequence = $document->workflowEvents()
             ->where('event_type', 'submission_reassigned')
             ->count();
 
         $this->notify(
-            collect([$previousStaff, $newStaff]),
+            collect([$previousStaff, $newStaff])->filter(),
             $document,
             'submission_reassigned',
             'Submission Reassigned',
-            "{$document->tracking_number} was reassigned from {$previousName} to {$newName}. Reason: {$reason}",
+            $sameStaff
+                ? "{$document->tracking_number} was returned to you for further action. Reason: {$reason}"
+                : "{$document->tracking_number} was reassigned from {$previousName} to {$newName}. Reason: {$reason}",
             "reassignment-{$sequence}"
         );
     }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\DistributionRecipientController;
+use App\Http\Controllers\Api\EngagementController;
 use App\Http\Controllers\Api\DocumentDistributionController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\IroAdminController;
@@ -19,6 +20,13 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::get('/iro-admin/overview', [IroAdminController::class, 'overview'])
         ->middleware('role:iro_admin');
 
+    Route::get('/iro-admin/engagements', [EngagementController::class, 'index'])
+        ->middleware('role:iro_admin');
+    Route::get('/iro-admin/engagements/options', [EngagementController::class, 'options'])
+        ->middleware('role:iro_admin');
+    Route::post('/iro-admin/engagements', [EngagementController::class, 'store'])
+        ->middleware('role:iro_admin');
+
     Route::get('/iro-admin/reports', [IroAdminController::class, 'reports'])
         ->middleware('role:iro_admin');
 
@@ -26,6 +34,21 @@ Route::middleware('supabase.auth')->group(function (): void {
         '/iro-admin/documents/{document}/reassign',
         [IroAdminController::class, 'reassign']
     )->middleware('role:iro_admin');
+
+    Route::patch(
+        '/iro-admin/documents/{document}/assign-revision',
+        [IroAdminController::class, 'assignRevision']
+    )->middleware('role:iro_admin');
+
+    Route::put(
+        '/iro-staff/documents/{document}/revision-forwarding-draft',
+        [DocumentController::class, 'saveRevisionForwardingDraft']
+    )->middleware('role:iro_staff');
+
+    Route::patch(
+        '/iro-staff/documents/{document}/send-revision-to-department',
+        [DocumentController::class, 'sendRevisionToDepartment']
+    )->middleware('role:iro_staff');
 
     Route::patch(
         '/iro-admin/documents/{document}/archive',
@@ -178,4 +201,11 @@ Route::middleware('supabase.auth')->group(function (): void {
 
     Route::get('/legal-counsels', [ProfileController::class, 'legalCounsels'])
         ->middleware('role:iro_admin');
+    Route::get('/iro-staff', [ProfileController::class, 'iroStaff'])
+        ->middleware('role:iro_admin');
+
+    Route::put(
+        '/iro-admin/documents/{document}/review-form/pending',
+        [ReviewFormController::class, 'saveAdminPending']
+    )->middleware('role:iro_admin');
 });

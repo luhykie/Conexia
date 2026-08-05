@@ -8,6 +8,16 @@ use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
+    public function iroStaff(): JsonResponse
+    {
+        return response()->json(['data' => DB::table('profiles')
+            ->select('id', 'full_name', 'email', 'role')
+            ->where('role', 'iro_staff')
+            ->where('is_active', true)
+            ->orderBy('full_name')
+            ->get()]);
+    }
+
     /**
      * Return active Legal Counsel profiles.
      */

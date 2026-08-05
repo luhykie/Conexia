@@ -5,8 +5,11 @@ import {
   getDocumentById,
   getReviewForm,
   getIroStaffDashboard,
+  checkRevision,
   logDocument,
   saveReviewForm,
+  saveRevisionForwardingDraft,
+  sendRevisionToDepartment,
   submitReviewForm,
 } from "../services/documentService";
 
@@ -36,7 +39,7 @@ export function LogReviewPage({ account }) {
     { key: "signatures", label: "Signatures Present" },
     { key: "terms", label: "Terms Defined" },
     { key: "attachments", label: "Attachments Included" },
-    { key: "gdpr", label: "GDPR Compliance" },
+    { key: "gdpr", label: "Data Privacy Compliance" },
   ];
   const [checklist, setChecklist] = useState({
     signatures: false,
@@ -46,6 +49,7 @@ export function LogReviewPage({ account }) {
   });
   const [staffRemarks, setStaffRemarks] = useState("");
   const [reviewFormStatus, setReviewFormStatus] = useState("draft");
+  const [forwardingNote, setForwardingNote] = useState("");
 
   const [stats, setStats] = useState({
     incoming: 0,
@@ -82,6 +86,7 @@ export function LogReviewPage({ account }) {
     try {
       const data = await getDocumentById(documentId);
       setDocument(data);
+      setForwardingNote(data.staff_forwarding_note || "");
 
       const form = data.review_form || await getReviewForm(documentId);
       if (form) {
@@ -118,6 +123,48 @@ export function LogReviewPage({ account }) {
       await loadDocument();
     } catch (error) {
       setStatusMessage(error?.message || "Unable to log the submission.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleForwardingDraft() {
+    setIsSubmitting(true);
+    setStatusMessage("");
+    try {
+      await saveRevisionForwardingDraft(documentId, forwardingNote);
+      setStatusMessage("Forwarding note saved as draft.");
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to save the forwarding note.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSendRevisionToDepartment() {
+    setIsSubmitting(true);
+    setStatusMessage("");
+    try {
+      await sendRevisionToDepartment(documentId, forwardingNote);
+      setStatusMessage("Revision request sent to the designated department.");
+      await loadDocument();
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to send the revision request.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSubmitRevisionToAdmin() {
+    setIsSubmitting(true);
+    setStatusMessage("");
+    try {
+      await checkRevision(documentId);
+      setStatusMessage("Revised document submitted to IRO Admin for validation.");
+      await loadDashboardStats();
+      await loadDocument();
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to submit the revised document to IRO Admin.");
     } finally {
       setIsSubmitting(false);
     }
@@ -243,10 +290,23 @@ async function handleSubmitToAdmin() {
     "Logged",
     "Review Form Sent Back",
   ].includes(document?.status);
-  const showReviewForm = !isStaff || canEditReviewForm;
+  const isRevisionForwarding = isStaff && (
+    document?.status === "Assigned for Revision Handling" ||
+    (
+      document?.status === "Review Form Sent Back" &&
+      document?.review_form?.review_form_status === "validated" &&
+      Boolean(document?.legal_notes)
+    )
+  );
+  const isResubmittedRevision = isStaff && document?.status === "Revised and Resubmitted";
+  const showReviewForm = !isStaff || canEditReviewForm || isRevisionForwarding || isResubmittedRevision;
   const reviewFormLocked = ["submitted", "validated"].includes(reviewFormStatus)
     || (isStaff && !canEditReviewForm);
-  const staffStage = document?.status === "Review Form Sent Back"
+  const staffStage = isResubmittedRevision
+    ? "review-revision"
+    : isRevisionForwarding
+    ? "forward-revision"
+    : document?.status === "Review Form Sent Back"
     ? "revise"
     : canEditReviewForm
       ? "review"
@@ -326,7 +386,34 @@ async function handleSubmitToAdmin() {
           )}
         </div>
 
-        {showReviewForm && <aside className="review-sidebar dark-card admin-review">
+        {showReviewForm && (isResubmittedRevision ? (
+          <aside className="review-sidebar admin-review revision-forward-panel">
+            <header className="admin-review-intro"><h2>Revision Completeness Check</h2><p>Status: <strong>Revised and Resubmitted</strong></p></header>
+            <div className="card-block">
+              <p>The department uploaded a new document version. Confirm the revision record is ready for IRO Admin validation.</p>
+              <label>Tracking Number<input value={document.tracking_number || "Not available"} readOnly /></label>
+              <label>Designated Department<input value={document.department?.name || document.departments?.name || "Department unavailable"} readOnly /></label>
+              <label>Legal Counsel Comments<textarea value={document.legal_notes || "No comments provided."} readOnly /></label>
+            </div>
+            <button className="btn primary large" type="button" disabled={isSubmitting} onClick={handleSubmitRevisionToAdmin}>{isSubmitting ? "Submitting..." : "Submit Revised Document to IRO Admin"}</button>
+            {statusMessage && <p className="review-status">{statusMessage}</p>}
+          </aside>
+        ) : isRevisionForwarding ? (
+          <aside className="review-sidebar admin-review revision-forward-panel">
+            <header className="admin-review-intro"><h2>Revision Request</h2><p>Status: <strong>Assigned for Revision Handling</strong></p></header>
+            <div className="card-block">
+              <label>Designated Department<input value={document.department?.name || document.departments?.name || "Department unavailable"} readOnly /></label>
+              <label>Legal Counsel Comments<textarea value={document.legal_notes || "No comments provided."} readOnly /></label>
+              <label>IRO Admin Instructions<textarea value={document.admin_revision_instructions || "No additional instructions provided."} readOnly /></label>
+              <label>Staff Forwarding Note<textarea value={forwardingNote} disabled={isSubmitting} onChange={(event) => setForwardingNote(event.target.value)} placeholder="Add a message for the department..." /></label>
+            </div>
+            <div className="revision-forward-actions">
+              <button className="btn outline" type="button" disabled={isSubmitting} onClick={handleForwardingDraft}>Save Draft</button>
+              <button className="btn primary" type="button" disabled={isSubmitting} onClick={handleSendRevisionToDepartment}>{isSubmitting ? "Sending..." : "Send to Department"}</button>
+            </div>
+            {statusMessage && <p className="review-status">{statusMessage}</p>}
+          </aside>
+        ) : <aside className="review-sidebar dark-card admin-review">
           <h2>{isStaff ? "Review Form" : "IRO Review Form"}</h2>
           <p className="review-form-status">
             Status: {reviewFormStatus.replaceAll("_", " ")}
@@ -364,7 +451,7 @@ async function handleSubmitToAdmin() {
               {statusMessage}
             </p>
           )}
-        </aside>}
+        </aside>)}
       </div>
     </section>
   );

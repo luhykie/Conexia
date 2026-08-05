@@ -90,7 +90,6 @@ class ReviewFormController extends Controller
 
         $form = DB::transaction(function () use ($document, $validated, $profile, $request): ReviewForm {
             $lockedDocument = Document::query()->lockForUpdate()->findOrFail($document->id);
-
             if (! in_array($lockedDocument->status, ['Submitted', 'Logged', 'Review Form Sent Back'], true)) {
                 abort(422, 'This document is not awaiting Review Form submission.');
             }
@@ -180,6 +179,45 @@ class ReviewFormController extends Controller
 
         return response()->json([
             'message' => 'Review Form validated.',
+            'data' => $form->fresh($this->relationships()),
+        ]);
+    }
+
+    public function saveAdminPending(Request $request, Document $document): JsonResponse
+    {
+        $validated = $request->validate([
+            'admin_remarks' => ['nullable', 'string', 'max:5000'],
+            'checklist_answers' => ['required', 'array'],
+            'checklist_answers.signatures' => ['required', 'boolean'],
+            'checklist_answers.terms' => ['required', 'boolean'],
+            'checklist_answers.attachments' => ['required', 'boolean'],
+            'checklist_answers.gdpr' => ['required', 'boolean'],
+        ]);
+        $profile = $this->profile($request);
+
+        $form = DB::transaction(function () use ($document, $validated, $profile, $request): ReviewForm {
+            $form = $document->reviewForm()->firstOrNew();
+            if ($form->exists && $form->review_form_status === 'validated') {
+                abort(422, 'A validated Review Form cannot be returned to pending.');
+            }
+            $form->checklist_answers = $validated['checklist_answers'];
+            $form->admin_remarks = $validated['admin_remarks'] ?? null;
+            $form->prepared_by ??= $profile->id;
+            $form->review_form_status ??= 'draft';
+            $form->save();
+            $this->recordEvent(
+                $request,
+                $document,
+                'admin_review_saved_pending',
+                $document->status,
+                $document->status,
+                'Administrative review progress saved as pending.'
+            );
+            return $form;
+        });
+
+        return response()->json([
+            'message' => 'Administrative review saved as pending.',
             'data' => $form->fresh($this->relationships()),
         ]);
     }

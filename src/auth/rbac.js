@@ -4,6 +4,7 @@ export const ROLE_KEYS = Object.keys(roles);
 
 // Central RBAC guard used by navigation and page rendering.
 export function canAccessPage(roleKey, pageId) {
+  if (roleKey === "department" && pageId === "revision-detail") return true;
   return Boolean(navItems[roleKey]?.some(([id]) => id === pageId));
 }
 

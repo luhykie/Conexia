@@ -14,7 +14,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class IroAdminController extends Controller
 {
@@ -123,25 +122,12 @@ class IroAdminController extends Controller
         Document $document
     ): JsonResponse {
         $validated = $request->validate([
-            'iro_staff_id' => [
-                'required',
-                'uuid',
-                Rule::exists('profiles', 'id')
-                    ->where('role', 'iro_staff')
-                    ->where('is_active', true),
-            ],
             'reason' => [
                 'required',
                 'string',
                 'max:2000',
             ],
         ]);
-
-        if (! $document->assigned_iro_staff) {
-            return response()->json([
-                'message' => 'Only assigned submissions can be reassigned.',
-            ], 422);
-        }
 
         if (
             in_array($document->status, ['Approved', 'Archived'], true)
@@ -151,31 +137,45 @@ class IroAdminController extends Controller
             ], 422);
         }
 
-        if ($document->assigned_iro_staff === $validated['iro_staff_id']) {
+        $activeIroStaff = Profile::query()
+            ->where('role', 'iro_staff')
+            ->where('is_active', true)
+            ->get();
+
+        if ($activeIroStaff->count() !== 1) {
             return response()->json([
-                'message' => 'Select a different IRO Staff member.',
+                'message' => 'The system requires exactly one active IRO Staff account.',
             ], 422);
         }
+
+        $systemIroStaff = $activeIroStaff->first();
 
         $updatedDocument = DB::transaction(function () use (
             $request,
             $document,
-            $validated
+            $validated,
+            $systemIroStaff
         ): Document {
             $lockedDocument = Document::query()
                 ->whereKey($document->id)
                 ->lockForUpdate()
                 ->firstOrFail();
-            $previousStaff = Profile::query()
-                ->findOrFail($lockedDocument->assigned_iro_staff);
-            $newStaff = Profile::query()
-                ->whereKey($validated['iro_staff_id'])
-                ->where('role', 'iro_staff')
-                ->where('is_active', true)
-                ->firstOrFail();
+            $previousStaff = $lockedDocument->assigned_iro_staff
+                ? Profile::query()->find($lockedDocument->assigned_iro_staff)
+                : null;
+            $newStaff = $systemIroStaff;
+            $previousStatus = $lockedDocument->status;
+            $isLegalRevision = filled($lockedDocument->legal_notes)
+                && $lockedDocument->reviewForm()
+                    ->where('review_form_status', 'validated')
+                    ->exists();
+            $nextStatus = $isLegalRevision
+                ? 'Assigned for Revision Handling'
+                : 'Review Form Sent Back';
 
             $lockedDocument->update([
                 'assigned_iro_staff' => $newStaff->id,
+                'status' => $nextStatus,
                 'updated_at' => now(),
             ]);
 
@@ -185,11 +185,10 @@ class IroAdminController extends Controller
                     $request->attributes->get('auth_profile')->id,
                 'actor_role' => 'iro_admin',
                 'event_type' => 'submission_reassigned',
-                'from_status' => $lockedDocument->status,
-                'to_status' => $lockedDocument->status,
+                'from_status' => $previousStatus,
+                'to_status' => $nextStatus,
                 'notes' => sprintf(
-                    'IRO Staff assignment changed from %s to %s. Reason: %s',
-                    $previousStaff->full_name ?: $previousStaff->email,
+                    'Submission returned and automatically assigned to %s. Reason: %s',
                     $newStaff->full_name ?: $newStaff->email,
                     $validated['reason']
                 ),
@@ -207,10 +206,65 @@ class IroAdminController extends Controller
         });
 
         return response()->json([
-            'message' => 'Submission reassigned successfully.',
+            'message' => 'Submission returned to IRO Staff successfully.',
             'data' => $updatedDocument->fresh(
                 'assignedIroStaffProfile:id,full_name,email,role'
             ),
+        ]);
+    }
+
+    public function assignRevision(Request $request, Document $document): JsonResponse
+    {
+        $validated = $request->validate([
+            'instructions' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        if ($document->status !== 'Corrections Needed') {
+            return response()->json([
+                'message' => 'Only documents returned by Legal Counsel can be assigned for revision handling.',
+            ], 422);
+        }
+
+        $staff = Profile::query()
+            ->where('role', 'iro_staff')
+            ->where('is_active', true)
+            ->get();
+
+        if ($staff->count() !== 1) {
+            return response()->json([
+                'message' => 'The system requires exactly one active IRO Staff account.',
+            ], 422);
+        }
+
+        $iroStaff = $staff->first();
+
+        DB::transaction(function () use ($request, $document, $validated, $iroStaff): void {
+            $previousStatus = $document->status;
+            $document->update([
+                'assigned_iro_staff' => $iroStaff->id,
+                'admin_revision_instructions' => $validated['instructions'] ?? null,
+                'staff_forwarding_note' => null,
+                'status' => 'Assigned for Revision Handling',
+                'updated_at' => now(),
+            ]);
+
+            WorkflowEvent::create([
+                'document_id' => $document->id,
+                'actor_id' => $request->attributes->get('auth_profile')->id,
+                'actor_role' => 'iro_admin',
+                'event_type' => 'revision_assigned_to_iro_staff',
+                'from_status' => $previousStatus,
+                'to_status' => 'Assigned for Revision Handling',
+                'notes' => $validated['instructions'] ?: 'Revision handling assigned to IRO Staff.',
+                'created_at' => now(),
+            ]);
+
+            $this->notifications->revisionAssignedToStaff($document, $iroStaff);
+        });
+
+        return response()->json([
+            'message' => 'Revision handling assigned to IRO Staff.',
+            'data' => $document->fresh('assignedIroStaffProfile:id,full_name,email,role'),
         ]);
     }
 

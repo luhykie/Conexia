@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { Panel } from "../components/Panel";
+import DocumentPreview from "../components/DocumentPreview";
 import {
   DashboardView,
   Dropzone,
@@ -16,6 +17,7 @@ import { StatGrid } from "../components/StatGrid";
 
 import {
   getDepartmentDocuments,
+  getDocumentById,
   resubmitRevision,
   submitDocument,
 } from "../services/documentService";
@@ -27,6 +29,10 @@ export function DepartmentStaff({ page, account }) {
 
   if (page === "submissions") {
     return <MySubmissionsPage account={account} />;
+  }
+
+  if (page === "revision-detail") {
+    return <RevisionDetailPage account={account} />;
   }
 
   if (page === "engagements") {
@@ -329,13 +335,13 @@ function DepartmentForm({
 }
 
 function MySubmissionsPage({ account }) {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const linkedDocumentId = searchParams.get("document");
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [revisionFiles, setRevisionFiles] = useState({});
-  const [resubmittingId, setResubmittingId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("All");
 
   useEffect(() => {
     if (account?.departmentId) {
@@ -365,7 +371,8 @@ function MySubmissionsPage({ account }) {
         account.departmentId
       );
 
-      setDocuments(Array.isArray(data) ? data : []);
+      const records = Array.isArray(data) ? data : [];
+      setDocuments(records);
     } catch (error) {
       console.error(
         "Unable to load department submissions:",
@@ -378,30 +385,6 @@ function MySubmissionsPage({ account }) {
       );
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleRevisionResubmit(document) {
-    const file = revisionFiles[document.id];
-    if (!file) {
-      setErrorMessage("Choose the corrected PDF, DOC, DOCX, or ODT file first.");
-      return;
-    }
-
-    setResubmittingId(document.id);
-    setErrorMessage("");
-    try {
-      await resubmitRevision(document.id, file);
-      setRevisionFiles((files) => {
-        const next = { ...files };
-        delete next[document.id];
-        return next;
-      });
-      await loadSubmissions();
-    } catch (error) {
-      setErrorMessage(error.message || "Unable to resubmit the revision.");
-    } finally {
-      setResubmittingId(null);
     }
   }
 
@@ -420,16 +403,32 @@ function MySubmissionsPage({ account }) {
 
   const actionCount = documents.filter(
     (document) =>
-      document.status === "Corrections Needed"
+      document.status === "Sent to Department for Revision"
   ).length;
+  const displayedDocuments = documents.filter((item) => {
+    if (statusFilter === "All") return true;
+    if (statusFilter === "In Review") {
+      return ["Submitted", "Logged", "Review Form Submitted", "Admin Validated", "Under Legal Review", "Revised and Resubmitted"].includes(item.status);
+    }
+    if (statusFilter === "Corrections Needed") {
+      return item.status === "Sent to Department for Revision";
+    }
+    return item.status === statusFilter;
+  });
 
   return (
-    <section className="page split-page department-page">
+    <section className="page department-page department-submissions-page">
       <div>
         <PageTitle
           title="My Submissions"
           subtitle="Real-time tracking of institutional documents and partner agreements."
         />
+
+        <div className="submission-status-tabs" role="tablist" aria-label="Filter submissions by status">
+          {["All", "In Review", "Corrections Needed", "Approved", "Notarized"].map((filter) => (
+            <button key={filter} type="button" className={statusFilter === filter ? "active" : ""} onClick={() => setStatusFilter(filter)}>{filter}</button>
+          ))}
+        </div>
 
         <StatGrid
           stats={[
@@ -467,13 +466,13 @@ function MySubmissionsPage({ account }) {
 
           {!loading &&
             !errorMessage &&
-            documents.length === 0 && (
+            displayedDocuments.length === 0 && (
               <p>No submissions found.</p>
             )}
 
           {!loading &&
             !errorMessage &&
-            documents.length > 0 && (
+            displayedDocuments.length > 0 && (
               <div className="submission-table-wrap">
                 <table className="submission-table">
                   <thead>
@@ -486,47 +485,22 @@ function MySubmissionsPage({ account }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {documents.map((document) => (
+                    {displayedDocuments.map((document) => (
                       <tr
                         id={`submission-${document.id}`}
-                        className={
-                          document.id === linkedDocumentId
-                            ? "notification-target"
-                            : undefined
-                        }
+                        className={[
+                          document.id === linkedDocumentId ? "notification-target" : "",
+                          document.status === "Sent to Department for Revision" ? "revision-required-row" : "",
+                        ].filter(Boolean).join(" ") || undefined}
                         key={document.id}
                       >
                         <td>{document.tracking_number || "N/A"}</td>
                         <td>{document.partner_institution || "N/A"}</td>
                         <td>{document.document_type || "N/A"}</td>
-                        <td>{document.status || "Unknown"}</td>
+                        <td>{document.status === "Sent to Department for Revision" ? "Corrections Needed" : (document.status || "Unknown")}</td>
                         <td>
-                          {document.status === "Corrections Needed" ? (
-                            <div className="revision-upload">
-                              <input
-                                type="file"
-                                accept=".pdf,.doc,.docx,.odt"
-                                onChange={(event) =>
-                                  setRevisionFiles((files) => ({
-                                    ...files,
-                                    [document.id]: event.target.files?.[0] ?? null,
-                                  }))
-                                }
-                              />
-                              <button
-                                type="button"
-                                className="primary"
-                                disabled={
-                                  !revisionFiles[document.id] ||
-                                  resubmittingId === document.id
-                                }
-                                onClick={() => handleRevisionResubmit(document)}
-                              >
-                                {resubmittingId === document.id
-                                  ? "Resubmitting..."
-                                  : "Resubmit Revision"}
-                              </button>
-                            </div>
+                          {document.status === "Sent to Department for Revision" ? (
+                            <button type="button" className="btn primary" onClick={() => navigate(`/app/revision-detail?document=${document.id}`)}>View Revision Request</button>
                           ) : (
                             <span className="muted-text">No action required</span>
                           )}
@@ -540,14 +514,84 @@ function MySubmissionsPage({ account }) {
         </Panel>
       </div>
 
-      <aside className="detail-drawer">
-        <h2>Submission Details</h2>
+    </section>
+  );
+}
 
-        <p>
-          Select a submission to view its legal comments and
-          version history.
-        </p>
-      </aside>
+function RevisionDetailPage({ account }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("document");
+  const [record, setRecord] = useState(null);
+  const [file, setFile] = useState(null);
+  const [revisionNote, setRevisionNote] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!documentId) {
+      setLoading(false);
+      setMessage("No revision request was selected.");
+      return;
+    }
+    setLoading(true);
+    getDocumentById(documentId)
+      .then((data) => {
+        setRecord(data);
+        if (data.status !== "Sent to Department for Revision") {
+          setMessage("This document is not currently awaiting a department revision.");
+        }
+      })
+      .catch((error) => setMessage(error.message || "Unable to load the revision request."))
+      .finally(() => setLoading(false));
+  }, [documentId, account?.departmentId]);
+
+  async function handleResubmit() {
+    if (!file) {
+      setMessage("Choose the corrected PDF, DOC, DOCX, or ODT file first.");
+      return;
+    }
+    setSubmitting(true);
+    setMessage("");
+    try {
+      await resubmitRevision(record.id, file, revisionNote);
+      setMessage("The revised document was resubmitted successfully.");
+      window.setTimeout(() => navigate("/app/submissions"), 1200);
+    } catch (error) {
+      setMessage(error.message || "Unable to resubmit the revised document.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) return <section className="page department-page"><p>Loading revision request...</p></section>;
+
+  if (!record) return <section className="page department-page"><PageTitle title="Revision Request" subtitle="The selected document could not be opened." /><p className="error-message">{message}</p><button className="btn outline" type="button" onClick={() => navigate("/app/submissions")}>Back to My Submissions</button></section>;
+
+  const canResubmit = record.status === "Sent to Department for Revision";
+
+  return (
+    <section className="page department-page revision-detail-page">
+      <PageTitle title="Revision Request" subtitle="Review the document and Legal Counsel’s comments before uploading the corrected version." />
+      <button className="btn outline" type="button" onClick={() => navigate("/app/submissions")}>Back to My Submissions</button>
+      <div className="revision-detail-layout">
+        <DocumentPreview document={record} canViewContent />
+        <aside className="revision-detail-panel">
+          <h2>Required Revision</h2>
+          <dl>
+            <div><dt>Tracking Number</dt><dd>{record.tracking_number}</dd></div>
+            <div><dt>Status</dt><dd>{record.status}</dd></div>
+            <div><dt>Designated Department</dt><dd>{record.department?.name || record.departments?.name || "Department unavailable"}</dd></div>
+          </dl>
+          <label>Legal Counsel Comments<textarea value={record.legal_notes || "No comments provided."} readOnly /></label>
+          <label>IRO Staff Forwarding Note<textarea value={record.staff_forwarding_note || "No additional note provided."} readOnly /></label>
+          {canResubmit && <label className="revision-file-label">Upload Revised Document<input type="file" accept=".pdf,.doc,.docx,.odt" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>}
+          {canResubmit && <label>Revision Note <span className="optional-label">Optional</span><textarea value={revisionNote} onChange={(event) => setRevisionNote(event.target.value)} placeholder="Summarize the corrections made..." /></label>}
+          {canResubmit && <button className="btn primary large" type="button" disabled={!file || submitting} onClick={handleResubmit}>{submitting ? "Resubmitting..." : "Resubmit Revised Document"}</button>}
+          {message && <p className={message.includes("successfully") ? "review-status" : "error-message"}>{message}</p>}
+        </aside>
+      </div>
     </section>
   );
 }

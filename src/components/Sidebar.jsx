@@ -4,7 +4,7 @@ import { getAllowedNavItems } from "../auth/rbac";
 
 // Role-aware sidebar renders only RBAC-approved links.
 export function Sidebar({ role, roleKey, page, setPage, onLogout }) {
-  const hidesNotificationLink = ["staff", "admin"].includes(roleKey);
+  const hidesNotificationLink = ["department", "staff", "admin"].includes(roleKey);
   const hidesInactiveSettings = ["staff", "admin"].includes(roleKey);
   const navigationItems = getAllowedNavItems(roleKey).filter(
     ([id]) => !(hidesNotificationLink && id === "notifications")

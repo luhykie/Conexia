@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../components/DataTable";
+import Engagements from "../components/Engagements";
 import LogReviewPage from "../components/LogReviewPage";
 import ManageSubmissions from "../components/ManageSubmissions";
 import { PageTitle } from "../components/PageTitle";
@@ -30,6 +31,7 @@ import {
 } from "../services/documentService";
 
 export function IroAdmin({ page, account }) {
+  if (page === "engagements") return <Engagements />;
   if (page === "incoming") return <ManageSubmissions queueMode />;
   if (page === "manage-submissions") return <AdminReviewForms account={account} />;
   if (page === "reassign") return <ReassignSubmissions />;
@@ -51,7 +53,10 @@ function AdminReviewForms({ account }) {
 
   return isPreparing
     ? <LogReviewPage account={account} />
-    : <ManageSubmissions selectedDocumentId={selectedDocumentId} />;
+    : <ManageSubmissions
+        queueMode={!selectedDocumentId}
+        selectedDocumentId={selectedDocumentId}
+      />;
 }
 
 function useAdminOverview() {

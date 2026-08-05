@@ -6,10 +6,15 @@ import { PageTitle } from "./PageTitle";
 import { Panel } from "./Panel";
 
 import {
+  assignRevisionToIroStaff,
   getDocumentById,
+  getDocumentFileBlob,
+  getIroStaffProfiles,
   getLegalCounsels,
   getLoggedDocuments,
+  reassignSubmission,
   routeToLegal,
+  saveAdminReviewPending,
   sendBackReviewForm,
   submitReviewForm,
   validateReviewForm,
@@ -30,7 +35,7 @@ const CHECKLIST_ITEMS = [
   },
   {
     key: "gdpr",
-    label: "GDPR Compliance",
+    label: "Data Privacy Compliance",
   },
 ];
 
@@ -104,15 +109,25 @@ export function ManageSubmissions({
     useState("All");
   const [statusFilter, setStatusFilter] =
     useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [staffFilter, setStaffFilter] = useState("All");
+  const [dateFilter, setDateFilter] = useState("");
+  const [iroStaff, setIroStaff] = useState([]);
+  const [reassignReason, setReassignReason] = useState("");
+  const [returnOpen, setReturnOpen] = useState(false);
 
   const [checklist, setChecklist] =
     useState(INITIAL_CHECKLIST);
   const [adminRemarks, setAdminRemarks] = useState("");
   const [sentBackReason, setSentBackReason] = useState("");
+  const [revisionInstructions, setRevisionInstructions] = useState("");
 
   useEffect(() => {
     loadDocuments();
     loadLegalCounsels();
+    getIroStaffProfiles()
+      .then((items) => setIroStaff(Array.isArray(items) ? items : []))
+      .catch((error) => console.error("Unable to load IRO Staff profiles:", error));
   }, []);
 
   useEffect(() => {
@@ -196,6 +211,8 @@ export function ManageSubmissions({
       setLegalCounselId("");
       setAdminRemarks(document.review_form?.admin_remarks || "");
       setSentBackReason(document.review_form?.sent_back_reason || "");
+      setReassignReason("");
+      setRevisionInstructions(document.admin_revision_instructions || "");
     } catch (error) {
       console.error(
         "Unable to load selected document:",
@@ -206,13 +223,14 @@ export function ManageSubmissions({
         error?.message ||
           "Unable to load the selected document."
       );
+      navigate("/app/manage-submissions", { replace: true });
     } finally {
       setLoadingDocumentId(null);
     }
   }
 
   function handleBackToQueue() {
-    navigate("/app/incoming");
+    navigate("/app/manage-submissions");
     setSelectedDocument(null);
     setChecklist(INITIAL_CHECKLIST);
     setLegalCounselId("");
@@ -295,6 +313,7 @@ export function ManageSubmissions({
       );
       await loadDocuments();
       setStatusMessage("Review Form sent back to IRO Staff.");
+      setReturnOpen(false);
       window.setTimeout(handleBackToQueue, 1200);
     } catch (error) {
       setStatusMessage(error.message || "Unable to send back the Review Form.");
@@ -324,6 +343,67 @@ export function ManageSubmissions({
       setStatusMessage(error.message || "Unable to route the document.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSavePending() {
+    if (!selectedDocument?.id) return;
+    setSubmitting(true);
+    setStatusMessage("");
+    try {
+      await saveAdminReviewPending(selectedDocument.id, adminRemarks, checklist);
+      await refreshSelectedDocument();
+      setStatusMessage("Administrative review saved as pending.");
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to save the pending review.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleReassign() {
+    if (!reassignReason.trim()) {
+      setStatusMessage("Enter a reason for returning the submission.");
+      return;
+    }
+    setSubmitting(true);
+    setStatusMessage("");
+    try {
+      await reassignSubmission(selectedDocument.id, reassignReason);
+      await refreshSelectedDocument();
+      await loadDocuments();
+      setReassignReason("");
+      setStatusMessage("Submission returned to IRO Staff.");
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to update the assignment.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleAssignRevision() {
+    setSubmitting(true);
+    setStatusMessage("");
+    try {
+      await assignRevisionToIroStaff(selectedDocument.id, revisionInstructions);
+      await refreshSelectedDocument();
+      await loadDocuments();
+      setStatusMessage("Revision handling assigned to IRO Staff.");
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to assign revision handling.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function openAttachment(file) {
+    try {
+      const blob = await getDocumentFileBlob(selectedDocument.id, file.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to open the attachment.");
     }
   }
 
@@ -420,11 +500,24 @@ export function ManageSubmissions({
       const matchesDepartment =
         departmentFilter === "All" ||
         department === departmentFilter;
+      const matchesType = typeFilter === "All" || document.document_type === typeFilter;
+      const matchesStaff = staffFilter === "All" || (
+        staffFilter === "Unassigned"
+          ? !document.assigned_iro_staff
+          : document.assigned_iro_staff === staffFilter
+      );
+      const matchesDate = !dateFilter || (
+        document.submitted_at
+        && new Date(document.submitted_at).toISOString().slice(0, 10) === dateFilter
+      );
 
       return (
         matchesSearch &&
         matchesStatus &&
-        matchesDepartment
+        matchesDepartment &&
+        matchesType &&
+        matchesStaff &&
+        matchesDate
       );
     });
   }, [
@@ -432,6 +525,9 @@ export function ManageSubmissions({
     searchTerm,
     statusFilter,
     departmentFilter,
+    typeFilter,
+    staffFilter,
+    dateFilter,
   ]);
 
   if (selectedDocument) {
@@ -442,6 +538,16 @@ export function ManageSubmissions({
     const isValidated = reviewFormStatus === "validated";
     const isLogged =
       selectedDocument.status === "Logged" || !hasReviewForm;
+    const incompleteChecklist = CHECKLIST_ITEMS.filter(
+      (item) => !checklist[item.key]
+    );
+    const routeDisabledReason = loadingCounsels
+      ? "Legal Counsel accounts are still loading."
+      : incompleteChecklist.length
+        ? `Complete: ${incompleteChecklist.map((item) => item.label).join(", ")}.`
+        : !legalCounselId
+          ? "Select a Legal Counsel before routing."
+          : "";
 
     return (
       <section className="page iro-admin-page manage-review-page">
@@ -451,42 +557,90 @@ export function ManageSubmissions({
         />
 
         <button
-          className="btn outline"
+          className="btn outline review-back-button"
           type="button"
           onClick={handleBackToQueue}
           disabled={submitting}
         >
-          Back to Manage Submissions
+          <span aria-hidden="true">←</span> Back to Manage Submissions
         </button>
 
         <div className="two-col manage-review-layout">
           <div>
+            <Panel title="Submission Information">
+              <dl className="submission-information-grid">
+                <div><dt>Tracking Number</dt><dd>{selectedDocument.tracking_number}</dd></div>
+                <div><dt>Department</dt><dd>{getDepartmentName(selectedDocument)}</dd></div>
+                <div><dt>Partner</dt><dd>{selectedDocument.partner_institution}</dd></div>
+                <div><dt>Document Type</dt><dd>{selectedDocument.document_type}</dd></div>
+                <div><dt>Current Assignee</dt><dd>{getAssignedStaffName(selectedDocument)}</dd></div>
+                <div><dt>Date Submitted</dt><dd>{formatUpdatedAt(selectedDocument.submitted_at)}</dd></div>
+              </dl>
+            </Panel>
             <DocumentPreview
               document={selectedDocument}
             />
+            <Panel title="Supporting Attachments">
+              {(selectedDocument.files || []).filter((file) => file.file_category !== "original_draft").length ? (
+                <div className="attachment-list">
+                  {(selectedDocument.files || []).filter((file) => file.file_category !== "original_draft").map((file) => (
+                    <div key={file.id}>
+                      <span><b>{file.original_filename}</b><small>{file.file_category.replaceAll("_", " ")}</small></span>
+                      <button className="outline" type="button" onClick={() => openAttachment(file)}>Open / Download</button>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="notification-state">No supporting attachments were submitted.</p>}
+            </Panel>
+            <Panel title="Revision and Activity History">
+              {(selectedDocument.workflow_events || []).length ? (
+                <div className="submission-history">
+                  {[...selectedDocument.workflow_events].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map((event) => (
+                    <article key={event.id}>
+                      <b>{String(event.event_type).replaceAll("_", " ")}</b>
+                      <p>{event.notes || `${event.from_status || "Created"} → ${event.to_status}`}</p>
+                      <time>{formatUpdatedAt(event.created_at)}</time>
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="notification-state">No activity has been recorded.</p>}
+            </Panel>
           </div>
 
-          <aside className="review-sidebar dark-card admin-review">
-            <h2>Administrative Review</h2>
-
-            {!selectedDocument.review_form && (
-              <div className="card-block">
-                <h3>Ready for Administrative Review</h3>
-                <p>
-                  IRO Staff logged this submission. Review its contents and
-                  complete the checklist below.
-                </p>
-              </div>
-            )}
+          <aside className="review-sidebar admin-review">
+            {selectedDocument.status === "Corrections Needed" ? (
+              <>
+                <header className="admin-review-intro">
+                  <h2>Legal Review Result</h2>
+                  <p>Process the revision request returned by Legal Counsel.</p>
+                </header>
+                <div className="card-block revision-handoff-card">
+                  <p className="revision-status"><span>Status</span><strong>Corrections Needed</strong></p>
+                  <label>Legal Counsel Comments<textarea value={selectedDocument.legal_notes || "No comments provided."} readOnly /></label>
+                  <label>Designated Department<input value={getDepartmentName(selectedDocument)} readOnly /></label>
+                  <label>Instructions to IRO Staff <span className="optional-label">Optional</span><textarea value={revisionInstructions} disabled={submitting} onChange={(event) => setRevisionInstructions(event.target.value)} placeholder="Add forwarding instructions..." /></label>
+                  <button className="btn primary large" type="button" disabled={submitting || iroStaff.length !== 1} onClick={handleAssignRevision}>{submitting ? "Assigning..." : "Assign to IRO Staff"}</button>
+                  {iroStaff.length !== 1 && <p className="assignment-unavailable">The action requires exactly one active IRO Staff account.</p>}
+                  {statusMessage && <p className="review-status" role="alert">{statusMessage}</p>}
+                </div>
+              </>
+            ) : (
+            <>
+            <header className="admin-review-intro">
+              <h2>Administrative Review</h2>
+              <p>Review and process the selected submission.</p>
+            </header>
 
             <div className="card-block">
               <h3>Completeness Check</h3>
-              {selectedDocument.review_form && <p>
-                Staff:{" "}
+              <p className="reviewed-by">
+                <span>Reviewed by</span>
+                <strong>
                 {selectedDocument.review_form?.preparer?.full_name ||
                   selectedDocument.review_form?.preparer?.email ||
-                  "Not available"}
-              </p>}
+                  getAssignedStaffName(selectedDocument) || "Not available"}
+                </strong>
+              </p>
 
               {CHECKLIST_ITEMS.map((item) => (
                 <label
@@ -509,19 +663,45 @@ export function ManageSubmissions({
                   <span>{item.label}</span>
                 </label>
               ))}
-              {selectedDocument.review_form && <label>
-                Staff Remarks
+              <label>
+                IRO Staff Remarks
                 <textarea
                   value={selectedDocument.review_form?.staff_remarks || ""}
                   readOnly
+                  placeholder="No remarks were provided."
                 />
-              </label>}
+              </label>
+            </div>
+
+            <div className="card-block assignment-card">
+              <h3>Assignment</h3>
+              <label>
+                Reason for Reassignment <span className="required-mark">Required</span>
+                <textarea
+                  value={reassignReason}
+                  disabled={submitting}
+                  onChange={(event) => setReassignReason(event.target.value)}
+                  placeholder="Explain why the document is being reassigned..."
+                />
+              </label>
+              <button
+                className="btn warning-outline wide-inline"
+                type="button"
+                disabled={submitting || !reassignReason.trim() || iroStaff.length !== 1}
+                onClick={handleReassign}
+              >
+                {submitting ? "Returning..." : "Reassign to IRO Staff"}
+              </button>
+              {iroStaff.length !== 1 && (
+                <p className="assignment-unavailable">The action requires exactly one active IRO Staff account.</p>
+              )}
             </div>
 
             {(isLogged || isSubmitted || isValidated) && (
             <div className="card-block route-card">
+              <h3>Legal Routing</h3>
               <label>
-                Route To
+                Assign Legal Counsel
 
                 <select
                   value={legalCounselId}
@@ -546,12 +726,9 @@ export function ManageSubmissions({
                       key={counsel.id}
                       value={counsel.id}
                     >
-                      {counsel.full_name ||
-                        counsel.email ||
-                        "Legal Counsel"}
-                      {counsel.email
-                        ? ` — ${counsel.email}`
-                        : ""}
+                      {counsel.full_name && !["legal", "legal counsel"].includes(counsel.full_name.trim().toLowerCase())
+                        ? counsel.full_name
+                        : "Legal Counsel"}
                     </option>
                   ))}
                 </select>
@@ -580,67 +757,43 @@ export function ManageSubmissions({
                   </button>
                 </div>
               )}
-            </div>
-            )}
-
-            <div className="card-block">
               <label>
-                Admin Remarks
-
+                Administrative Remarks <span className="optional-label">Optional</span>
                 <textarea
                   value={adminRemarks}
-                  onChange={(event) =>
-                    setAdminRemarks(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Add validation notes..."
+                  onChange={(event) => setAdminRemarks(event.target.value)}
+                  placeholder="Add optional notes..."
                   readOnly={isValidated}
                   disabled={submitting}
                 />
               </label>
-              {isSubmitted && hasReviewForm && (
-              <label>
-                Send-back Reason
-                <textarea
-                  value={sentBackReason}
-                  onChange={(event) => setSentBackReason(event.target.value)}
-                  placeholder="Explain what IRO Staff must correct..."
-                  disabled={
-                    submitting ||
-                    !isSubmitted
-                  }
-                />
-              </label>
-              )}
             </div>
+            )}
 
-            <div className="review-actions">
-              {statusMessage && (
-                <p
-                  className="review-status"
-                  role="alert"
-                  style={{
-                    marginBottom: "12px",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    background: "#ffffff",
-                    color: "#004b32",
-                    lineHeight: 1.4,
-                  }}
+            <div className="admin-decision-actions">
+              {statusMessage && <p className="review-status" role="alert">{statusMessage}</p>}
+              {!isValidated && (
+                <button
+                  className="btn outline wide-inline"
+                  type="button"
+                  onClick={handleSavePending}
+                  disabled={submitting}
                 >
-                  {statusMessage}
-                </p>
+                  Save as Pending
+                </button>
               )}
-
               {isSubmitted && hasReviewForm && (
                   <button
-                    className="btn outline wide-inline"
+                    className="btn warning-outline wide-inline"
                     type="button"
-                    onClick={handleSendBack}
+                    onClick={() => {
+                      setSentBackReason("");
+                      setStatusMessage("");
+                      setReturnOpen(true);
+                    }}
                     disabled={submitting}
                   >
-                    Send Back as Incomplete
+                    Return to IRO Staff
                   </button>
               )}
 
@@ -649,73 +802,42 @@ export function ManageSubmissions({
                   className="btn primary large wide-inline route-action"
                   type="button"
                   onClick={handleSubmitToLegal}
-                  disabled={submitting || !legalCounselId}
+                  disabled={submitting || Boolean(routeDisabledReason)}
                 >
                   {submitting
                     ? "Submitting..."
-                    : "Submit to Legal for Checking"}
+                    : "Validate and Route to Legal"}
                 </button>
               )}
-
-              <button
-                className="btn outline wide-inline"
-                type="button"
-                onClick={handleBackToQueue}
-                disabled={submitting}
-              >
-                Cancel Review
-              </button>
+              {routeDisabledReason && !isValidated && <p className="action-disabled-reason">{routeDisabledReason}</p>}
             </div>
+            </>
+            )}
           </aside>
         </div>
+
+        {returnOpen && (
+          <div className="modal-backdrop" role="presentation" onMouseDown={() => !submitting && setReturnOpen(false)}>
+            <div className="action-modal" role="dialog" aria-modal="true" aria-labelledby="return-title" onMouseDown={(event) => event.stopPropagation()}>
+              <header><div><h2 id="return-title">Return to IRO Staff</h2><p>Tell the assigned staff member what must be corrected.</p></div><button type="button" aria-label="Close" onClick={() => setReturnOpen(false)}>×</button></header>
+              <div className="action-modal-body"><label>Return reason <span className="required-mark">Required</span><textarea autoFocus value={sentBackReason} disabled={submitting} onChange={(event) => setSentBackReason(event.target.value)} placeholder="Describe the required corrections..." /></label></div>
+              <footer><button className="btn outline" type="button" disabled={submitting} onClick={() => setReturnOpen(false)}>Cancel</button><button className="btn warning" type="button" disabled={submitting || !sentBackReason.trim()} onClick={handleSendBack}>{submitting ? "Returning..." : "Return Submission"}</button></footer>
+            </div>
+          </div>
+        )}
       </section>
     );
   }
 
-  if (!queueMode) {
-    if (loadingDocumentId) {
-      return (
-        <section className="page iro-admin-page">
-          <PageTitle
-            title="Review Forms"
-            subtitle="Loading the selected submission for administrative review."
-          />
-          <Panel title="Opening Submission">
-            <p className="empty-state">Loading document...</p>
-          </Panel>
-        </section>
-      );
-    }
-
+  if (!queueMode && loadingDocumentId) {
     return (
       <section className="page iro-admin-page">
         <PageTitle
-          title="Review Forms"
-          subtitle="Select a submission from Incoming Submissions to validate it and route it to Legal Counsel."
-          action="Open Incoming Submissions"
-          onAction={() => navigate("/app/incoming")}
+          title="Manage Submissions"
+          subtitle="Opening the selected submission for administrative review."
         />
-        <Panel title="No Submission Selected">
-          {errorMessage ? (
-            <div className="error-message">
-              <p>{errorMessage}</p>
-              <button
-                className="btn outline"
-                type="button"
-                onClick={() =>
-                  handleReview(
-                    selectedDocumentId || searchParams.get("document")
-                  )
-                }
-              >
-                Retry
-              </button>
-            </div>
-          ) : (
-            <p className="empty-state">
-              Open Incoming Submissions and choose Review Submission.
-            </p>
-          )}
+        <Panel title="Opening Submission">
+          <p className="empty-state">Loading document...</p>
         </Panel>
       </section>
     );
@@ -724,9 +846,9 @@ export function ManageSubmissions({
   return (
     <section className="page iro-admin-page">
       <PageTitle
-        title="Incoming Submissions"
-        subtitle="Documents logged and forwarded by IRO Staff for administrative review."
-        action="Refresh Queue"
+        title="Manage Submissions"
+        subtitle="Submitted documents requiring administrative action."
+        action="Refresh Submissions"
         onAction={loadDocuments}
         actionDisabled={loading}
       />
@@ -748,6 +870,7 @@ export function ManageSubmissions({
           }
         >
           <option value="All">All Statuses</option>
+          <option value="Submitted">Submitted</option>
           <option value="Logged">Logged by IRO Staff</option>
           <option value="Review Form Submitted">
             Awaiting Validation
@@ -755,6 +878,13 @@ export function ManageSubmissions({
           <option value="Admin Validated">
             Validated
           </option>
+        </select>
+
+        <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+          <option value="All">All Document Types</option>
+          <option value="MOA">MOA</option>
+          <option value="MOU">MOU</option>
+          <option value="MOF">MOF</option>
         </select>
 
         <select
@@ -774,6 +904,19 @@ export function ManageSubmissions({
             </option>
           ))}
         </select>
+
+        <select value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
+          <option value="All">All IRO Staff</option>
+          <option value="Unassigned">Unassigned</option>
+          {iroStaff.map((staff) => (
+            <option key={staff.id} value={staff.id}>{staff.full_name || staff.email}</option>
+          ))}
+        </select>
+
+        <label className="manage-date-filter">
+          <span>Date submitted</span>
+          <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+        </label>
       </div>
 
       <Panel title="Submissions Awaiting Admin Action">
@@ -818,7 +961,7 @@ export function ManageSubmissions({
                     <th>Type</th>
                     <th>Assigned Staff</th>
                     <th>Status</th>
-                    <th>Last Updated</th>
+                    <th>Date Submitted</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -831,7 +974,18 @@ export function ManageSubmissions({
                       getAssignedStaffName(document);
 
                     return (
-                      <tr key={document.id}>
+                      <tr
+                        className="clickable-submission-row"
+                        key={document.id}
+                        tabIndex={0}
+                        onClick={() => handleReview(document.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleReview(document.id);
+                          }
+                        }}
+                      >
                         <td className="manage-tracking-cell">
                           {document.tracking_number ||
                             "N/A"}
@@ -865,7 +1019,7 @@ export function ManageSubmissions({
                         </td>
 
                         <td className="manage-date-cell">
-                          {formatUpdatedAt(document.updated_at)}
+                          {formatUpdatedAt(document.submitted_at)}
                         </td>
 
                         <td className="manage-action-cell">
@@ -873,9 +1027,10 @@ export function ManageSubmissions({
                             className="btn primary small"
                             type="button"
                             disabled={Boolean(loadingDocumentId)}
-                            onClick={() =>
+                            onClick={(event) => {
+                              event.stopPropagation();
                               handleReview(document.id)
-                            }
+                            }}
                           >
                             {loadingDocumentId === document.id
                               ? "Opening..."

@@ -267,6 +267,9 @@ class DocumentController extends Controller
                 'department_id',
                 'assigned_iro_staff',
                 'status',
+                'legal_notes',
+                'admin_revision_instructions',
+                'staff_forwarding_note',
                 'submitted_at',
                 'updated_at',
                 'effective_date',
@@ -426,12 +429,18 @@ class DocumentController extends Controller
     {
         $documents = Document::query()
             ->with($this->documentRelationships())
-            ->whereNotNull('assigned_iro_staff')
-            ->whereIn('status', [
-                'Logged',
-                'Review Form Submitted',
-                'Admin Validated',
-            ])
+            ->where(function ($query): void {
+                $query->where(function ($assigned): void {
+                    $assigned->whereNotNull('assigned_iro_staff')
+                        ->whereIn('status', [
+                            'Logged',
+                            'Review Form Submitted',
+                            'Admin Validated',
+                            'Corrections Needed',
+                            'Assigned for Revision Handling',
+                        ]);
+                })->orWhereHas('engagement');
+            })
             ->orderByDesc('updated_at')
             ->get();
 
@@ -443,6 +452,63 @@ class DocumentController extends Controller
     /**
      * Department Staff resubmits a document returned by Legal Counsel.
      */
+    public function saveRevisionForwardingDraft(Request $request, Document $document): JsonResponse
+    {
+        $this->ensureCanProcessAsIro($request, $document);
+        $validated = $request->validate([
+            'forwarding_note' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        if ($document->status !== 'Assigned for Revision Handling') {
+            return response()->json(['message' => 'This revision request is not assigned for forwarding.'], 422);
+        }
+
+        $document->update([
+            'staff_forwarding_note' => $validated['forwarding_note'] ?? null,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Forwarding note saved as draft.',
+            'data' => $document->fresh(),
+        ]);
+    }
+
+    public function sendRevisionToDepartment(Request $request, Document $document): JsonResponse
+    {
+        $this->ensureCanProcessAsIro($request, $document);
+        $validated = $request->validate([
+            'forwarding_note' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        if ($document->status !== 'Assigned for Revision Handling') {
+            return response()->json(['message' => 'This revision request is not assigned for forwarding.'], 422);
+        }
+
+        DB::transaction(function () use ($request, $document, $validated): void {
+            $previousStatus = $document->status;
+            $document->update([
+                'staff_forwarding_note' => $validated['forwarding_note'] ?? null,
+                'status' => 'Sent to Department for Revision',
+                'updated_at' => now(),
+            ]);
+            $this->recordWorkflowEvent(
+                $request,
+                $document,
+                'revision_sent_to_department',
+                $previousStatus,
+                'Sent to Department for Revision',
+                $validated['forwarding_note'] ?: 'Revision request forwarded to the designated department.'
+            );
+            $this->notifications->revisionSentToDepartment($document);
+        });
+
+        return response()->json([
+            'message' => 'Revision request sent to the designated department.',
+            'data' => $document->fresh(),
+        ]);
+    }
+
     public function resubmitRevision(
         Request $request,
         Document $document
@@ -454,6 +520,7 @@ class DocumentController extends Controller
                 'max:25600',
                 'mimes:pdf,doc,docx,odt',
             ],
+            'revision_note' => ['nullable', 'string', 'max:5000'],
         ]);
         $profile = $this->profile($request);
 
@@ -464,9 +531,15 @@ class DocumentController extends Controller
             abort(404);
         }
 
-        if ($document->status !== 'Corrections Needed') {
+        if ($document->status !== 'Sent to Department for Revision') {
             return response()->json([
-                'message' => 'Only documents requiring corrections can be resubmitted.',
+                'message' => 'This revision request has not been forwarded to the department.',
+            ], 422);
+        }
+
+        if ($document->status !== 'Sent to Department for Revision') {
+            return response()->json([
+                'message' => 'This revision request has not been forwarded to the department.',
             ], 422);
         }
 
@@ -477,7 +550,7 @@ class DocumentController extends Controller
         $path = $file->store("documents/{$document->id}", 'local');
 
         try {
-            DB::transaction(function () use ($request, $document, $version, $file, $path): void {
+            DB::transaction(function () use ($request, $document, $version, $file, $path, $validated): void {
                 $previousStatus = $document->status;
                 DocumentFile::create([
                     'document_id' => $document->id,
@@ -492,7 +565,7 @@ class DocumentController extends Controller
                     'version' => $version,
                 ]);
                 $document->update([
-                    'status' => 'Submitted',
+                    'status' => 'Revised and Resubmitted',
                     'updated_at' => now(),
                 ]);
 
@@ -501,8 +574,8 @@ class DocumentController extends Controller
                     $document,
                     'revision_resubmitted',
                     $previousStatus,
-                    'Submitted',
-                    "Revision version {$version}"
+                    'Revised and Resubmitted',
+                    "Revision version {$version}. Note: ".($validated['revision_note'] ?: 'No revision note provided.')
                 );
                 $this->notifications->revisionResubmitted($document, $version);
             });
@@ -527,7 +600,7 @@ class DocumentController extends Controller
     ): JsonResponse {
         $this->ensureCanProcessAsIro($request, $document);
 
-        if ($document->status !== 'Submitted') {
+        if ($document->status !== 'Revised and Resubmitted') {
             return response()->json([
                 'message' => 'Only resubmitted revisions can be checked.',
             ], 422);

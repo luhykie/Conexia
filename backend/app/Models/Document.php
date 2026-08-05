@@ -33,6 +33,8 @@ class Document extends Model
         'assigned_legal_counsel',
         'status',
         'legal_notes',
+        'admin_revision_instructions',
+        'staff_forwarding_note',
         'submitted_at',
         'updated_at',
         'notarial_reference_number',
@@ -118,5 +120,10 @@ class Document extends Model
     public function reviewForm(): HasOne
     {
         return $this->hasOne(ReviewForm::class);
+    }
+
+    public function engagement(): HasOne
+    {
+        return $this->hasOne(Engagement::class);
     }
 }

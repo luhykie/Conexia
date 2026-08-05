@@ -211,7 +211,10 @@ export function NotificationsView({ roleKey }) {
 }
 
 function getNotificationDestination(roleKey, type = "") {
-  if (roleKey === "department") return "submissions";
+  if (roleKey === "department") {
+    if (type === "revision_sent_to_department") return "revision-detail";
+    return "submissions";
+  }
   if (roleKey === "legal") return "review";
   if (roleKey === "admin") {
     if (type === "document_notarized") return "distribution-lists";

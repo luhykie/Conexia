@@ -73,7 +73,7 @@ async function sendRequest(path, options, accessToken) {
       headers: {
         Accept: "application/json",
         ...(!isFormData && { "Content-Type": "application/json" }),
-        Authorization: `Bearer ${accessToken}`,
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...options.headers,
       },
     });
@@ -393,7 +393,7 @@ export async function logDocument(documentId) {
   return result.data ?? result;
 }
 
-export async function resubmitRevision(documentId, file) {
+export async function resubmitRevision(documentId, file, revisionNote = "") {
   if (!documentId) {
     throw new Error("Document ID is required.");
   }
@@ -403,6 +403,7 @@ export async function resubmitRevision(documentId, file) {
 
   const body = new FormData();
   body.append("file", file);
+  body.append("revision_note", revisionNote.trim());
 
   const result = await apiRequest(
     `/documents/${documentId}/resubmit-revision`,
@@ -461,9 +462,9 @@ export async function getIroAdminReports() {
   return reportsRequest;
 }
 
-export async function reassignSubmission(documentId, iroStaffId, reason) {
-  if (!documentId || !iroStaffId || !reason?.trim()) {
-    throw new Error("Document, IRO Staff member, and reason are required.");
+export async function reassignSubmission(documentId, reason) {
+  if (!documentId || !reason?.trim()) {
+    throw new Error("Document and reassignment reason are required.");
   }
 
   const result = await apiRequest(
@@ -471,7 +472,6 @@ export async function reassignSubmission(documentId, iroStaffId, reason) {
     {
       method: "PATCH",
       body: JSON.stringify({
-        iro_staff_id: iroStaffId,
         reason: reason.trim(),
       }),
     }
@@ -567,6 +567,59 @@ export async function getLegalCounsels() {
     "/legal-counsels"
   );
 
+  return result.data ?? result;
+}
+
+export async function assignRevisionToIroStaff(documentId, instructions = "") {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/assign-revision`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ instructions: instructions.trim() || null }),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function saveRevisionForwardingDraft(documentId, forwardingNote = "") {
+  const result = await apiRequest(
+    `/iro-staff/documents/${documentId}/revision-forwarding-draft`,
+    { method: "PUT", body: JSON.stringify({ forwarding_note: forwardingNote.trim() || null }) }
+  );
+  return result.data ?? result;
+}
+
+export async function sendRevisionToDepartment(documentId, forwardingNote = "") {
+  const result = await apiRequest(
+    `/iro-staff/documents/${documentId}/send-revision-to-department`,
+    { method: "PATCH", body: JSON.stringify({ forwarding_note: forwardingNote.trim() || null }) }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
+export async function getIroStaffProfiles() {
+  const result = await apiRequest("/iro-staff");
+  return result.data ?? result;
+}
+
+export async function saveAdminReviewPending(
+  documentId,
+  adminRemarks,
+  checklistAnswers
+) {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/review-form/pending`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        admin_remarks: adminRemarks?.trim() || null,
+        checklist_answers: checklistAnswers,
+      }),
+    }
+  );
+  announceWorkflowChange();
   return result.data ?? result;
 }
 

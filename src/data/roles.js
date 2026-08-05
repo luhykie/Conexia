@@ -13,7 +13,6 @@ import {
   Handshake,
   History,
   LayoutDashboard,
-  RefreshCw,
   Shield,
   ShieldCheck,
   Users,
@@ -99,9 +98,8 @@ export const navItems = {
 
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],
-    ["incoming", "Incoming Submissions", Folder],
-    ["manage-submissions", "Review Forms", ClipboardCheck],
-    ["reassign", "Reassign Submissions", RefreshCw],
+    ["engagements", "Engagements", Handshake],
+    ["manage-submissions", "Manage Submissions", ClipboardCheck],
     ["distribution-lists", "Distribution Lists", Users],
     ["reports", "Performance Reports", Gauge],
     ["archive", "Archive", Archive],
