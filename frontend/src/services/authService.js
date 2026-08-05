@@ -1,32 +1,5 @@
 import { supabase } from "../supabaseConfig";
 
-function mapRoleToRoleKey(role) {
-  const normalizedRole = String(role || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
-
-  switch (normalizedRole) {
-    case "super_admin":
-      return "super";
-
-    case "iro_admin":
-      return "admin";
-
-    case "iro_staff":
-      return "staff";
-
-    case "legal_counsel":
-      return "legal";
-
-    case "department_staff":
-      return "department";
-
-    default:
-      throw new Error(`Unsupported role: ${role}`);
-  }
-}
-
 export async function signInWithSupabase(email, password) {
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -51,10 +24,11 @@ export async function signInWithSupabase(email, password) {
     .select(`
       id,
       full_name,
-      email,
       role,
-      department_id,
-      is_active
+      role_key,
+      office,
+      department,
+      status
     `)
     .eq("id", authData.user.id)
     .single();
@@ -72,39 +46,21 @@ export async function signInWithSupabase(email, password) {
     );
   }
 
-  if (!profile.is_active) {
+  if (profile.status !== "active") {
     await supabase.auth.signOut();
     throw new Error("This account is inactive.");
-  }
-
-  let office = "No assigned office";
-
-  if (profile.department_id) {
-    const { data: department, error: departmentError } =
-      await supabase
-        .from("departments")
-        .select("name")
-        .eq("id", profile.department_id)
-        .maybeSingle();
-
-    if (departmentError) {
-      console.error(
-        "Department lookup failed:",
-        departmentError
-      );
-    } else if (department?.name) {
-      office = department.name;
-    }
   }
 
   return {
     id: profile.id,
     fullName: profile.full_name,
-    email: profile.email,
+    email: authData.user.email,
     role: profile.role,
-    roleKey: mapRoleToRoleKey(profile.role),
-    departmentId: profile.department_id,
-    office,
+    roleKey: profile.role_key === "super_admin"
+      ? "super"
+      : profile.role_key,
+    department: profile.department,
+    office: profile.office,
   };
 }
 

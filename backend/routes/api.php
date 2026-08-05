@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\IroAdminController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ReviewFormController;
+use App\Http\Controllers\Api\SubmissionRoutingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('supabase.auth')->group(function (): void {
@@ -167,6 +168,11 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::patch(
         '/documents/{document}/route-to-legal',
         [DocumentController::class, 'routeToLegal']
+    )->middleware('role:iro_admin');
+
+    Route::patch(
+        '/submissions/{submissionId}/route-to-legal',
+        [SubmissionRoutingController::class, 'routeToLegal']
     )->middleware('role:iro_admin');
 
     Route::get(

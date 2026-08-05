@@ -11,9 +11,9 @@ class ProfileController extends Controller
     public function iroStaff(): JsonResponse
     {
         return response()->json(['data' => DB::table('profiles')
-            ->select('id', 'full_name', 'email', 'role')
-            ->where('role', 'iro_staff')
-            ->where('is_active', true)
+            ->select('id', 'full_name', 'role', 'role_key', 'office', 'department')
+            ->where('role_key', 'staff')
+            ->where('status', 'active')
             ->orderBy('full_name')
             ->get()]);
     }
@@ -24,14 +24,9 @@ class ProfileController extends Controller
     public function legalCounsels(): JsonResponse
     {
         $legalCounsels = DB::table('profiles')
-            ->select(
-                'id',
-                'full_name',
-                'email',
-                'role'
-            )
-            ->where('role', 'legal_counsel')
-            ->where('is_active', true)
+            ->select('id', 'full_name', 'role', 'role_key', 'office', 'department')
+            ->where('role_key', 'legal')
+            ->where('status', 'active')
             ->orderBy('full_name')
             ->get();
 

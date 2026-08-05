@@ -21,7 +21,7 @@ class SupabaseAuthenticator
         // A short TTL avoids repeating the remote Supabase user lookup for every
         // API request while keeping profile/authorization changes responsive.
         $profile = Cache::remember(
-            'supabase-auth:v2:'.hash('sha256', $token),
+            'supabase-auth:v3:'.hash('sha256', $token),
             now()->addSeconds($ttl),
             fn (): array => (array) $this->authenticateRemotely($token),
         );
@@ -60,28 +60,38 @@ class SupabaseAuthenticator
             );
         }
 
-        $profile = DB::table('profiles')
-            ->select(
-                'id',
-                'full_name',
-                'email',
-                'role',
-                'department_id',
-                'is_active'
-            )
+        $databaseProfile = DB::table('profiles')
+            ->select('id', 'full_name', 'role', 'role_key', 'office', 'department', 'status')
             ->where('id', $userId)
             ->first();
 
-        if (! $profile) {
+        if (! $databaseProfile) {
             throw new AuthenticationException(
                 'No profile is linked to this authenticated user.'
             );
         }
 
-        if (! $profile->is_active) {
+        if ($databaseProfile->status !== 'active') {
             throw new AuthenticationException('This account is inactive.');
         }
 
-        return $profile;
+        $applicationRole = match ($databaseProfile->role_key) {
+            'super_admin' => 'super_admin',
+            'admin' => 'iro_admin',
+            'staff' => 'iro_staff',
+            'legal' => 'legal_counsel',
+            'department' => 'department_staff',
+        };
+
+        return (object) [
+            'id' => $databaseProfile->id,
+            'full_name' => $databaseProfile->full_name,
+            'email' => (string) $response->json('email'),
+            'role' => $applicationRole,
+            'role_key' => $databaseProfile->role_key,
+            'office' => $databaseProfile->office,
+            'department' => $databaseProfile->department,
+            'is_active' => true,
+        ];
     }
 }

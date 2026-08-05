@@ -638,7 +638,7 @@ export async function routeToLegal(
   }
 
   const result = await apiRequest(
-    `/documents/${documentId}/route-to-legal`,
+    `/submissions/${documentId}/route-to-legal`,
     {
       method: "PATCH",
       body: JSON.stringify({
