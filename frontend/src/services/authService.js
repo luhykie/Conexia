@@ -1,5 +1,20 @@
 import { supabase } from "../supabaseConfig";
 
+function oldRoleToRoleKey(role) {
+  return {
+    super_admin: "super",
+    iro_admin: "admin",
+    iro_staff: "staff",
+    legal_counsel: "legal",
+    department_staff: "department",
+  }[String(role || "").trim().toLowerCase()] || "";
+}
+
+function isMissingRoleKey(error) {
+  return error?.code === "42703" ||
+    String(error?.message || "").includes("profiles.role_key does not exist");
+}
+
 export async function signInWithSupabase(email, password) {
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -19,7 +34,7 @@ export async function signInWithSupabase(email, password) {
     );
   }
 
-  const { data: profile, error: profileError } = await supabase
+  let { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(`
       id,
@@ -32,6 +47,23 @@ export async function signInWithSupabase(email, password) {
     `)
     .eq("id", authData.user.id)
     .single();
+
+  // Keep login working while the shared Supabase project transitions from
+  // the original Laravel profile columns to the group Supabase schema.
+  if (profileError && isMissingRoleKey(profileError)) {
+    ({ data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select(`
+        id,
+        full_name,
+        email,
+        role,
+        department_id,
+        is_active
+      `)
+      .eq("id", authData.user.id)
+      .single());
+  }
 
   if (profileError) {
     await supabase.auth.signOut();
@@ -46,9 +78,33 @@ export async function signInWithSupabase(email, password) {
     );
   }
 
-  if (profile.status !== "active") {
+  const isActive = "status" in profile
+    ? profile.status === "active"
+    : Boolean(profile.is_active);
+
+  if (!isActive) {
     await supabase.auth.signOut();
     throw new Error("This account is inactive.");
+  }
+
+  let office = profile.office || "No assigned office";
+
+  if (!profile.office && profile.department_id) {
+    const { data: department } = await supabase
+      .from("departments")
+      .select("name")
+      .eq("id", profile.department_id)
+      .maybeSingle();
+    office = department?.name || office;
+  }
+
+  const roleKey = profile.role_key
+    ? (profile.role_key === "super_admin" ? "super" : profile.role_key)
+    : oldRoleToRoleKey(profile.role);
+
+  if (!roleKey) {
+    await supabase.auth.signOut();
+    throw new Error(`Unsupported profile role: ${profile.role}`);
   }
 
   return {
@@ -56,11 +112,10 @@ export async function signInWithSupabase(email, password) {
     fullName: profile.full_name,
     email: authData.user.email,
     role: profile.role,
-    roleKey: profile.role_key === "super_admin"
-      ? "super"
-      : profile.role_key,
+    roleKey,
+    departmentId: profile.department_id,
     department: profile.department,
-    office: profile.office,
+    office,
   };
 }
 

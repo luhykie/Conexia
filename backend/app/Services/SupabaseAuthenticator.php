@@ -6,6 +6,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 class SupabaseAuthenticator
 {
@@ -21,7 +22,7 @@ class SupabaseAuthenticator
         // A short TTL avoids repeating the remote Supabase user lookup for every
         // API request while keeping profile/authorization changes responsive.
         $profile = Cache::remember(
-            'supabase-auth:v3:'.hash('sha256', $token),
+            'supabase-auth:v4:'.hash('sha256', $token),
             now()->addSeconds($ttl),
             fn (): array => (array) $this->authenticateRemotely($token),
         );
@@ -60,10 +61,16 @@ class SupabaseAuthenticator
             );
         }
 
-        $databaseProfile = DB::table('profiles')
-            ->select('id', 'full_name', 'role', 'role_key', 'office', 'department', 'status')
-            ->where('id', $userId)
-            ->first();
+        $usesGroupSchema = Schema::hasColumn('profiles', 'role_key');
+        $databaseProfile = $usesGroupSchema
+            ? DB::table('profiles')
+                ->select('id', 'full_name', 'role', 'role_key', 'office', 'department', 'status')
+                ->where('id', $userId)
+                ->first()
+            : DB::table('profiles')
+                ->select('id', 'full_name', 'email', 'role', 'department_id', 'is_active')
+                ->where('id', $userId)
+                ->first();
 
         if (! $databaseProfile) {
             throw new AuthenticationException(
@@ -71,26 +78,43 @@ class SupabaseAuthenticator
             );
         }
 
-        if ($databaseProfile->status !== 'active') {
+        $isActive = $usesGroupSchema
+            ? $databaseProfile->status === 'active'
+            : (bool) $databaseProfile->is_active;
+
+        if (! $isActive) {
             throw new AuthenticationException('This account is inactive.');
         }
 
-        $applicationRole = match ($databaseProfile->role_key) {
-            'super_admin' => 'super_admin',
-            'admin' => 'iro_admin',
-            'staff' => 'iro_staff',
-            'legal' => 'legal_counsel',
-            'department' => 'department_staff',
-        };
+        $applicationRole = $usesGroupSchema
+            ? match ($databaseProfile->role_key) {
+                'super_admin' => 'super_admin',
+                'admin' => 'iro_admin',
+                'staff' => 'iro_staff',
+                'legal' => 'legal_counsel',
+                'department' => 'department_staff',
+            }
+            : $databaseProfile->role;
+
+        $roleKey = $usesGroupSchema
+            ? $databaseProfile->role_key
+            : match ($databaseProfile->role) {
+                'super_admin' => 'super_admin',
+                'iro_admin' => 'admin',
+                'iro_staff' => 'staff',
+                'legal_counsel' => 'legal',
+                'department_staff' => 'department',
+            };
 
         return (object) [
             'id' => $databaseProfile->id,
             'full_name' => $databaseProfile->full_name,
-            'email' => (string) $response->json('email'),
+            'email' => (string) ($response->json('email') ?: ($databaseProfile->email ?? '')),
             'role' => $applicationRole,
-            'role_key' => $databaseProfile->role_key,
-            'office' => $databaseProfile->office,
-            'department' => $databaseProfile->department,
+            'role_key' => $roleKey,
+            'office' => $databaseProfile->office ?? null,
+            'department' => $databaseProfile->department ?? null,
+            'department_id' => $databaseProfile->department_id ?? null,
             'is_active' => true,
         ];
     }
