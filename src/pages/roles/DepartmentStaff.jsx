@@ -5,6 +5,7 @@ import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, FilterBar, NotificationsView } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
+import { UploadCloud } from "lucide-react";
 import { createDraftSubmission, getSubmission, getSubmissionFile, listSubmissions, updateSubmission, updateSubmissionStatus } from "../../services/submissions";
 import { getSchoolLabel } from "../../utils/school";
 
