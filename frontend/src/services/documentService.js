@@ -50,10 +50,14 @@ async function getAccessToken(forceRefresh = false) {
   );
 
   if (result.error) {
+    if (forceRefresh) {
+      window.dispatchEvent(new CustomEvent("conexia:auth-expired"));
+    }
     throw result.error;
   }
 
   if (!result.data.session?.access_token) {
+    window.dispatchEvent(new CustomEvent("conexia:auth-expired"));
     throw new Error(
       "Your authenticated session is missing or expired. Please sign in again."
     );
@@ -201,14 +205,14 @@ export async function getDocumentFileBlob(documentId, fileId) {
 
 export async function getReviewForm(documentId) {
   const result = await apiRequest(
-    `/documents/${documentId}/review-form`
+    `/submissions/${documentId}/review-form`
   );
   return result.data ?? null;
 }
 
 export async function saveReviewForm(documentId, form) {
   const result = await apiRequest(
-    `/documents/${documentId}/review-form`,
+    `/submissions/${documentId}/review-form`,
     {
       method: "PUT",
       body: JSON.stringify(form),
@@ -220,7 +224,7 @@ export async function saveReviewForm(documentId, form) {
 
 export async function submitReviewForm(documentId, form) {
   const result = await apiRequest(
-    `/documents/${documentId}/review-form/submit`,
+    `/submissions/${documentId}/review-form/submit`,
     {
       method: "POST",
       body: JSON.stringify(form),
@@ -363,7 +367,7 @@ export async function getDepartmentDocuments(
 
 export async function getIncomingDocuments() {
   const result = await apiRequest(
-    "/iro-staff/incoming"
+    "/iro-staff/submissions?status=submitted"
   );
 
   return result.data ?? result;
@@ -371,7 +375,7 @@ export async function getIncomingDocuments() {
 
 export async function getIroStaffDashboard() {
   const result = await apiRequest(
-    "/iro-staff/dashboard"
+    "/iro-staff/submissions/dashboard"
   );
 
   return result.data ?? result;
@@ -383,7 +387,7 @@ export async function logDocument(documentId) {
   }
 
   const result = await apiRequest(
-    `/documents/${documentId}/log`,
+    `/submissions/${documentId}/log`,
     {
       method: "PATCH",
     }
@@ -444,7 +448,12 @@ export async function getIroAdminOverview() {
 }
 
 export async function getIroStaffDocuments() {
-  const result = await apiRequest("/iro-staff/documents");
+  const result = await apiRequest("/iro-staff/submissions");
+  return result.data ?? result;
+}
+
+export async function getSubmissionById(submissionId) {
+  const result = await apiRequest(`/submissions/${submissionId}`);
   return result.data ?? result;
 }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
-  getDocumentById,
+  getSubmissionById,
   getReviewForm,
   getIroStaffDashboard,
   checkRevision,
@@ -84,7 +84,7 @@ export function LogReviewPage({ account }) {
     setLoadingDocument(true);
     setStatusMessage("");
     try {
-      const data = await getDocumentById(documentId);
+      const data = await getSubmissionById(documentId);
       setDocument(data);
       setForwardingNote(data.staff_forwarding_note || "");
 
@@ -229,6 +229,7 @@ export function LogReviewPage({ account }) {
     setStatusMessage("Saving Review Form draft...");
     try {
       const form = await saveReviewForm(documentId, {
+        checklist_answers: checklist,
         staff_remarks: staffRemarks,
       });
       setReviewFormStatus(form.review_form_status);
@@ -260,6 +261,7 @@ async function handleSubmitToAdmin() {
 
   try {
     const form = await submitReviewForm(documentId, {
+      checklist_answers: checklist,
       staff_remarks: staffRemarks,
     });
     setReviewFormStatus(form.review_form_status);

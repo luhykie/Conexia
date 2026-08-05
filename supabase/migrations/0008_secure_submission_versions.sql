@@ -139,6 +139,10 @@ begin
     from profiles
    where id = auth.uid() and status = 'active';
 
+  if v_role is null then
+    raise exception 'An active profile is required to register a submission version.';
+  end if;
+
   select submitted_by, assigned_legal_counsel
     into v_submitted_by, v_assigned_legal
     from submissions

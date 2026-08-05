@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ReviewFormController;
 use App\Http\Controllers\Api\SubmissionRoutingController;
 use App\Http\Controllers\Api\SubmissionFileController;
 use App\Http\Controllers\Api\SubmissionReportController;
+use App\Http\Controllers\Api\IroStaffSubmissionController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('supabase.auth')->group(function (): void {
@@ -185,6 +186,21 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::get('/submissions/{submissionId}/files', [SubmissionFileController::class, 'index']);
     Route::post('/submissions/{submissionId}/files', [SubmissionFileController::class, 'store']);
     Route::get('/submissions/{submissionId}/files/{versionId}', [SubmissionFileController::class, 'show']);
+
+    Route::get('/iro-staff/submissions', [IroStaffSubmissionController::class, 'index'])
+        ->middleware('role:iro_staff,iro_admin');
+    Route::get('/iro-staff/submissions/dashboard', [IroStaffSubmissionController::class, 'dashboard'])
+        ->middleware('role:iro_staff,iro_admin');
+    Route::get('/submissions/{submissionId}', [IroStaffSubmissionController::class, 'show'])
+        ->middleware('role:iro_staff,iro_admin');
+    Route::patch('/submissions/{submissionId}/log', [IroStaffSubmissionController::class, 'log'])
+        ->middleware('role:iro_staff,iro_admin');
+    Route::get('/submissions/{submissionId}/review-form', [IroStaffSubmissionController::class, 'reviewForm'])
+        ->middleware('role:iro_staff,iro_admin');
+    Route::put('/submissions/{submissionId}/review-form', [IroStaffSubmissionController::class, 'saveReviewForm'])
+        ->middleware('role:iro_staff,iro_admin');
+    Route::post('/submissions/{submissionId}/review-form/submit', [IroStaffSubmissionController::class, 'submitReviewForm'])
+        ->middleware('role:iro_staff,iro_admin');
 
     Route::get(
         '/legal-counsel/review-queue',

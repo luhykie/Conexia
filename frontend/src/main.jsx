@@ -35,6 +35,7 @@ import { IroAdmin } from "./roles/IroAdmin";
 import { IroStaff } from "./roles/IroStaff";
 import { LegalCounsel } from "./roles/LegalCounsel";
 import { SuperAdmin } from "./roles/SuperAdmin";
+import { supabase } from "./supabaseConfig";
 
 const AUTH_STORAGE_KEY = "conexia-account";
 
@@ -52,6 +53,44 @@ function getSavedAccount() {
 
 function App() {
   const [account, setAccount] = React.useState(getSavedAccount);
+  const [authReady, setAuthReady] = React.useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+
+      if (error || !data.session) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setAccount(null);
+      }
+
+      setAuthReady(true);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (event === "SIGNED_OUT") {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          setAccount(null);
+        }
+      }
+    );
+
+    function handleExpiredSession() {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setAccount(null);
+    }
+
+    window.addEventListener("conexia:auth-expired", handleExpiredSession);
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+      window.removeEventListener("conexia:auth-expired", handleExpiredSession);
+    };
+  }, []);
 
   function handleLogin(nextAccount) {
     localStorage.setItem(
@@ -71,6 +110,14 @@ function App() {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setAccount(null);
     }
+  }
+
+  if (!authReady) {
+    return (
+      <main className="auth-screen">
+        <p>Restoring secure session...</p>
+      </main>
+    );
   }
 
   return (

@@ -22,7 +22,7 @@ begin
     from profiles
    where id = auth.uid() and status = 'active';
 
-  if v_role not in ('admin', 'super_admin') then
+  if v_role is null or v_role not in ('admin', 'super_admin') then
     raise exception 'Only IRO Admin or Super Admin can generate performance reports.';
   end if;
 
