@@ -1,30 +1,15 @@
-import { supabase } from "../lib/supabaseClient";
-
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-async function resolveAuthToken(account) {
-  if (account?.email && import.meta.env.DEV) {
-    return `dev:${account.email}`;
-  }
+import { getAuthToken } from "../utils/authToken";
 
-  if (supabase) {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) {
-      return data.session.access_token;
-    }
-  }
-
-  return null;
-}
-
-export async function apiRequest(path, { account, method = "GET", body, headers = {} } = {}) {
-  const token = await resolveAuthToken(account);
+export async function apiRequest(path, { method = "GET", body, headers = {} } = {}) {
   const requestHeaders = {
     Accept: "application/json",
     ...(body ? { "Content-Type": "application/json" } : {}),
     ...headers,
   };
 
+  const token = getAuthToken();
   if (token) {
     requestHeaders.Authorization = `Bearer ${token}`;
   }

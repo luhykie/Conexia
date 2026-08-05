@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { createRoot } from "react-dom/client";
 import {
   Archive,
@@ -14,12 +14,10 @@ import {
   Zap,
 } from "lucide-react";
 import "./styles.css";
-import { fetchProfile, signInWithEmail, signOut } from "./auth/supabaseAuth";
-import { supabase } from "./lib/supabaseClient";
+import { signInWithEmail, signOut } from "./auth/supabaseAuth";
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
-import { isSupabaseConfigured } from "./supabaseConfig";
 import { Shell } from "./components/Shell";
-import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams,} from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
 const DepartmentStaff = React.lazy(() => import("./pages/roles/DepartmentStaff").then((module) => ({ default: module.DepartmentStaff })));
 const IroAdmin = React.lazy(() => import("./pages/roles/IroAdmin").then((module) => ({ default: module.IroAdmin })));
@@ -28,7 +26,7 @@ const LegalCounsel = React.lazy(() => import("./pages/roles/LegalCounsel").then(
 const SuperAdmin = React.lazy(() => import("./pages/roles/SuperAdmin").then((module) => ({ default: module.SuperAdmin })));
 
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
-const AUTH_STORAGE_KEY = "conexia-account";
+const AUTH_STORAGE_KEY = "user";
 
 function getSavedAccount() {
   try {
@@ -47,48 +45,15 @@ function App() {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // On first load, check if a Supabase session already exists (page refresh case).
     async function restoreSession() {
-      if (!isSupabaseConfigured || !supabase) {
-        setLoading(false);
-        return;
+      const savedAccount = getSavedAccount();
+      if (savedAccount) {
+        setAccount(savedAccount);
       }
-
-      const { data } = await supabase.auth.getSession();
-
-      if (data.session) {
-        const profile = await fetchProfile(data.session.user.id, data.session.user.email);
-        if (profile) {
-          setAccount(profile);
-        }
-      }
-
       setLoading(false);
     }
 
     restoreSession();
-
-    // Keep account in sync if the session changes elsewhere (e.g. token refresh, logout in another tab).
-    let listener = null;
-    if (isSupabaseConfigured && supabase) {
-      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (!session) {
-          setAccount(null);
-          localStorage.removeItem(AUTH_STORAGE_KEY);
-          return;
-        }
-
-        const profile = await fetchProfile(session.user.id, session.user.email);
-        setAccount(profile);
-      });
-      listener = data;
-    }
-
-    return () => {
-      if (listener?.subscription) {
-        listener.subscription.unsubscribe();
-      }
-    };
   }, []);
 
   function handleLogin(nextAccount) {
@@ -164,11 +129,7 @@ function LoginRoute({ onLogin }) {
 
   function handleSuccessfulLogin(nextAccount) {
     onLogin(nextAccount);
-
-    navigate(
-      `/app/${getDefaultPage(nextAccount.roleKey)}`,
-      { replace: true }
-    );
+    navigate(`/app/${getDefaultPage(nextAccount.roleKey)}`, { replace: true });
   }
 
   return (
@@ -194,8 +155,8 @@ function WorkspaceRoute({ account, onLogout }) {
     }
   }, [page, safePage, navigate]);
 
-  function navigateToPage(nextPage) {
-    const nextState = nextPage === "submission" ? { source: "sidebar" } : undefined;
+  function navigateToPage(nextPage, nextState) {
+    const resolvedState = nextState || (nextPage === "submission" ? { source: "sidebar" } : undefined);
 
     if (!canAccessPage(account.roleKey, nextPage)) {
       navigate(
@@ -206,7 +167,7 @@ function WorkspaceRoute({ account, onLogout }) {
       return;
     }
 
-    navigate(`/app/${nextPage}`, nextState ? { state: nextState } : undefined);
+    navigate(`/app/${nextPage}`, resolvedState ? { state: resolvedState } : undefined);
   }
 
   function handleLogout() {
@@ -395,7 +356,12 @@ function LoginScreen({ onBack, onLogin }) {
     setLoading(true);
     setError("");
 
-    const result = await signInWithEmail(email, password);
+    let result;
+    try {
+      result = await signInWithEmail(email, password);
+    } catch (err) {
+      result = { ok: false, message: err?.message || "Unable to sign in." };
+    }
 
     setLoading(false);
 
@@ -466,26 +432,10 @@ function RolePage({ roleKey, page, account, setPage, pageState }) {
 
 const root = createRoot(document.getElementById("root"));
 
-if (!isSupabaseConfigured) {
-  root.render(
-    <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
-      <h2 style={{ color: '#b00020' }}>Configuration required</h2>
-      <p>
-        Supabase is not configured for this environment. Please add the following environment variables to a local env file (e.g. <code>.env.local</code>) and restart the dev server:
-      </p>
-      <ul>
-        <li><code>VITE_SUPABASE_URL</code> — your Supabase project URL</li>
-        <li><code>VITE_SUPABASE_ANON_KEY</code> — your Supabase anon (public) key</li>
-      </ul>
-      <p>After updating the file, run <code>npm run dev</code> to restart Vite.</p>
-    </div>
-  );
-} else {
-  root.render(
-    <React.StrictMode>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </React.StrictMode>
-  );
-}
+root.render(
+  <React.StrictMode>
+    <HashRouter>
+      <App />
+    </HashRouter>
+  </React.StrictMode>
+);

@@ -1,19 +1,19 @@
 ﻿import React from "react";
-import { supabase } from "../../lib/supabaseClient";
 import { DataTable } from "../../components/DataTable";
+import { DocumentReviewViewer } from "../../components/DocumentReviewViewer";
 import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, FilterBar, NotificationsView } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
-import { UploadCloud } from "lucide-react";
-import { createDraftSubmission, getSubmission, getSubmissionFile, listSubmissions, updateSubmission, updateSubmissionStatus } from "../../services/submissions";
-import { getSchoolLabel } from "../../utils/school";
+import { UploadCloud, Eye, Trash2 } from "lucide-react";
+import { createDraftSubmission, getSubmission, getSubmissionFile, getSubmissionReviewData, listSubmissions, updateSubmission, updateSubmissionStatus, uploadSubmissionAttachment } from "../../services/submissions";
+import { formatTrackingNumber, getSchoolCode, getSchoolLabel, parseTrackingSequence } from "../../utils/school";
 
 // Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account, setPage, pageState }) {
   const [wizardOpen, setWizardOpen] = React.useState(false);
   if (page === "submission") return <SubmissionPage account={account} setPage={setPage} pageState={pageState} />;
-  if (page === "submissions") return <MySubmissionsPage account={account} />;
+  if (page === "submissions") return <MySubmissionsPage account={account} setPage={setPage} />;
   if (page === "engagements") return <EngagementsPage />;
   if (page === "expiry") return <ExpiryView action="Manual Update" />;
   if (page === "notifications") return <NotificationsView />;
@@ -33,12 +33,32 @@ export function DepartmentStaff({ page, account, setPage, pageState }) {
           onClose={() => setWizardOpen(false)}
           onContinue={async (next) => {
             try {
+              const departmentCode = getSchoolCode(account.department || account.office);
+              const departmentFilterValue = account.department || account.office || "";
+              let nextSequence = 1;
+              try {
+                const existing = departmentFilterValue
+                  ? await listSubmissions(account, { department: `eq.${departmentFilterValue}` })
+                  : await listSubmissions(account, {});
+                const existingRows = existing?.data || [];
+                const highest = existingRows.reduce((max, row) => {
+                  const prefix = String(row?.tracking_number || "").split("-")[0].toUpperCase();
+                  if (prefix && prefix !== departmentCode) return max;
+                  return Math.max(max, parseTrackingSequence(row?.tracking_number));
+                }, 0);
+                nextSequence = highest + 1;
+              } catch (error) {
+                nextSequence = 1;
+              }
+
+              const trackingNumber = formatTrackingNumber(departmentCode, nextSequence);
               const response = await createDraftSubmission(account, {
                 agreement_type: next.agreementType,
                 submission_type: next.submissionType,
                 partner_classification: next.partnerClassification,
                 title: next.agreementType,
                 agreement_title: next.agreementType,
+                tracking_number: trackingNumber,
                 requested_by_name: account.fullName || "",
                 office: account.office,
                 department: account.department,
@@ -49,14 +69,23 @@ export function DepartmentStaff({ page, account, setPage, pageState }) {
                 throw new Error("Unable to create the draft submission.");
               }
               localStorage.setItem("department-active-submission-id", draftId);
+              sessionStorage.setItem("department-active-submission-id", draftId);
               sessionStorage.setItem("department-submission-entry", "dashboard");
               sessionStorage.setItem("department-submission-preset", JSON.stringify({
                 agreementType: next.agreementType,
                 submissionType: next.submissionType,
                 partnerClassification: next.partnerClassification,
               }));
+              sessionStorage.setItem("department-submission-tracking-number", trackingNumber);
               setWizardOpen(false);
-              setPage?.("submission");
+              setPage?.("submission", {
+                source: "dashboard",
+                preset: {
+                  agreementType: next.agreementType,
+                  submissionType: next.submissionType,
+                  partnerClassification: next.partnerClassification,
+                },
+              });
             } catch (error) {
               console.error(error);
             }
@@ -92,6 +121,63 @@ function statusTone(status) {
   return "neutral";
 }
 
+function buildSubmissionTimeline(submission) {
+  const timeline = [
+    {
+      label: "Submitted by Department Staff",
+      detail: submission?.submitted_at || submission?.created_at || "",
+      tone: "info",
+    },
+  ];
+
+  if (submission?.status === "pending_iro_staff_review") {
+    timeline.push({ label: "Waiting for IRO Staff review", detail: "Submission is currently queued.", tone: "warn" });
+  }
+
+  if (submission?.status === "pending_iro_admin_review" || submission?.status === "approved_by_iro_staff") {
+    timeline.push({
+      label: "Reviewed by IRO Staff",
+      detail: submission?.notes || "Logged and forwarded to IRO Admin.",
+      tone: "success",
+    });
+    timeline.push({ label: "With IRO Admin", detail: "Awaiting admin review.", tone: "warn" });
+  }
+
+  if (submission?.status === "revision_required" || submission?.status === "legal_revision_required") {
+    timeline.push({
+      label: "Returned with comments",
+      detail: submission?.notes || "Please review the admin comments and resubmit.",
+      tone: "danger",
+    });
+  }
+
+  if (submission?.status === "pending_legal_review" || submission?.status === "legal_review") {
+    timeline.push({
+      label: "Routed to Legal",
+      detail: submission?.notes || "Awaiting legal review.",
+      tone: "warn",
+    });
+  }
+
+  if (submission?.status === "legally_approved" || submission?.status === "approved") {
+    timeline.push({
+      label: "Approved",
+      detail: submission?.notes || "Submission approved and ready for archive.",
+      tone: "success",
+    });
+  }
+
+  if (submission?.status === "archived") {
+    timeline.push({
+      label: "Archived",
+      detail: submission?.notes || "Submission moved to archive.",
+      tone: "success",
+    });
+  }
+
+  return timeline;
+}
+
 function SubmissionPage({ account, setPage, pageState }) {
   const presetValues = React.useMemo(() => {
     try {
@@ -107,6 +193,7 @@ function SubmissionPage({ account, setPage, pageState }) {
     agreementType: presetValues.agreementType || "",
     submissionType: presetValues.submissionType || "",
     partnerClassification: presetValues.partnerClassification || "",
+    trackingNumber: sessionStorage.getItem("department-submission-tracking-number") || "",
     expectedDuration: "5 Years (Standard)",
     partnerContactEmail: "",
         contactPerson: "",
@@ -123,10 +210,13 @@ function SubmissionPage({ account, setPage, pageState }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
   const [successMessage, setSuccessMessage] = React.useState("");
+  const isCorrectionMode = pageState?.mode === "correction" || sessionStorage.getItem("department-submission-mode") === "correction";
 
   function resolveSubmissionId() {
     return (
+      pageState?.draftId ||
       submissionId ||
+      sessionStorage.getItem("department-active-submission-id") ||
       localStorage.getItem("department-active-submission-id") ||
       ""
     );
@@ -134,8 +224,7 @@ function SubmissionPage({ account, setPage, pageState }) {
 
   React.useEffect(() => {
     async function loadDraftSubmission() {
-      const activeId = localStorage.getItem("department-active-submission-id");
-      const entrySource = pageState?.source || sessionStorage.getItem("department-submission-entry") || "sidebar";
+      const activeId = pageState?.draftId || sessionStorage.getItem("department-active-submission-id") || localStorage.getItem("department-active-submission-id");
       const preset = (() => {
         try {
           return JSON.parse(sessionStorage.getItem("department-submission-preset") || "null") || {};
@@ -144,13 +233,14 @@ function SubmissionPage({ account, setPage, pageState }) {
         }
       })();
 
-      if (!activeId || entrySource !== "dashboard") {
+      if (!activeId) {
         setSubmissionId("");
         setForm((prev) => ({
           ...prev,
           agreementType: preset.agreementType || "",
           submissionType: preset.submissionType || "",
           partnerClassification: preset.partnerClassification || "",
+          trackingNumber: sessionStorage.getItem("department-submission-tracking-number") || prev.trackingNumber || "",
         }));
         return;
       }
@@ -166,6 +256,7 @@ function SubmissionPage({ account, setPage, pageState }) {
             agreementType: draft.agreement_type || preset.agreementType || prev.agreementType,
             submissionType: draft.submission_type || preset.submissionType || prev.submissionType,
             partnerClassification: draft.partner_classification || preset.partnerClassification || prev.partnerClassification,
+            trackingNumber: draft.tracking_number || sessionStorage.getItem("department-submission-tracking-number") || prev.trackingNumber || "",
             agreementTitle: draft.agreement_title || prev.agreementTitle,
             expectedDuration: draft.expected_duration || prev.expectedDuration,
             partnerContactEmail: draft.partner_contact_email || prev.partnerContactEmail,
@@ -189,53 +280,69 @@ function SubmissionPage({ account, setPage, pageState }) {
     loadDraftSubmission();
   }, [account, pageState]);
 
-  async function uploadAttachment() {
+  React.useEffect(() => {
+    if (isCorrectionMode) {
+      setSuccessMessage("Correction mode: update the fields and replace the PDF if needed, then submit again.");
+    }
+  }, [isCorrectionMode]);
+
+  async function uploadAttachment(submissionId) {
     if (!file) return { storagePath: null, fileName: null };
 
-    const filePath = `${account.id}/${Date.now()}_${file.name}`;
-    if (!supabase?.storage) {
-      throw new Error("File storage is not configured. Please contact the administrator.");
-    }
-
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("submissions")
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      throw new Error(uploadError.message || "Unable to upload the attached file.");
-    }
-
-    const storagePath = uploadData?.path || filePath;
-    if (!storagePath) {
-      throw new Error("Unable to determine the uploaded file path.");
-    }
-
-    return {
-      storagePath,
-      fileName: file.name,
-    };
+    return await uploadSubmissionAttachment(account, submissionId, file);
   }
   function updateField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSuccessMessage("");
   }
 
-  async function saveCurrentDraft() {
-    const activeSubmissionId = resolveSubmissionId();
-
-    if (!activeSubmissionId) {
-      setError("No draft submission is loaded.");
-      return;
+  async function ensureDraftSubmissionId() {
+    const existingId = resolveSubmissionId();
+    if (existingId) {
+      return existingId;
     }
 
+    const departmentCode = getSchoolCode(account.department || account.office);
+    const trackingNumber = form.trackingNumber || sessionStorage.getItem("department-submission-tracking-number") || formatTrackingNumber(departmentCode, 1);
+
+    const response = await createDraftSubmission(account, {
+      agreement_type: form.agreementType,
+      submission_type: form.submissionType,
+      partner_classification: form.partnerClassification,
+      tracking_number: trackingNumber,
+      title: form.agreementTitle || form.partnerInstitutionName || form.agreementType,
+      agreement_title: form.agreementTitle || form.partnerInstitutionName || form.agreementType,
+      partner_institution_name: form.partnerInstitutionName,
+      requested_by_name: form.requestedByName,
+      office: account.office,
+      department: account.department,
+    });
+
+    const draft = response?.data?.[0] || response?.data || null;
+    const draftId = draft?.id || draft?.submission_id || draft?.submissionId || draft?.data?.id;
+    if (!draftId) {
+      throw new Error("Unable to create the draft submission.");
+    }
+
+    setSubmissionId(draftId);
+    localStorage.setItem("department-active-submission-id", draftId);
+    sessionStorage.setItem("department-active-submission-id", draftId);
+    sessionStorage.setItem("department-submission-tracking-number", trackingNumber);
+
+    return draftId;
+  }
+
+  async function saveCurrentDraft() {
     try {
-      const { storagePath, fileName } = await uploadAttachment();
+      const activeSubmissionId = await ensureDraftSubmissionId();
+      const attachment = file ? await uploadAttachment(activeSubmissionId) : {};
       await updateSubmission(account, activeSubmissionId, {
         title: form.agreementTitle || form.partnerInstitutionName,
         partner_institution_name: form.partnerInstitutionName,
         agreement_type: form.agreementType,
         submission_type: form.submissionType,
         partner_classification: form.partnerClassification,
+        tracking_number: form.trackingNumber || sessionStorage.getItem("department-submission-tracking-number") || "",
         agreement_title: form.agreementTitle || form.partnerInstitutionName,
         expected_duration: form.expectedDuration,
         contact_email: form.partnerContactEmail,
@@ -249,12 +356,24 @@ function SubmissionPage({ account, setPage, pageState }) {
         requested_by_date: form.requestedByDate,
         noted_by_name: form.notedByName,
         noted_by_date: form.notedByDate,
-        storage_path: storagePath,
-        file_name: fileName,
+        ...(attachment.storagePath ? { storage_path: attachment.storagePath } : {}),
+        ...(attachment.fileName ? { file_name: attachment.fileName } : {}),
+        ...(attachment.storagePath
+          ? {
+              attachments: [{
+                id: `attachment-${Date.now()}`,
+                file_name: attachment.fileName,
+                storage_path: attachment.storagePath,
+                mime_type: attachment.mimeType,
+                file_size: attachment.fileSize,
+              }],
+            }
+          : {}),
         current_stage: "draft",
         status: "draft",
       });
       sessionStorage.setItem("department-submission-entry", "dashboard");
+      sessionStorage.setItem("department-active-submission-id", activeSubmissionId);
       setSuccessMessage("Draft saved.");
       setError("");
     } catch (err) {
@@ -263,15 +382,8 @@ function SubmissionPage({ account, setPage, pageState }) {
   }
 
   async function handleSubmit() {
-    const activeSubmissionId = resolveSubmissionId();
-
     if (!form.partnerInstitutionName || !form.partnerContactEmail) {
       setError("Partner institution name and contact email are required for review submission.");
-      return;
-    }
-
-    if (!activeSubmissionId) {
-      setError("No draft submission is loaded.");
       return;
     }
 
@@ -284,7 +396,8 @@ function SubmissionPage({ account, setPage, pageState }) {
     setError("");
 
     try {
-      const { storagePath, fileName } = await uploadAttachment();
+      const activeSubmissionId = await ensureDraftSubmissionId();
+      const attachment = await uploadAttachment(activeSubmissionId);
 
       await updateSubmission(account, activeSubmissionId, {
         title: form.agreementTitle || form.partnerInstitutionName,
@@ -292,6 +405,7 @@ function SubmissionPage({ account, setPage, pageState }) {
         agreement_type: form.agreementType,
         submission_type: form.submissionType,
         partner_classification: form.partnerClassification,
+        tracking_number: form.trackingNumber || sessionStorage.getItem("department-submission-tracking-number") || "",
         agreement_title: form.agreementTitle || form.partnerInstitutionName,
         expected_duration: form.expectedDuration,
         contact_email: form.partnerContactEmail,
@@ -305,17 +419,28 @@ function SubmissionPage({ account, setPage, pageState }) {
         requested_by_date: form.requestedByDate,
         noted_by_name: form.notedByName,
         noted_by_date: form.notedByDate,
-        storage_path: storagePath,
-        file_name: fileName,
+        storage_path: attachment.storagePath,
+        file_name: attachment.fileName,
+        attachments: attachment.storagePath ? [{
+          id: `attachment-${Date.now()}`,
+          file_name: attachment.fileName,
+          storage_path: attachment.storagePath,
+          mime_type: attachment.mimeType,
+          file_size: attachment.fileSize,
+        }] : [],
         status: "pending_iro_staff_review",
         current_stage: "iro_staff",
       });
 
       setSuccessMessage("Submission sent for review and routed to IRO Staff.");
       setFile(null);
+      sessionStorage.setItem("department-active-submission-id", activeSubmissionId);
       localStorage.removeItem("department-active-submission-id");
+      sessionStorage.removeItem("department-active-submission-id");
       sessionStorage.removeItem("department-submission-entry");
       sessionStorage.removeItem("department-submission-preset");
+      sessionStorage.removeItem("department-submission-tracking-number");
+      sessionStorage.removeItem("department-submission-mode");
       setSubmissionId("");
       setPage?.("submissions");
     } catch (err) {
@@ -334,12 +459,17 @@ function SubmissionPage({ account, setPage, pageState }) {
 
       <div className="two-col">
         <div>
-          <div className="steps">
-            <span className="on">1<b>Partner Info</b></span>
-            <span>2<b>Upload</b></span>
-            <span>3<b>Confirmation</b></span>
+        <div className="steps">
+          <span className="on">1<b>Partner Info</b></span>
+          <span>2<b>Upload</b></span>
+          <span>3<b>Confirmation</b></span>
+        </div>
+        {isCorrectionMode && (
+          <div className="auth-status ready" style={{ marginBottom: "16px" }}>
+            This submission was returned for corrections. Update any fields below and upload a replacement PDF if needed.
           </div>
-          <DepartmentForm form={form} onChange={updateField} />
+        )}
+        <DepartmentForm form={form} onChange={updateField} />
           <Panel title="Document Upload Section">
             <Dropzone
               label="Drag, drop, or click to choose your agreement draft"
@@ -612,7 +742,7 @@ function DepartmentForm({ form, onChange }) {
 
 
 // Shows department-owned submissions and legal comments.
-function MySubmissionsPage({ account }) {
+function MySubmissionsPage({ account, setPage }) {
   const [rows, setRows] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [message, setMessage] = React.useState("");
@@ -620,9 +750,11 @@ function MySubmissionsPage({ account }) {
   const [drawerLoading, setDrawerLoading] = React.useState(false);
   const [selectedSubmission, setSelectedSubmission] = React.useState(null);
   const [submissionDetails, setSubmissionDetails] = React.useState(null);
+  const [reviewData, setReviewData] = React.useState({ comments: [], annotations: [] });
   const [downloadBusyId, setDownloadBusyId] = React.useState("");
   const [deleteBusy, setDeleteBusy] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState("");
+  const [previewUrl, setPreviewUrl] = React.useState("");
 
   const loadSubmissions = React.useCallback(async () => {
     const mapRow = (row) => [
@@ -633,13 +765,38 @@ function MySubmissionsPage({ account }) {
       row.partner_classification === "international" ? "International" : "Local",
       new Date(row.created_at).toLocaleDateString(),
       <span className={`badge ${statusTone(row.status)}`}>{formatSubmissionStatus(row.status)}</span>,
-      <button
-        key={row.id}
-        className="outline"
-        onClick={() => openDrawer(row)}
-      >
-        View
-      </button>,
+      <>
+        <button
+          key={`view-${row.id}`}
+          className="outline"
+          title="View submission"
+          aria-label="View submission"
+          onClick={() => openDrawer(row)}
+          style={{ padding: '6px 8px' }}
+        >
+          <Eye size={16} />
+        </button>
+        <button
+          key={`delete-${row.id}`}
+          className="danger outline"
+          title="Delete submission"
+          aria-label="Delete submission"
+          style={{ marginLeft: 8, padding: '6px 8px' }}
+            onClick={async () => {
+            const confirmed = window.confirm("Delete Submission? This action cannot be undone.");
+            if (!confirmed) return;
+            try {
+              await updateSubmissionStatus(account, row.id, "archived", "Submission deleted by Department Staff via list view.");
+              setMessage("Submission archived.");
+              await loadSubmissions();
+            } catch (err) {
+              setMessage(err?.message || "Unable to delete submission.");
+            }
+          }}
+        >
+          <Trash2 size={16} />
+        </button>
+      </>,
     ];
 
     setLoading(true);
@@ -648,7 +805,18 @@ function MySubmissionsPage({ account }) {
     try {
       const response = await listSubmissions(account, {});
       const data = response?.data || [];
-      setRows(data.map(mapRow));
+      // Show active submissions first and archived submissions at the bottom to avoid confusion
+      const sorted = (data || []).slice().sort((a, b) => {
+        const aArchived = String(a?.status || "").toLowerCase() === "archived";
+        const bArchived = String(b?.status || "").toLowerCase() === "archived";
+        if (aArchived && !bArchived) return 1;
+        if (bArchived && !aArchived) return -1;
+        // Otherwise sort by created date descending (newest first)
+        const at = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const bt = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return bt - at;
+      });
+      setRows(sorted.map(mapRow));
     } catch (error) {
       setRows([]);
       setMessage(error.message || "Unable to load submissions.");
@@ -670,6 +838,27 @@ function MySubmissionsPage({ account }) {
     };
   }, [account?.id, loadSubmissions]);
 
+  async function detectDuplicates() {
+    setMessage("");
+    try {
+      const response = await listSubmissions(account, {});
+      const data = response?.data || [];
+      const counts = data.reduce((acc, row) => {
+        const tn = String(row.tracking_number || row.id || "");
+        acc[tn] = (acc[tn] || 0) + 1;
+        return acc;
+      }, {});
+      const duplicates = Object.entries(counts).filter(([, c]) => c > 1).map(([tn, c]) => `${tn} (${c})`);
+      if (duplicates.length) {
+        setMessage(`Duplicate tracking numbers found: ${duplicates.join(", ")}`);
+      } else {
+        setMessage("No duplicate tracking numbers found.");
+      }
+    } catch (err) {
+      setMessage(err?.message || "Unable to detect duplicates.");
+    }
+  }
+
   React.useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === "Escape") closeDrawer();
@@ -686,19 +875,47 @@ function MySubmissionsPage({ account }) {
     };
   }, [drawerOpen]);
 
+  React.useEffect(() => {
+    if (!drawerOpen) return undefined;
+
+    function handleDocumentMouseDown(event) {
+      const target = event.target;
+      if (target instanceof Element && target.classList.contains("drawer-backdrop")) {
+        closeDrawer();
+      }
+    }
+
+    window.addEventListener("mousedown", handleDocumentMouseDown);
+    return () => window.removeEventListener("mousedown", handleDocumentMouseDown);
+  }, [drawerOpen]);
+
   async function openDrawer(row) {
     setDrawerOpen(true);
     setDrawerLoading(true);
     setSelectedSubmission(row);
     setSubmissionDetails(null);
+    setPreviewUrl("");
+    setReviewData({ comments: [], annotations: [] });
     setDeleteError("");
 
     try {
-      const response = await getSubmission(account, row.id);
-      setSubmissionDetails(response?.data || row);
-    } catch (error) {
-      setSubmissionDetails(row);
-      setMessage(error.message || "Unable to load submission details.");
+      const [submissionResult, reviewResult] = await Promise.allSettled([
+        getSubmission(account, row.id),
+        getSubmissionReviewData(account, row.id),
+      ]);
+
+      if (submissionResult.status === "fulfilled") {
+        setSubmissionDetails(submissionResult.value?.data || row);
+      } else {
+        setSubmissionDetails(row);
+        setMessage(submissionResult.reason?.message || "Unable to load submission details.");
+      }
+
+      if (reviewResult.status === "fulfilled") {
+        setReviewData(reviewResult.value?.data || { comments: [], annotations: [] });
+      } else {
+        setReviewData({ comments: [], annotations: [] });
+      }
     } finally {
       setDrawerLoading(false);
     }
@@ -709,6 +926,7 @@ function MySubmissionsPage({ account }) {
     setDrawerLoading(false);
     setSubmissionDetails(null);
     setSelectedSubmission(null);
+    setPreviewUrl("");
     setDeleteError("");
   }
 
@@ -769,7 +987,11 @@ function MySubmissionsPage({ account }) {
     try {
       const response = await getSubmissionFile(account, selectedSubmission.id);
       const url = response?.data?.url;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      if (url) {
+        setPreviewUrl(url);
+        return;
+      }
+      setMessage("No preview is available for this attachment yet.");
     } catch (error) {
       setMessage(error.message || "Unable to preview attachment.");
     }
@@ -828,15 +1050,37 @@ function MySubmissionsPage({ account }) {
     if (!selectedSubmission) return;
 
     try {
-      await updateSubmissionStatus(account, selectedSubmission.id, "pending_iro_staff_review", "Department resubmitted the submission after corrections.");
-      setMessage("Document resubmitted successfully.");
-      loadSubmissions();
+      localStorage.setItem("department-active-submission-id", selectedSubmission.id);
+      sessionStorage.setItem("department-active-submission-id", selectedSubmission.id);
+      sessionStorage.setItem("department-submission-entry", "submissions");
+      sessionStorage.setItem("department-submission-mode", "correction");
+      setPage?.("submission", {
+        source: "resubmit",
+        draftId: selectedSubmission.id,
+        mode: "correction",
+      });
+      setMessage("Submission reopened for corrections. Make your edits and submit again when ready.");
     } catch (err) {
       setMessage(err?.message || "Failed to resubmit document.");
     }
   }
 
+  async function handleEditSubmission() {
+    if (!selectedSubmission) return;
+
+    localStorage.setItem("department-active-submission-id", selectedSubmission.id);
+    sessionStorage.setItem("department-active-submission-id", selectedSubmission.id);
+    sessionStorage.setItem("department-submission-entry", "submissions");
+    sessionStorage.setItem("department-submission-mode", "correction");
+    setPage?.("submission", {
+      source: "edit",
+      draftId: selectedSubmission.id,
+      mode: "correction",
+    });
+  }
+
   const activeSubmission = submissionDetails || selectedSubmission;
+  const resolvedSubmissionUrl = previewUrl || "";
 
   return (
     <section className="page department-page my-submissions-page">
@@ -856,75 +1100,119 @@ function MySubmissionsPage({ account }) {
         <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
           <aside className="detail-drawer drawer-overlay" onMouseDown={(event) => event.stopPropagation()}>
             <button className="icon-close drawer-close" type="button" onClick={closeDrawer}>×</button>
-            <h2>Submission Details</h2>
-            {drawerLoading ? (
-              <p>Loading submission details...</p>
-            ) : activeSubmission ? (
-              <>
-                <p><strong>Tracking #:</strong> {activeSubmission.tracking_number || activeSubmission.id}</p>
-                <p><strong>Department:</strong> {getSchoolLabel(activeSubmission)}</p>
-                <p><strong>Partner:</strong> {activeSubmission.partner_institution_name}</p>
-                <p><strong>Agreement Type:</strong> {activeSubmission.agreement_type || "MOA"}</p>
-                <p><strong>Submission Type:</strong> {activeSubmission.submission_type === "renewal" ? "Renewal" : "New Engagement"}</p>
-                <p><strong>Partner Classification:</strong> {activeSubmission.partner_classification === "international" ? "International" : "Local"}</p>
-                <p><strong>Status:</strong> <b>{formatSubmissionStatus(activeSubmission.status)}</b></p>
-                <p><strong>Current Reviewer:</strong> {activeSubmission.current_reviewer || activeSubmission.current_reviewer_role || "IRO Staff"}</p>
-                <p><strong>Revision Cycle:</strong> {activeSubmission.revision_cycle || 1}</p>
-                <p><strong>Submitted Date:</strong> {activeSubmission.created_at ? new Date(activeSubmission.created_at).toLocaleString() : "---"}</p>
-                <p><strong>Updated Date:</strong> {activeSubmission.updated_at ? new Date(activeSubmission.updated_at).toLocaleString() : "---"}</p>
-                <p><strong>Workflow Status:</strong> <span className={`badge ${statusTone(activeSubmission.status)}`}>{formatSubmissionStatus(activeSubmission.status)}</span></p>
-                <p><strong>Activity Summary:</strong> {activeSubmission.notes || activeSubmission.legal_comments || "No review notes yet."}</p>
-                <p><strong>Review Notes:</strong> {activeSubmission.notes || activeSubmission.legal_comments || "No review notes yet."}</p>
-                {activeSubmission.legal_comments && (
-                  <div style={{ marginTop: "16px", padding: "12px", backgroundColor: "#fff3cd", borderRadius: "4px" }}>
-                    <strong>Legal Comments:</strong>
-                    <p>{activeSubmission.legal_comments}</p>
-                  </div>
+            <div className="drawer-grid">
+              <section className="drawer-left">
+                <h2>Document Preview</h2>
+                {drawerLoading ? (
+                  <p>Loading document preview…</p>
+                ) : activeSubmission ? (
+                  <DocumentReviewViewer submission={activeSubmission} account={account} viewerTitle="Review Document" />
+                ) : (
+                  <p>No submission selected.</p>
                 )}
-                <div style={{ marginTop: "16px" }}>
-                  <strong>Attachments</strong>
-                  <div style={{ display: "grid", gap: "12px", marginTop: "12px" }}>
-                    {getAttachmentItems(activeSubmission).length ? getAttachmentItems(activeSubmission).map((item) => {
-                      const fileName = item.file_name || "Attached Document";
-                      const extension = inferFileBadge(item);
-                      const fileTypeLabel = inferFileLabel(item);
-                      return (
-                        <div key={item.id || fileName} className="attachment-card">
-                          <div className="attachment-card__icon">{extension}</div>
-                          <div className="attachment-card__body">
-                            <b>{fileName}</b>
-                            <small>{fileTypeLabel}</small>
-                            <small>{formatFileSize(item.file_size)}</small>
+              </section>
+
+              <section className="drawer-right">
+                <h2>Submission Details</h2>
+                {drawerLoading ? (
+                  <p>Loading submission details...</p>
+                ) : activeSubmission ? (
+                  <>
+                    <p><strong>Tracking #:</strong> {activeSubmission.tracking_number || activeSubmission.id}</p>
+                    <p><strong>Department:</strong> {getSchoolLabel(activeSubmission)}</p>
+                    <p><strong>Partner:</strong> {activeSubmission.partner_institution_name}</p>
+                    <p><strong>Agreement Type:</strong> {activeSubmission.agreement_type || "MOA"}</p>
+                    <p><strong>Submission Type:</strong> {activeSubmission.submission_type === "renewal" ? "Renewal" : "New Engagement"}</p>
+                    <p><strong>Partner Classification:</strong> {activeSubmission.partner_classification === "international" ? "International" : "Local"}</p>
+                    <p><strong>Status:</strong> <b>{formatSubmissionStatus(activeSubmission.status)}</b></p>
+                    <p><strong>Current Reviewer:</strong> {activeSubmission.current_reviewer || activeSubmission.current_reviewer_role || "IRO Staff"}</p>
+                    <p><strong>Revision Cycle:</strong> {activeSubmission.revision_cycle || 1}</p>
+                    <p><strong>Submitted Date:</strong> {activeSubmission.created_at ? new Date(activeSubmission.created_at).toLocaleString() : "---"}</p>
+                    <p><strong>Updated Date:</strong> {activeSubmission.updated_at ? new Date(activeSubmission.updated_at).toLocaleDateString() : "---"}</p>
+                    <p><strong>Workflow Status:</strong> <span className={`badge ${statusTone(activeSubmission.status)}`}>{formatSubmissionStatus(activeSubmission.status)}</span></p>
+                    <p><strong>Activity Summary:</strong> {activeSubmission.notes || activeSubmission.legal_comments || "No review notes yet."}</p>
+                    <div style={{ marginTop: "16px" }}>
+                      <strong>Submission Timeline</strong>
+                      <div style={{ display: "grid", gap: "10px", marginTop: "12px" }}>
+                        {buildSubmissionTimeline(activeSubmission).map((item) => (
+                          <div key={`${item.label}-${item.detail}`} className={`timeline-item ${item.tone || ""}`}>
+                            <b>{item.label}</b>
+                            <p>{item.detail}</p>
                           </div>
-                          <div className="attachment-card__actions">
-                            <button className="outline" onClick={handlePreviewAttachment}>Preview</button>
-                            <button className="outline" onClick={() => handleDownloadAttachment(item)} disabled={downloadBusyId === (item.id || item.file_name || activeSubmission.id)}>
-                              {downloadBusyId === (item.id || item.file_name || activeSubmission.id) ? "Downloading..." : "Download"}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    }) : (
-                      <p>No attachments found.</p>
+                        ))}
+                      </div>
+                    </div>
+                    {activeSubmission.legal_comments && (
+                      <div style={{ marginTop: "16px", padding: "12px", backgroundColor: "#fff3cd", borderRadius: "4px" }}>
+                        <strong>Legal Comments:</strong>
+                        <p>{activeSubmission.legal_comments}</p>
+                      </div>
                     )}
-                  </div>
-                </div>
-                <div style={{ marginTop: "16px", display: "grid", gap: "12px" }}>
-                  <button className="outline" onClick={handleResubmit} disabled={deleteBusy || !["legal_revision_required", "revision_required"].includes(activeSubmission.status)}>
-                    Resubmit After Corrections
-                  </button>
-                  <button className="danger outline" onClick={handleDeleteSubmission} disabled={deleteBusy || !canDeleteSubmission(activeSubmission)}>
-                    {deleteBusy ? "Deleting..." : "Delete Submission"}
-                  </button>
-                  {!canDeleteSubmission(activeSubmission) && (
-                    <p style={{ margin: 0, color: "#8a5a00" }}>Delete is only allowed for Draft, Returned for Revision, and Rejected submissions.</p>
-                  )}
-                  {deleteError && <p style={{ margin: 0, color: "var(--red)" }}>{deleteError}</p>}
-                </div>
-              </>
-            ) : (
-              <p>Select a submission to view status, details, and revision history.</p>
-            )}
+                    <div style={{ marginTop: "16px" }}>
+                      <strong>Review History</strong>
+                      <div style={{ display: "grid", gap: "12px", marginTop: "12px" }}>
+                        {Array.isArray(reviewData.comments) && reviewData.comments.length ? reviewData.comments.map((comment) => (
+                          <div key={comment.id} className="timeline-item">
+                            <b>{comment.created_by_name || comment.role || "Reviewer"}</b>
+                            <p>Page {comment.page_number || 1}</p>
+                            {comment.selected_text ? <p>{comment.selected_text}</p> : null}
+                            <p>{comment.comment}</p>
+                            <small>{comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}</small>
+                          </div>
+                        )) : (
+                          <p>No review comments yet.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ marginTop: "16px" }}>
+                      <strong>Attachments</strong>
+                      <div style={{ display: "grid", gap: "12px", marginTop: "12px" }}>
+                        {getAttachmentItems(activeSubmission).length ? getAttachmentItems(activeSubmission).map((item) => {
+                          const fileName = item.file_name || "Attached Document";
+                          const extension = inferFileBadge(item);
+                          const fileTypeLabel = inferFileLabel(item);
+                          return (
+                            <div key={item.id || fileName} className="attachment-card">
+                              <div className="attachment-card__icon">{extension}</div>
+                              <div className="attachment-card__body">
+                                <b>{fileName}</b>
+                                <small>{fileTypeLabel}</small>
+                                <small>{formatFileSize(item.file_size)}</small>
+                              </div>
+                              <div className="attachment-card__actions">
+                                <button className="outline" onClick={handlePreviewAttachment}>Preview</button>
+                                <button className="outline" onClick={() => handleDownloadAttachment(item)} disabled={downloadBusyId === (item.id || item.file_name || activeSubmission.id)}>
+                                  {downloadBusyId === (item.id || item.file_name || activeSubmission.id) ? "Downloading..." : "Download"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }) : (
+                          <p>No attachments found.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ marginTop: "16px", display: "grid", gap: "12px" }}>
+                      <button className="primary" onClick={handleEditSubmission}>
+                        Edit Submission
+                      </button>
+                      <button className="outline" onClick={handleResubmit} disabled={deleteBusy || !["legal_revision_required", "revision_required"].includes(activeSubmission.status)}>
+                        Resubmit After Corrections
+                      </button>
+                      <button className="danger outline" onClick={handleDeleteSubmission} disabled={deleteBusy || !canDeleteSubmission(activeSubmission)}>
+                        {deleteBusy ? "Deleting..." : "Delete Submission"}
+                      </button>
+                      {!canDeleteSubmission(activeSubmission) && (
+                        <p style={{ margin: 0, color: "#8a5a00" }}>Delete is only allowed for Draft, Returned for Revision, and Rejected submissions.</p>
+                      )}
+                      {deleteError && <p style={{ margin: 0, color: "var(--red)" }}>{deleteError}</p>}
+                    </div>
+                  </>
+                ) : (
+                  <p>Select a submission to view status, details, and revision history.</p>
+                )}
+              </section>
+            </div>
           </aside>
         </div>
       )}

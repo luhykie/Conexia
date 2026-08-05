@@ -79,6 +79,14 @@ class SupabaseSubmissionGateway
         $rows = $this->readFallback();
         $now = now()->toIso8601String();
 
+        if (isset($payload['attachments']) && is_array($payload['attachments']) && ! isset($payload['storage_path'])) {
+            $firstAttachment = $payload['attachments'][0] ?? null;
+            if (is_array($firstAttachment)) {
+                $payload['storage_path'] = $firstAttachment['storage_path'] ?? null;
+                $payload['file_name'] = $firstAttachment['file_name'] ?? ($payload['file_name'] ?? null);
+            }
+        }
+
         $row = array_merge([
             'id' => (string) Str::uuid(),
             'created_at' => $now,
@@ -111,6 +119,14 @@ class SupabaseSubmissionGateway
     {
         $rows = $this->readFallback();
         $updated = null;
+
+        if (isset($payload['attachments']) && is_array($payload['attachments']) && ! isset($payload['storage_path'])) {
+            $firstAttachment = $payload['attachments'][0] ?? null;
+            if (is_array($firstAttachment)) {
+                $payload['storage_path'] = $firstAttachment['storage_path'] ?? null;
+                $payload['file_name'] = $firstAttachment['file_name'] ?? ($payload['file_name'] ?? null);
+            }
+        }
 
         foreach ($rows as $index => $row) {
             if (($row['id'] ?? null) !== $id) {
@@ -257,6 +273,12 @@ class SupabaseSubmissionGateway
         } catch (Throwable $e) {
             foreach ($this->readFallback() as $row) {
                 if (($row['id'] ?? null) === $id) {
+                    if (! ($row['storage_path'] ?? null) && isset($row['attachments'][0]['storage_path'])) {
+                        $row['storage_path'] = $row['attachments'][0]['storage_path'];
+                    }
+                    if (! ($row['file_name'] ?? null) && isset($row['attachments'][0]['file_name'])) {
+                        $row['file_name'] = $row['attachments'][0]['file_name'];
+                    }
                     return $row;
                 }
             }

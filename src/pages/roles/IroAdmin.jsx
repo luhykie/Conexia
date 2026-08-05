@@ -1,12 +1,13 @@
 import React from "react";
 import { Archive, CalendarClock, CheckCircle2, FileCheck2, FileText, Info, RefreshCw, Shield } from "lucide-react";
 import { DataTable } from "../../components/DataTable";
+import { DocumentReviewViewer } from "../../components/DocumentReviewViewer";
 import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar, NotificationsView } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
 import { archiveStats, reportStats } from "../../data/mockData";
-import { archiveSubmission, distributeSubmission, listSubmissions } from "../../services/submissions";
+import { archiveSubmission, distributeSubmission, getSubmissionFile, listSubmissions, updateSubmissionStatus } from "../../services/submissions";
 import { getSchoolLabel } from "../../utils/school";
 
 function formatSubmissionStatus(status) {
@@ -26,9 +27,27 @@ function statusTone(status) {
   return "neutral";
 }
 
+function SubmissionDocumentSheet({ submission }) {
+  const attachment = Array.isArray(submission?.attachments) ? submission.attachments[0] : null;
+  return (
+    <div className="submission-sheet">
+      <div className="submission-sheet__header">
+        <h3>{submission.agreement_title || submission.partner_institution_name || "Submission Document"}</h3>
+        <p>{attachment?.file_name || submission.file_name || "Attached PDF"}</p>
+      </div>
+      <div className="document-preview-empty" style={{ minHeight: "260px" }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>No PDF file is attached to this submission yet.</p>
+        <p style={{ margin: "8px 0 0" }}>
+          The record only contains the filename right now, so the browser cannot render the PDF itself.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // Routes all IRO Admin pages through one role-owned component.
 export function IroAdmin({ page, account }) {
-  if (page === "log-review") return <LogReviewForm />;
+  if (page === "log-review") return <LogReviewForm account={account} />;
   if (page === "validation") return <ValidationQueue />;
   if (page === "reassign") return <ReassignSubmissions />;
   if (page === "reports") return <PerformanceReports />;
@@ -49,27 +68,167 @@ export function IroAdmin({ page, account }) {
 }
 
 // Registers agreement metadata before routing the case to the next office.
-function LogReviewForm() {
+function LogReviewForm({ account }) {
+  const [submissions, setSubmissions] = React.useState([]);
+  const [selectedSubmission, setSelectedSubmission] = React.useState(null);
+  const [adminNotes, setAdminNotes] = React.useState("");
+  const [selectionNote, setSelectionNote] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const [message, setMessage] = React.useState("");
+
+  React.useEffect(() => {
+    async function loadQueue() {
+      try {
+        const response = await listSubmissions(account, {});
+        const data = (response?.data || []).filter((row) => [
+          "pending_iro_admin_review",
+          "approved_by_iro_staff",
+          "pending_legal_review",
+        ].includes(row.status));
+        setSubmissions(data);
+        setSelectedSubmission(data[0] || null);
+      } catch (error) {
+        setSubmissions([]);
+        setSelectedSubmission(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadQueue();
+  }, [account]);
+
+
+  async function handleRouteToDepartment() {
+    if (!selectedSubmission) return;
+    if (!adminNotes.trim()) {
+      setMessage("Please enter review notes before returning the submission.");
+      return;
+    }
+
+    try {
+      await updateSubmissionStatus(account, selectedSubmission.id, "revision_required", adminNotes.trim());
+      setMessage("Submission returned to Department Staff with review notes.");
+      setSubmissions((current) => current.filter((row) => row.id !== selectedSubmission.id));
+      setSelectedSubmission(null);
+      setAdminNotes("");
+    } catch (error) {
+      setMessage(error.message || "Unable to return the submission.");
+    }
+  }
+
+  async function handleApprove() {
+    if (!selectedSubmission) return;
+
+    try {
+      await updateSubmissionStatus(account, selectedSubmission.id, "pending_legal_review", adminNotes.trim() || "Approved by IRO Admin and routed to Legal.");
+      setMessage("Submission routed to Legal.");
+      setSubmissions((current) => current.filter((row) => row.id !== selectedSubmission.id));
+      setSelectedSubmission(null);
+      setAdminNotes("");
+    } catch (error) {
+      setMessage(error.message || "Unable to route the submission.");
+    }
+  }
+
+  async function handleReject() {
+    if (!selectedSubmission) return;
+    try {
+      await updateSubmissionStatus(account, selectedSubmission.id, "revision_required", adminNotes.trim() || "Rejected by IRO Admin.");
+      setMessage("Submission returned to Department Staff.");
+      setSubmissions((current) => current.filter((row) => row.id !== selectedSubmission.id));
+      setSelectedSubmission(null);
+      setAdminNotes("");
+    } catch (error) {
+      setMessage(error.message || "Unable to reject the submission.");
+    }
+  }
+
+  function handleCaptureSelection() {
+    const selection = window.getSelection?.();
+    const text = String(selection?.toString() || "").trim();
+    if (!text) {
+      setMessage("Select text in the document first, then capture it as a note.");
+      return;
+    }
+    setSelectionNote(text);
+    setAdminNotes((current) => current ? `${current}\n\n[Highlighted] ${text}` : `[Highlighted] ${text}`);
+  }
+
   return (
     <section className="page iro-admin-page">
-      <PageTitle title="Log & Review Form" subtitle="Register institutional agreements and perform initial administrative reviews." />
-      <div className="two-col">
-        <div>
-          <FormPanel title="Partner Information" fields={["Partner Name", "Institution Type", "Country", "Contact Person"]} />
-          <FormPanel title="Agreement Details" fields={["Agreement Type", "Effective Date", "Expiry Date", "Objective / Purpose"]} />
-          <Panel title="Document Upload"><Dropzone /></Panel>
-        </div>
-        <aside className="review-panel">
-          <h2>Administrative Review</h2>
-          {["Signatures Present", "Terms Defined", "Attachments Included", "GDPR Compliance"].map((item) => (
-            <label className="checkline" key={item}><input type="checkbox" /> {item}</label>
-          ))}
-          <label>Route To<select><option>Legal Counsel</option><option>IRO Staff</option></select></label>
-          <label>Staff Remarks<textarea placeholder="Add administrative notes..." /></label>
-          <button>Submit & Route</button>
-          <button className="outline">Save Draft</button>
-        </aside>
-      </div>
+      <PageTitle title="Log & Review Form" subtitle="Review submissions logged by IRO Staff and continue the admin handoff." />
+      <Panel title="Pending Submissions">
+        {loading ? (
+          <p style={{ padding: "24px" }}>Loading submissions...</p>
+        ) : (
+          <DataTable
+            headers={["Tracking #", "Department", "Partner", "Status", "Action"]}
+            rows={submissions.map((row) => [
+              <b>{row.tracking_number || String(row.id).slice(0, 8)}</b>,
+              getSchoolLabel(row),
+              row.partner_institution_name,
+              <span className={`badge ${statusTone(row.status)}`}>{formatSubmissionStatus(row.status)}</span>,
+              <button className="outline" type="button" onClick={() => setSelectedSubmission(row)}>Review</button>,
+            ])}
+          />
+        )}
+      </Panel>
+
+      {selectedSubmission ? (
+        <Panel title={`Reviewing ${selectedSubmission.tracking_number || selectedSubmission.id}`}>
+          <div className="admin-review-layout">
+            <section className="admin-review-document">
+              <div className="auth-status ready" style={{ marginBottom: "12px" }}>
+                Received from IRO Staff and queued for admin review.
+              </div>
+              <div className="document-preview-shell">
+                <DocumentReviewViewer submission={selectedSubmission} account={account} viewerTitle="IRO Admin Document Review" />
+              </div>
+            </section>
+
+            <section className="admin-review-form">
+              <div className="doc-preview" style={{ margin: 0, minHeight: "auto" }}>
+                <h3>{selectedSubmission.partner_institution_name}</h3>
+                <p><strong>Department:</strong> {getSchoolLabel(selectedSubmission)}</p>
+                <p><strong>Agreement:</strong> {selectedSubmission.agreement_type || selectedSubmission.title || "N/A"}</p>
+                <p><strong>Status:</strong> {formatSubmissionStatus(selectedSubmission.status)}</p>
+                <p><strong>Workflow Step:</strong> {selectedSubmission.status === "approved_by_iro_staff" ? "Logged by IRO Staff" : "Queued for admin review"}</p>
+                <p><strong>Current Notes:</strong> {selectedSubmission.notes || "No review notes yet."}</p>
+              </div>
+              <div className="review-toolbar">
+                <button type="button" className="outline" onClick={handleCaptureSelection}>Capture Selection</button>
+                <button type="button" className="outline" onClick={() => setSelectionNote("")}>Clear Capture</button>
+              </div>
+              {selectionNote && (
+                <div className="auth-status ready">
+                  <b>Selected text</b>
+                  <small>{selectionNote}</small>
+                </div>
+              )}
+              <label>
+                Review Notes
+                <textarea
+                  placeholder="Write what the department should correct or confirm..."
+                  value={adminNotes}
+                  onChange={(event) => setAdminNotes(event.target.value)}
+                  rows={6}
+                />
+              </label>
+              {message && <p style={{ color: message.includes("Unable") ? "red" : "green" }}>{message}</p>}
+              <div style={{ display: "grid", gap: "10px" }}>
+                <button type="button" onClick={handleApprove}>Approve and Route to Legal</button>
+                <button type="button" className="outline" onClick={handleReject}>Return to Department Staff</button>
+                <button type="button" className="outline" onClick={handleRouteToDepartment}>Return with Notes</button>
+              </div>
+            </section>
+          </div>
+        </Panel>
+      ) : (
+        <Panel title="Review Workspace">
+          <p style={{ padding: "24px" }}>Select a submission to open the file and filled-out form together.</p>
+        </Panel>
+      )}
     </section>
   );
 }

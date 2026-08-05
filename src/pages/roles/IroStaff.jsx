@@ -1,18 +1,19 @@
 import React from "react";
 import { Download, FileText, Folder, Gauge, Paperclip } from "lucide-react";
 import { DataTable } from "../../components/DataTable";
+import { DocumentReviewViewer, ReviewCommentsPanel, useDocumentReview } from "../../components/DocumentReviewViewer";
 import { PageTitle } from "../../components/PageTitle";
 import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, ExportButton, FilterBar } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
-import { listSubmissions, updateSubmissionStatus } from "../../services/submissions";
+import { getSubmissionFile, listSubmissions, updateSubmissionStatus } from "../../services/submissions";
 import { getSchoolLabel } from "../../utils/school";
 
 function formatSubmissionStatus(status) {
   const labels = {
     pending_iro_staff_review: "Pending",
-    approved_by_iro_staff: "Logged by IRO Staff",
     pending_iro_admin_review: "Pending",
+    approved_by_iro_staff: "Logged by IRO Staff",
     legally_approved: "Approved by Legal Counsel",
     legal_revision_required: "Returned for Legal Corrections",
     revision_required: "Revision Required",
@@ -23,8 +24,8 @@ function formatSubmissionStatus(status) {
 
 function statusTone(status) {
   if (status === "pending_iro_staff_review") return "warn";
-  if (status === "approved_by_iro_staff") return "success";
   if (status === "pending_iro_admin_review") return "warn";
+  if (status === "approved_by_iro_staff") return "success";
   if (status === "legal_revision_required" || status === "revision_required") return "danger";
   return "neutral";
 }
@@ -156,6 +157,7 @@ function LogReview({ setPage, account }) {
   const [submission, setSubmission] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [message, setMessage] = React.useState("");
+  const review = useDocumentReview(submission, account);
 
   React.useEffect(() => {
     async function loadSubmission() {
@@ -170,20 +172,20 @@ function LogReview({ setPage, account }) {
     }
 
     loadSubmission();
-  }, []);
+  }, [account]);
 
     async function handleMarkLogged() {
     if (!submission) return;
 
     try {
-      await updateSubmissionStatus(account, submission.id, "approved_by_iro_staff", "IRO Staff approved the submission.");
+      await updateSubmissionStatus(account, submission.id, "pending_iro_admin_review", "IRO Staff logged and routed the submission to IRO Admin.");
     } catch (error) {
       setMessage(error.message || "Unable to approve submission. Please try again.");
       return;
     }
 
     setMessage("Submission logged and routed to IRO Admin.");
-    setSubmission({ ...submission, status: "approved_by_iro_staff" });
+    setSubmission({ ...submission, status: "pending_iro_admin_review" });
   }
 
   return (
@@ -198,28 +200,19 @@ function LogReview({ setPage, account }) {
             {loading ? (
               <p style={{ padding: 24 }}>Loading submission...</p>
             ) : submission ? (
-              <div className="doc-preview">
-                <h3>{submission.partner_institution_name}</h3>
-                <p><strong>Department:</strong> {getSchoolLabel(submission)}</p>
-                <p><strong>Title:</strong> {submission.title || submission.agreement_title || "---"}</p>
-                <p><strong>Agreement Type:</strong> {submission.agreement_type}</p>
-                <p><strong>Office:</strong> {submission.office}</p>
-                <p><strong>Expected Duration:</strong> {submission.expected_duration || "---"}</p>
-                <p><strong>Contact Person:</strong> {submission.contact_person || "---"}</p>
-                <p><strong>Contact Position:</strong> {submission.contact_position || "---"}</p>
-                <p><strong>Contact Email:</strong> {submission.partner_contact_email || submission.contact_email || "---"}</p>
-                <p><strong>Contact Number:</strong> {submission.contact_number || "---"}</p>
-                <p><strong>Requested Completion:</strong> {submission.requested_completion_date ? new Date(submission.requested_completion_date).toLocaleDateString() : "---"}</p>
-                <p><strong>Requested By:</strong> {submission.requested_by_name || "---"}</p>
-                <p><strong>Submitted:</strong> {new Date(submission.created_at).toLocaleString()}</p>
-                <p><strong>Contact:</strong> {submission.partner_contact_email}</p>
-                <p><strong>Status:</strong> <b>{formatSubmissionStatus(submission.status)}</b></p>
-                <p><span className={`badge ${statusTone(submission.status)}`}>{formatSubmissionStatus(submission.status)}</span></p>
-                <p><strong>Review Notes:</strong> {submission.notes || "No review notes yet."}</p>
-                <p className="attachment-indicator">
-                  <Paperclip size={16} />
-                <span>Attachment received. The file is hidden from IRO Staff, but the routed form is available for review.</span>
-              </p>
+              <div className="submission-review-layout review-layout">
+                <section className="submission-review-layout__document">
+                  <DocumentReviewViewer submission={submission} account={account} review={review} />
+                </section>
+                <aside className="submission-review-layout__details review-sidebar-compact">
+                  <h3>{submission.partner_institution_name}</h3>
+                  <p><strong>Department:</strong> {getSchoolLabel(submission)}</p>
+                  <p><strong>Title:</strong> {submission.title || submission.agreement_title || "---"}</p>
+                  <p><strong>Agreement Type:</strong> {submission.agreement_type}</p>
+                  <p><strong>Status:</strong> <span className={`badge ${statusTone(submission.status)}`}>{formatSubmissionStatus(submission.status)}</span></p>
+                  <p><strong>Review Notes:</strong> {submission.notes || "No review notes yet."}</p>
+                  <ReviewCommentsPanel review={review} title="Comments" />
+                </aside>
               </div>
             ) : (
               <p style={{ padding: 24 }}>No submissions are currently awaiting staff review.</p>
@@ -251,38 +244,58 @@ function LogReview({ setPage, account }) {
 }
 
 function StatusTracker() {
+  const [submissions, setSubmissions] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadHistory() {
+      try {
+        const response = await listSubmissions(null, { status: "in.(pending_iro_admin_review,approved_by_iro_staff)" });
+        setSubmissions(response?.data || []);
+      } catch (error) {
+        setSubmissions([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadHistory();
+  }, []);
+
   return (
     <section className="page split-page iro-staff-page">
       <div>
         <PageTitle title="Submission Progression" subtitle="Real-time status of active institutional agreements." />
-        {[
-          ["CTX-9902", "Pacific Global University", "2d 14h", true],
-          ["CTX-9884", "Nautical Research Institute", "14h 22m", false],
-          ["CTX-9871", "Vanguard Medical College", "5d 02h", true],
-        ].map(([id, name, time, complete]) => (
-          <article className="status-card" key={id}>
-            <span className="badge active">ID: {id}</span>
-            <h2>{name}</h2>
-            <div className="progress-steps">
-              <span className="done">Submitted</span>
-              <span className="done">Logged</span>
-              <span className={complete ? "done" : ""}>Under Review</span>
-            </div>
-            <footer>
-              <span>MOA (Institutional)</span>
-              <span>Engineering Dept.</span>
-              <b>Time in Current Status {time}</b>
-            </footer>
-          </article>
-        ))}
+        {loading ? (
+          <p style={{ padding: 24 }}>Loading history...</p>
+        ) : submissions.length ? (
+          submissions.map((submission) => (
+            <article className="status-card" key={submission.id}>
+              <span className="badge active">ID: {submission.tracking_number || submission.id}</span>
+              <h2>{submission.partner_institution_name || submission.title || "Submission"}</h2>
+              <div className="progress-steps">
+                <span className="done">Submitted</span>
+                <span className="done">Logged</span>
+                <span className="done">Admin Queue</span>
+              </div>
+              <footer>
+                <span>{submission.agreement_type || "Agreement"}</span>
+                <span>{submission.department || "Department"}</span>
+                <b>{submission.status === "approved_by_iro_staff" ? "Logged by IRO Staff" : "Waiting for Admin"}</b>
+              </footer>
+            </article>
+          ))
+        ) : (
+          <p style={{ padding: 24 }}>No logged submissions found yet.</p>
+        )}
       </div>
       <aside className="detail-drawer">
         <h2>Audit Trail</h2>
-        {["Status Changed to Under Review", "Logged & Verified", "Initial Submission"].map((entry) => (
-          <div className="timeline-item" key={entry}>
-            <b>{entry}</b>
-            <p>Submission lifecycle event recorded for export and audit.</p>
-            <small>OCT 14, 11:30</small>
+        {(submissions.length ? submissions : []).slice(0, 3).map((submission) => (
+          <div className="timeline-item" key={submission.id}>
+            <b>{submission.tracking_number || submission.id}</b>
+            <p>{submission.notes || "Logged by IRO Staff and routed to IRO Admin."}</p>
+            <small>{submission.updated_at ? new Date(submission.updated_at).toLocaleString() : "Recently"}</small>
           </div>
         ))}
         <button className="primary wide-inline">

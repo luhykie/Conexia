@@ -1,77 +1,59 @@
-import { supabase } from "../lib/supabaseClient";
+import { apiRequest } from "../services/api";
 import { authenticateDevAccount } from "./devAccounts";
 
-// Signs in with email/password and returns the merged auth + profile account,
-// matching the shape components already expect (roleKey, office, fullName, etc.).
 export async function signInWithEmail(email, password) {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  if (!supabase) {
-    const devResult = authenticateDevAccount(normalizedEmail, password);
-    if (devResult.ok) {
-      return { ok: true, account: devResult.account };
-    }
-
-    return {
-      ok: false,
-      message: "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your local env or use a seeded development account.",
+  const devResult = authenticateDevAccount(email, password);
+  if (devResult.ok) {
+    const user = {
+      id: devResult.account.email.toLowerCase(),
+      email: devResult.account.email.toLowerCase(),
+      fullName: devResult.account.fullName,
+      role: devResult.account.role,
+      roleKey: devResult.account.roleKey,
+      office: devResult.account.office,
+      department: devResult.account.department,
+      status: devResult.account.status || "Active",
     };
+
+    const token = `dev:${user.email}`;
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    return { ok: true, account: user, token };
   }
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email: normalizedEmail,
-    password,
+  if (import.meta.env.DEV) {
+    return { ok: false, message: "Use one of the seeded Conexia development accounts." };
+  }
+
+  const response = await apiRequest("/api/login", {
+    method: "POST",
+    body: { email, password },
   });
 
-  if (authError) {
-    const devResult = authenticateDevAccount(normalizedEmail, password);
-    if (devResult.ok) {
-      return { ok: true, account: devResult.account };
-    }
+  const token = response?.token;
+  const user = response?.user;
 
-    return { ok: false, message: authError.message };
+  if (!token || !user) {
+    return { ok: false, message: "Login failed." };
   }
 
-  const profile = await fetchProfile(authData.user.id, authData.user.email || normalizedEmail);
+  localStorage.setItem("token", token);
+  localStorage.setItem("user", JSON.stringify(user));
 
-  if (!profile) {
-    const devResult = authenticateDevAccount(normalizedEmail, password);
-    if (devResult.ok) {
-      return { ok: true, account: devResult.account };
-    }
-
-    return { ok: false, message: "No profile found for this account. Contact your Super Admin." };
-  }
-
-  return { ok: true, account: profile };
+  return { ok: true, account: user, token };
 }
 
-// Fetches the profiles row for a given auth user id and reshapes it
-// into the account object the rest of the app already relies on.
-export async function fetchProfile(userId, email = null) {
-  if (!supabase) return null;
+export async function fetchProfile() {
+  if (import.meta.env.DEV) {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, full_name, role, role_key, office, department, status")
-    .eq("id", userId)
-    .single();
-
-  if (error || !data) return null;
-
-  return {
-    id: data.id,
-    email,
-    fullName: data.full_name,
-    role: data.role,
-    roleKey: data.role_key,
-    office: data.office,
-    department: data.department,
-    status: data.status,
-  };
+  const response = await apiRequest("/api/me");
+  return response?.user || null;
 }
 
 export async function signOut() {
-  if (!supabase) return;
-  await supabase.auth.signOut();
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
 }

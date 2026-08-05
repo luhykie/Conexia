@@ -7,7 +7,13 @@ use App\Models\Submission;
 
 class SubmissionWorkflowService
 {
-    private const FILE_VISIBLE_ROLES = ['iro_admin', 'legal', 'super_admin'];
+    // Include both canonical role keys and development token variants
+    private const FILE_VISIBLE_ROLES = [
+        'iro_admin', // canonical
+        'legal',
+        // dev / alternate role_key variants seen in local tokens
+        'admin',
+    ];
 
     public function canViewFile(Profile $profile, Submission $submission): bool
     {

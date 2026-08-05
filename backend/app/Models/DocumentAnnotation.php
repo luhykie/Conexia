@@ -5,31 +5,28 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-class DocumentComment extends Model
+class DocumentAnnotation extends Model
 {
     use HasUuids;
+
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $table = 'document_comments';
-
+    protected $table = 'document_annotations';
     protected $fillable = [
         'submission_id',
         'document_version_id',
-        'user_id',
-        'role_key',
         'page_number',
-        'selected_text',
         'highlight_coordinates',
-        'highlight_color',
-        'comment_type',
-        'comment',
-        'resolved',
+        'color',
+        'created_by',
         'created_by_name',
         'role',
     ];
 
-    protected $casts = [
-        'highlight_coordinates' => 'array',
-        'resolved' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'highlight_coordinates' => 'array',
+        ];
+    }
 }
