@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "concurrently --kill-others-on-fail --names frontend,backend --prefix-colors cyan,green \"vite --host 127.0.0.1\" \"php backend/artisan serve --host=127.0.0.1 --port=8000\"",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
@@ -17,5 +17,8 @@
     "react-router-dom": "^7.18.1",
     "typescript": "^5.8.0",
     "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
   }
 }
