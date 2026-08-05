@@ -282,7 +282,7 @@ class ReviewFormWorkflowTest extends TestCase
         $this->assertSame('Review Form Sent Back', $document->fresh()->status);
     }
 
-    public function test_admin_can_reassign_submission_between_active_iro_staff(): void
+    public function test_admin_can_reassign_submission_to_the_single_active_iro_staff(): void
     {
         $departmentId = (string) Str::uuid();
         $submitterId = (string) Str::uuid();
@@ -296,7 +296,7 @@ class ReviewFormWorkflowTest extends TestCase
         ]);
         DB::table('profiles')->insert([
             ['id' => $submitterId, 'role' => 'department_staff', 'full_name' => null, 'email' => 'department@example.test', 'is_active' => true],
-            ['id' => $previousStaffId, 'role' => 'iro_staff', 'full_name' => 'Previous Staff', 'email' => 'previous@example.test', 'is_active' => true],
+            ['id' => $previousStaffId, 'role' => 'iro_staff', 'full_name' => 'Previous Staff', 'email' => 'previous@example.test', 'is_active' => false],
             ['id' => $newStaffId, 'role' => 'iro_staff', 'full_name' => 'New Staff', 'email' => 'new@example.test', 'is_active' => true],
             ['id' => $adminId, 'role' => 'iro_admin', 'full_name' => null, 'email' => 'admin@example.test', 'is_active' => true],
         ]);
@@ -336,7 +336,7 @@ class ReviewFormWorkflowTest extends TestCase
             'document_id' => $document->id,
             'actor_id' => $adminId,
             'event_type' => 'submission_reassigned',
-            'notes' => 'IRO Staff assignment changed from Previous Staff to New Staff. Reason: Balance the active review workload.',
+            'notes' => 'Submission returned and automatically assigned to New Staff. Reason: Balance the active review workload.',
         ]);
         $this->assertDatabaseHas('notifications', [
             'document_id' => $document->id,

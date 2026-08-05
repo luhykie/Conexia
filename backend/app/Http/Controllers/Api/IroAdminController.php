@@ -155,11 +155,18 @@ class IroAdminController extends Controller
             $document,
             $validated,
             $systemIroStaff
-        ): Document {
+        ): Document|JsonResponse {
             $lockedDocument = Document::query()
                 ->whereKey($document->id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ($lockedDocument->assigned_iro_staff === $systemIroStaff->id) {
+                return response()->json([
+                    'message' => 'This submission is already assigned to the active IRO Staff account.',
+                ], 422);
+            }
+
             $previousStaff = $lockedDocument->assigned_iro_staff
                 ? Profile::query()->find($lockedDocument->assigned_iro_staff)
                 : null;
@@ -204,6 +211,10 @@ class IroAdminController extends Controller
 
             return $lockedDocument;
         });
+
+        if ($updatedDocument instanceof JsonResponse) {
+            return $updatedDocument;
+        }
 
         return response()->json([
             'message' => 'Submission returned to IRO Staff successfully.',
