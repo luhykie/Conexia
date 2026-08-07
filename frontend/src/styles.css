@@ -61,33 +61,6 @@ button:hover { filter: brightness(.96); }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(0,122,82,.22); outline-offset: 2px; }
 
 /* ==========================================================================
-   App Shell
-   Authenticated layout, sidebar, topbar, search, and profile controls.
-   ========================================================================== */
-.app-shell { min-height: 100vh; display: grid; grid-template-columns: 248px 1fr; background: var(--workspace); }
-.sidebar { background: var(--green-900); color: white; display: flex; flex-direction: column; min-height: 100vh; border-right: 1px solid rgba(255,255,255,.16); }
-.brand-mark { height: 250px; display: grid; place-items: center; align-content: center; gap: 8px; }
-.seal { width: 78px; height: 78px; border: 3px solid #f6df99; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); }
-.brand-mark h1 { margin: 0; font-size: 32px; letter-spacing: .02em; color: var(--gold); }
-.brand-mark p { margin: 0; color: #89c49e; font-weight: 700; letter-spacing: .08em; }
-/* Modified: uniform sidebar item sizing, icon alignment, active state, and hover state. */
-.sidebar nav { display: grid; gap: var(--space-2); padding: 0 var(--space-4); }
-.sidebar button { width: 100%; height: 48px; padding: 0 var(--space-5); color: #c7dfd0; background: transparent; text-align: left; justify-content: flex-start; gap: var(--space-2); border-radius: var(--radius-control); }
-.sidebar button svg { width: 22px; height: 22px; flex: 0 0 22px; }
-.sidebar button:hover { background: rgba(255,255,255,.08); color: white; filter: none; }
-.sidebar button.active { color: var(--gold); background: rgba(255,255,255,.12); box-shadow: inset 4px 0 0 var(--gold); }
-.sidebar-footer { margin-top: auto; padding: var(--space-6) var(--space-4) var(--space-8); border-top: 1px solid rgba(255,255,255,.18); display: grid; gap: var(--space-2); }
-
-.workspace { min-width: 0; }
-.topbar { height: 72px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: var(--space-6); padding: 0 var(--space-8); justify-content: flex-end; }
-/* Modified: search control now follows the shared form-control dimensions. */
-.search { margin-right: auto; width: min(520px, 48vw); background: #eef3fb; border: 1px solid var(--line); border-radius: var(--radius-control); height: 48px; display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); color: #6d7775; }
-.search input { height: 48px; min-height: 48px; border: 0; background: transparent; outline: 0; width: 100%; font-size: 16px; box-shadow: none; }
-.profile { display: flex; align-items: center; gap: var(--space-3); font-weight: 700; text-align: right; color: var(--ink); }
-.profile small { display: block; font-size: 12px; letter-spacing: .12em; color: #777; text-transform: uppercase; }
-.avatar { width: 40px; height: 40px; border-radius: 12px; background: var(--green-800); color: white; display: grid; place-items: center; border: 3px solid #9fceb9; }
-
-/* ==========================================================================
    Shared Page Surfaces
    Page headings, stat cards, panels, tables, badges, filters, and forms.
    ========================================================================== */
@@ -1444,7 +1417,6 @@ textarea { padding-top: var(--space-3); resize: vertical; }
     min-width: 0;
   }
 
-  .app-shell,
   .role-screen,
   .dashboard-grid,
   .two-col,
@@ -1455,19 +1427,6 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .metric-row,
   .welcome-footer {
     grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    min-height: auto;
-  }
-
-  .brand-mark {
-    height: 160px;
-  }
-
-  .topbar {
-    padding: 0 16px;
   }
 
   .page {
@@ -2310,29 +2269,3 @@ justify-content:center;
 
 }
 
-.sidebar nav button {
-  position: relative;
-}
-
-.sidebar-label {
-  flex: 1;
-  text-align: left;
-}
-
-.sidebar-notification-badge {
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 999px;
-  background: #c9181d;
-  color: #ffffff;
-
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}

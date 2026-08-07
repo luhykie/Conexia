@@ -4,7 +4,7 @@ import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { createNotification } from "../utils/notifications";
 import { Panel } from "../components/Panel";
-import { DashboardView, Dropzone, ExpiryView, FilterBar, NotificationsView } from "../components/SharedViews";
+import { DashboardView, Dropzone, ExpiryView, FilterBar } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import { NotificationsPage } from "../components/NotificationsPage";
 import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
