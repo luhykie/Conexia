@@ -13,71 +13,36 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
-  Shield,
-  Building2,
-  MonitorCog,
-  ScrollText,
   Settings,
   LogOut,
 } from "lucide-react";
 
+import { getAllowedNavItems } from "../../auth/rbac";
+import { roles } from "../../data/roles";
 import "./Sidebar.css";
-
-const superAdminItems = [
-  {
-    key: "dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    to: "/app/dashboard",
-  },
-  {
-    key: "users",
-    label: "User Management",
-    icon: Users,
-    to: "/app/users",
-  },
-  {
-    key: "roles",
-    label: "Role Management",
-    icon: Shield,
-    to: "/app/roles",
-  },
-  {
-    key: "departments",
-    label: "Department Management",
-    icon: Building2,
-    to: "/app/departments",
-  },
-  {
-    key: "monitoring",
-    label: "System Monitoring",
-    icon: MonitorCog,
-    to: "/app/monitoring",
-  },
-  {
-    key: "audit",
-    label: "Audit Logs",
-    icon: ScrollText,
-    to: "/app/audit",
-  },
-  {
-    key: "settings",
-    label: "System Settings",
-    icon: Settings,
-    to: "/app/settings",
-  },
-];
 
 export function Sidebar({
   roleKey,
   onLogout,
 }) {
-  const items =
-    roleKey === "super"
-      ? superAdminItems
-      : [];
+  const role = roles[roleKey] || roles.department;
+  const items = getAllowedNavItems(roleKey).map(
+    ([key, label, Icon]) => ({
+      key,
+      label,
+      icon: Icon,
+      to: `/app/${key}`,
+    }),
+  );
+
+  if (!items.some((item) => item.key === "settings")) {
+    items.push({
+      key: "settings",
+      label: "Settings",
+      icon: Settings,
+      to: "/app/settings",
+    });
+  }
 
   return (
     <aside className="cx-sidebar">
@@ -88,7 +53,7 @@ export function Sidebar({
 
         <div>
           <strong>CONEXIA</strong>
-          <span>Partnership Management</span>
+          <span>{role.theme}</span>
         </div>
       </div>
 

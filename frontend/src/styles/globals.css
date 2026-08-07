@@ -1,5 +1,6 @@
 body {
   overflow-x: hidden;
+  min-width: 0;
 }
 
 .cx-page {
@@ -359,4 +360,288 @@ body {
     opacity:.4;
 
     cursor:not-allowed;
+}
+
+/* ---------- FIGMA EXPORT POLISH ---------- */
+
+.page {
+  padding: 0 0 32px;
+}
+
+.page-title {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.page-title__content {
+  gap: 3px;
+}
+
+.page-title h1 {
+  color: var(--cx-color-primary-900);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.page-title p {
+  color: #52615d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.btn,
+button,
+.table-action {
+  min-height: 30px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.btn-primary,
+.primary,
+.page-title button,
+.form-card button,
+.summary-card button,
+.review-panel button,
+.review-sidebar button,
+.approval-row button,
+.dark-card button,
+.management-action {
+  background: var(--cx-color-primary-900) !important;
+  color: #ffffff !important;
+}
+
+.outline,
+.table-action {
+  border: 1px solid var(--cx-color-primary-600) !important;
+  background: #ffffff !important;
+  color: var(--cx-color-primary-900) !important;
+}
+
+.stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  min-height: 104px;
+  padding: 15px 16px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(19, 32, 51, 0.06);
+}
+
+.stat-card:hover {
+  transform: none;
+  box-shadow: 0 3px 8px rgba(19, 32, 51, 0.08);
+}
+
+.stat-card__top {
+  margin-bottom: 12px;
+}
+
+.stat-card__icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: #dff3e8;
+}
+
+.stat-card__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.stat-card__badge {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cx-color-primary-700);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-card strong {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.stat-card p {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.panel,
+.form-card,
+.review-panel,
+.review-sidebar,
+.detail-drawer,
+.feature-card,
+.auth-card {
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(19, 32, 51, 0.06);
+}
+
+.panel {
+  margin-bottom: 18px;
+}
+
+.panel__header {
+  min-height: 48px;
+  padding: 12px 16px;
+  background: #ffffff;
+}
+
+.panel__heading h2 {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.panel__heading p {
+  font-size: 11px;
+}
+
+.panel__body {
+  padding: 16px;
+}
+
+.dashboard-grid,
+.two-col {
+  grid-template-columns: minmax(0, 1fr) 318px;
+  gap: 18px;
+}
+
+.split-page {
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+  padding-right: 0;
+}
+
+.filter-bar {
+  min-height: 48px;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 18px;
+  border-radius: 5px;
+}
+
+.filter-bar button {
+  height: 32px;
+  border-radius: 4px;
+  background: #f7f9fc;
+  font-size: 11px;
+}
+
+.cx-table {
+  border: 1px solid var(--cx-color-border);
+  border-radius: 5px;
+}
+
+.cx-table thead {
+  background: #eaf1ff;
+}
+
+.cx-table th {
+  padding: 12px 14px;
+  color: #4f5d59;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cx-table td {
+  padding: 11px 14px;
+  color: #10213a;
+  font-size: 12px;
+}
+
+.cx-table tr:hover {
+  background: #f7fbf8;
+}
+
+.cx-table-footer {
+  min-height: 44px;
+  padding: 8px 12px;
+  color: #63706c;
+  font-size: 12px;
+}
+
+.cx-pagination {
+  gap: 6px;
+}
+
+.cx-pagination button {
+  min-width: 30px;
+  width: auto;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cx-color-border);
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--cx-color-primary-900);
+}
+
+.badge {
+  min-height: 22px !important;
+  height: 22px;
+  padding: 0 9px !important;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+input,
+select,
+textarea {
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+
+.form-card,
+.review-panel,
+.review-sidebar,
+.detail-drawer {
+  padding: 16px;
+  gap: 12px;
+}
+
+.dropzone {
+  min-height: 170px;
+  margin: 16px;
+  border-radius: 4px;
+  background: #f5f8ff;
+}
+
+.notice {
+  margin: 12px;
+  padding: 14px;
+  border-radius: 5px;
+}
+
+.notification-card {
+  min-height: 88px;
+  padding: 14px;
+  border-radius: 5px;
+}
+
+.notification-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid,
+  .two-col,
+  .split-page,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }

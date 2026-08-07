@@ -8,54 +8,76 @@
   min-height: 100vh;
   flex-direction: column;
 
-  padding: 24px 18px;
+  padding: 28px 18px 20px;
 
   color: #ffffff;
   background:
+    radial-gradient(
+      circle at 46% 12%,
+      rgba(255, 194, 14, 0.12),
+      transparent 13%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 194, 14, 0.12) 0 1px,
+      transparent 1px 100%
+    ),
     linear-gradient(
       180deg,
-      var(--cx-color-primary-900),
-      var(--cx-color-primary-800)
+      rgba(0, 56, 32, 0.98),
+      rgba(0, 56, 32, 0.92)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.06) 0 2px,
+      transparent 2px 54px
     );
 }
 
 .cx-sidebar__brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 10px 26px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 10px 34px;
+  text-align: center;
 }
 
 .cx-sidebar__brand-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 58px;
+  height: 58px;
   place-items: center;
 
-  border-radius: 12px;
+  border: 3px solid #f4d98d;
+  border-radius: 50%;
   color: var(--cx-color-primary-900);
-  background: var(--cx-color-accent-gold);
+  background: #ffffff;
 
   font-weight: 800;
 }
 
 .cx-sidebar__brand strong {
   display: block;
-  font-size: 18px;
-  letter-spacing: 0.08em;
+  color: var(--cx-color-accent-gold);
+  font-size: 28px;
+  letter-spacing: 0.03em;
+  line-height: 1;
 }
 
 .cx-sidebar__brand span {
   display: block;
-  margin-top: 3px;
+  margin-top: 7px;
 
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 11px;
+  color: #8ed1a5;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .cx-sidebar__nav {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .cx-sidebar__link,
@@ -65,16 +87,16 @@
   gap: 12px;
 
   width: 100%;
-  min-height: 46px;
-  padding: 0 14px;
+  min-height: 42px;
+  padding: 0 13px;
 
   border: 0;
-  border-radius: 10px;
+  border-radius: 5px;
 
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.86);
   background: transparent;
 
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   text-align: left;
 }
@@ -86,10 +108,19 @@
 }
 
 .cx-sidebar__link--active {
-  color: var(--cx-color-primary-900);
-  background: var(--cx-color-accent-gold);
+  color: var(--cx-color-accent-gold);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: inset 4px 0 0 var(--cx-color-accent-gold);
 }
 
 .cx-sidebar__logout {
   margin-top: auto;
+}
+
+@media (max-width: 900px) {
+  .cx-sidebar {
+    position: static;
+    width: 100%;
+    min-height: auto;
+  }
 }

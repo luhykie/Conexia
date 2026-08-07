@@ -1,6 +1,5 @@
 import {
   Archive,
-  Bell,
   Building2,
   CalendarClock,
   ClipboardCheck,
@@ -86,7 +85,6 @@ export const navItems = {
     ["submissions", "My Submissions", FileText],
     ["engagements", "Engagements", Handshake],
     ["expiry", "Expiry", CalendarClock],
-    ["notifications", "Notifications", Bell],
   ],
 
   staff: [
@@ -106,7 +104,6 @@ export const navItems = {
     ["archive", "Archive", Archive],
     ["engagements", "Engagements", Handshake],
     ["expiry", "Expiry", CalendarClock],
-    ["notifications", "Notifications", Bell],
   ],
 
   legal: [
@@ -115,7 +112,6 @@ export const navItems = {
     ["notarization", "Notarization Tracker", FileText],
     ["expiry", "Expiry", CalendarClock],
     ["history", "My Action History", History],
-    ["notifications", "Notifications", Bell],
   ],
 
   super: [
