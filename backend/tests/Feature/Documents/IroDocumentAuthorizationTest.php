@@ -27,11 +27,42 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
 
         $response->assertJsonFragment(['id' => $submitted->id]);
         $response->assertJsonMissing(['id' => $archived->id]);
+        $response->assertJsonMissingPath('data.0.partner_institution');
+        $response->assertJsonMissingPath('data.0.title');
+        $response->assertJsonMissingPath('data.0.document_type');
+        $response->assertJsonMissingPath('data.0.legal_notes');
     }
 
-    public function test_iro_staff_can_log_submitted_document(): void
+    public function test_iro_staff_cannot_perform_admin_workflow_actions(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_STAFF);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'status' => Document::STATUS_SUBMITTED,
+        ]);
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/log",
+            [],
+            $this->authHeaders($iro)
+        )->assertForbidden();
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/assign-legal",
+            ['legal_counsel_id' => $legal->id],
+            $this->authHeaders($iro)
+        )->assertForbidden();
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/archive",
+            [],
+            $this->authHeaders($iro)
+        )->assertForbidden();
+    }
+
+    public function test_iro_admin_can_log_submitted_document(): void
+    {
+        $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
         $document = $this->document([
             'status' => Document::STATUS_SUBMITTED,
         ]);

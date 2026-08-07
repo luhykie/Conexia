@@ -23,11 +23,11 @@ class DashboardController extends Controller
         );
     }
 
-    public function iro(): JsonResponse
+    public function iro(Request $request): JsonResponse
     {
         return $this->success(
             'IRO dashboard loaded successfully.',
-            $this->dashboards->iro()
+            $this->dashboards->iro($this->profile($request))
         );
     }
 

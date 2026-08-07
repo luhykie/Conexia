@@ -46,7 +46,7 @@ export const roles = {
   staff: {
     label: "IRO STAFF",
     subtitle:
-      "Receive submissions, log agreements, generate review forms, and route to Legal.",
+      "Monitor submissions and reminders for IRO Admin follow-up.",
     theme: "IRO STAFF PORTAL",
     user: "PAIR IRO Staff",
     title: "IRO STAFF",
@@ -90,7 +90,6 @@ export const navItems = {
   staff: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["incoming", "Incoming Submissions", Folder],
-    ["log-review", "Log & Review", FileCheck2],
     ["status", "Status Tracker", Gauge],
     ["expiry", "Expiry", CalendarClock],
   ],

@@ -43,7 +43,6 @@ class AppServiceProvider extends ServiceProvider
             ): bool {
                 if (
                     in_array($profile->role, [
-                        Profile::ROLE_IRO_STAFF,
                         Profile::ROLE_IRO_ADMIN,
                     ], true)
                 ) {

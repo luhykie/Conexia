@@ -23,7 +23,7 @@ class DocumentLifecycleTest extends SecurityTestCase
         $staff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF, [
             'department_id' => $department->id,
         ]);
-        $iro = $this->profile(Profile::ROLE_IRO_STAFF);
+        $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
         $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
 
         $document = $this->postJson(

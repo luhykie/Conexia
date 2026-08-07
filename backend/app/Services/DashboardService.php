@@ -48,7 +48,7 @@ class DashboardService
         ];
     }
 
-    public function iro(): array
+    public function iro(Profile $profile): array
     {
         $documents = $this->dashboards->iroDocuments();
         $queueDocuments = $documents
@@ -85,7 +85,10 @@ class DashboardService
                 ),
                 'total_submissions' => $documents->count(),
             ],
-            'recent_activity' => $this->recentActivity($queueDocuments),
+            'recent_activity' => $this->recentActivity(
+                $queueDocuments,
+                $profile->role === Profile::ROLE_IRO_STAFF
+            ),
             'notifications' => $this->statusNotices($queueDocuments),
             'status_distribution' => $this->statusDistribution($documents),
             'trend' => $this->statusTrend($documents),
@@ -173,26 +176,46 @@ class DashboardService
             ->count();
     }
 
-    private function recentActivity(Collection $documents): array
+    private function recentActivity(
+        Collection $documents,
+        bool $reminderOnly = false
+    ): array
     {
         return $documents
             ->take(5)
-            ->map(fn (Document $document): array => [
-                'tracking_number' => $document->tracking_number,
-                'entity_name' =>
-                    $document->partner_institution ?? '-',
-                'type' => $document->document_type ?? '-',
-                'timestamp' => $document->updated_at
-                    ? $document->updated_at->toISOString()
-                    : $document->submitted_at?->toISOString(),
-                'status' => $document->status,
-                'department' => $document->department
+            ->map(function (Document $document) use ($reminderOnly): array {
+                $department = $document->department
                     ? [
                         'code' => $document->department->code,
                         'name' => $document->department->name,
                     ]
-                    : null,
-            ])
+                    : null;
+
+                $payload = [
+                    'tracking_number' => $document->tracking_number,
+                    'timestamp' => $document->updated_at
+                        ? $document->updated_at->toISOString()
+                        : $document->submitted_at?->toISOString(),
+                    'status' => $document->status,
+                    'department' => $department,
+                ];
+
+                if ($reminderOnly) {
+                    return [
+                        ...$payload,
+                        'entity_name' =>
+                            $department['code'] ?? $department['name'] ?? '-',
+                        'type' => 'Reminder',
+                    ];
+                }
+
+                return [
+                    ...$payload,
+                    'entity_name' =>
+                        $document->partner_institution ?? '-',
+                    'type' => $document->document_type ?? '-',
+                ];
+            })
             ->values()
             ->all();
     }

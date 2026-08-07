@@ -16,7 +16,7 @@ class IroDocumentController extends Controller
 {
     public function incoming(Request $request): JsonResponse
     {
-        $this->ensureIro($request);
+        $profile = $this->ensureIro($request);
 
         return $this->documents(
             'Incoming documents loaded successfully.',
@@ -30,18 +30,21 @@ class IroDocumentController extends Controller
                 Document::STATUS_APPROVED,
                 Document::STATUS_PENDING_NOTARIZATION,
                 Document::STATUS_NOTARIZED,
-            ]
+            ],
+            $profile
         );
     }
 
     public function status(Request $request): JsonResponse
     {
-        $this->ensureIro($request);
+        $profile = $this->ensureIro($request);
 
         return $this->documents(
             'Status documents loaded successfully.',
             $request,
-            'updated_at'
+            'updated_at',
+            null,
+            $profile
         );
     }
 
@@ -160,8 +163,10 @@ class IroDocumentController extends Controller
         string $message,
         Request $request,
         string $orderColumn,
-        ?array $statuses = null
+        ?array $statuses = null,
+        ?Profile $profile = null
     ): JsonResponse {
+        $profile ??= $this->ensureIro($request);
         $options = Pagination::options(
             $request,
             ['submitted_at', 'updated_at', 'tracking_number', 'status'],
@@ -174,12 +179,28 @@ class IroDocumentController extends Controller
             ->with('department')
             ->when(
                 $options['search'] !== '',
-                fn ($query) => $query->where(function ($builder) use ($options, $operator) {
-                    $builder
-                        ->where('tracking_number', $operator, "%{$options['search']}%")
-                        ->orWhere('title', $operator, "%{$options['search']}%")
-                        ->orWhere('partner_institution', $operator, "%{$options['search']}%");
-                })
+                function ($query) use ($options, $operator, $profile) {
+                    $query->where(function ($builder) use ($options, $operator, $profile) {
+                        $builder->where(
+                            'tracking_number',
+                            $operator,
+                            "%{$options['search']}%"
+                        );
+
+                        if ($profile->role !== Profile::ROLE_IRO_STAFF) {
+                            $builder
+                                ->orWhere('title', $operator, "%{$options['search']}%")
+                                ->orWhere('partner_institution', $operator, "%{$options['search']}%");
+                        }
+
+                        $builder->orWhereHas(
+                            'department',
+                            fn ($departmentQuery) => $departmentQuery
+                                ->where('code', $operator, "%{$options['search']}%")
+                                ->orWhere('name', $operator, "%{$options['search']}%")
+                        );
+                    });
+                }
             )
             ->when(
                 $options['status'],
@@ -193,14 +214,25 @@ class IroDocumentController extends Controller
 
         $documents = $query->paginate(
             $options['per_page'],
-            ['*'],
+            $profile->role === Profile::ROLE_IRO_STAFF
+                ? [
+                    'id',
+                    'tracking_number',
+                    'department_id',
+                    'status',
+                    'submitted_at',
+                    'updated_at',
+                    'expiry_date',
+                    'renewal_status',
+                ]
+                : ['*'],
             'page',
             $options['page']
         );
 
         $items = $documents
             ->map(fn (Document $document): array =>
-                DocumentPayload::make($document)
+                $this->payloadFor($profile, $document)
             )
             ->values();
 
@@ -212,6 +244,33 @@ class IroDocumentController extends Controller
                 'meta' => Pagination::meta($documents),
             ]
         );
+    }
+
+    private function payloadFor(Profile $profile, Document $document): array
+    {
+        if ($profile->role !== Profile::ROLE_IRO_STAFF) {
+            return DocumentPayload::make($document);
+        }
+
+        $document->loadMissing('department');
+
+        return [
+            'id' => $document->id,
+            'tracking_number' => $document->tracking_number,
+            'department_id' => $document->department_id,
+            'department' => $document->department
+                ? [
+                    'id' => $document->department->id,
+                    'code' => $document->department->code,
+                    'name' => $document->department->name,
+                ]
+                : null,
+            'status' => $document->status,
+            'submitted_at' => $document->submitted_at?->toISOString(),
+            'updated_at' => $document->updated_at?->toISOString(),
+            'expiry_date' => $document->expiry_date?->toDateString(),
+            'renewal_status' => $document->renewal_status,
+        ];
     }
 
     private function lockedDocument(string $id): Document

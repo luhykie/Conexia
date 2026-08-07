@@ -81,13 +81,20 @@ class DashboardAuthorizationTest extends SecurityTestCase
     public function test_iro_dashboard_returns_live_workflow_counts(): void
     {
         $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $department = $this->department(['code' => 'SCS']);
 
-        $this->document(['status' => Document::STATUS_SUBMITTED]);
         $this->document([
             'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
         ]);
         $this->document([
             'status' => Document::STATUS_PENDING_NOTARIZATION,
+        ]);
+        $this->document([
+            'status' => Document::STATUS_SUBMITTED,
+            'department_id' => $department->id,
+            'title' => 'Restricted Title',
+            'document_type' => 'MOA',
+            'partner_institution' => 'Restricted Partner',
         ]);
         $this->document(['status' => Document::STATUS_ARCHIVED]);
 
@@ -99,7 +106,13 @@ class DashboardAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('data.stats.incoming_submissions', 1)
             ->assertJsonPath('data.stats.under_review', 1)
             ->assertJsonPath('data.stats.pending_notarization', 1)
-            ->assertJsonPath('data.stats.archived', 1);
+            ->assertJsonPath('data.stats.archived', 1)
+            ->assertJsonFragment([
+                'entity_name' => 'SCS',
+                'type' => 'Reminder',
+            ])
+            ->assertJsonMissingPath('data.recent_activity.0.partner_institution')
+            ->assertJsonMissingPath('data.recent_activity.0.document_type');
     }
 
     public function test_legal_dashboard_is_scoped_to_assigned_counsel(): void

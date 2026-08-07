@@ -18,6 +18,47 @@ class DocumentFileAuthorizationTest extends SecurityTestCase
         Storage::fake('local');
     }
 
+    public function test_iro_staff_cannot_access_document_file_routes(): void
+    {
+        $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $uploader = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $document = $this->document();
+        $file = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $uploader->id,
+        ]);
+
+        $this->getJson(
+            "/api/documents/{$document->id}/files",
+            $this->authHeaders($iroStaff)
+        )->assertForbidden();
+
+        $this->postJson(
+            "/api/documents/{$document->id}/files",
+            [
+                'file' => UploadedFile::fake()
+                    ->create('agreement.pdf', 12, 'application/pdf'),
+            ],
+            $this->authHeaders($iroStaff)
+        )->assertForbidden();
+
+        $this->getJson(
+            "/api/documents/{$document->id}/files/{$file->id}/download",
+            $this->authHeaders($iroStaff)
+        )->assertForbidden();
+
+        $this->getJson(
+            "/api/documents/{$document->id}/files/{$file->id}/preview",
+            $this->authHeaders($iroStaff)
+        )->assertForbidden();
+
+        $this->deleteJson(
+            "/api/documents/{$document->id}/files/{$file->id}",
+            [],
+            $this->authHeaders($iroStaff)
+        )->assertForbidden();
+    }
+
     public function test_authorised_department_staff_can_upload_document_file(): void
     {
         $department = $this->department();

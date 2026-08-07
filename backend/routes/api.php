@@ -184,6 +184,42 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     [WorkflowSummaryController::class, 'expiry']
                 );
 
+                Route::get(
+                    '/notifications',
+                    [NotificationController::class, 'index']
+                );
+
+                Route::post(
+                    '/notifications',
+                    [NotificationController::class, 'store']
+                );
+
+                Route::get(
+                    '/notifications/unread-count',
+                    [NotificationController::class, 'unreadCount']
+                );
+
+                Route::patch(
+                    '/notifications/read-all',
+                    [NotificationController::class, 'markAllRead']
+                );
+
+                Route::patch(
+                    '/notifications/{id}/read',
+                    [NotificationController::class, 'markRead']
+                );
+            });
+
+        Route::middleware(
+            EnsureRole::class
+                .':'
+                .Profile::ROLE_DEPARTMENT_STAFF
+                .','
+                .Profile::ROLE_IRO_ADMIN
+                .','
+                .Profile::ROLE_LEGAL_COUNSEL
+        )
+            ->group(function (): void {
                 Route::patch(
                     '/expiry/documents/{id}/renewal-request',
                     [
@@ -215,31 +251,6 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 Route::delete(
                     '/documents/{document}/files/{file}',
                     [DocumentFileController::class, 'delete']
-                );
-
-                Route::get(
-                    '/notifications',
-                    [NotificationController::class, 'index']
-                );
-
-                Route::post(
-                    '/notifications',
-                    [NotificationController::class, 'store']
-                );
-
-                Route::get(
-                    '/notifications/unread-count',
-                    [NotificationController::class, 'unreadCount']
-                );
-
-                Route::patch(
-                    '/notifications/read-all',
-                    [NotificationController::class, 'markAllRead']
-                );
-
-                Route::patch(
-                    '/notifications/{id}/read',
-                    [NotificationController::class, 'markRead']
                 );
             });
 
@@ -282,7 +293,12 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     '/iro/documents/status',
                     [IroDocumentController::class, 'status']
                 );
+            });
 
+        Route::middleware(
+            EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
+        )
+            ->group(function (): void {
                 Route::patch(
                     '/iro/documents/{id}/log',
                     [IroDocumentController::class, 'markLogged']

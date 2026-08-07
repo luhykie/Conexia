@@ -8,8 +8,7 @@ export default function IroStaffDashboardPage() {
     <DashboardView
       roleKey="staff"
       title="Dashboard Overview"
-      subtitle="Real-time tracking of institutional relations workflow."
-      action="Process Now"
+      subtitle="Reminder-level tracking for IRO Admin follow-up."
     />
   );
 }

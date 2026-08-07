@@ -26,7 +26,7 @@ class WorkflowSummaryService
 
         $records = $documents
             ->map(fn (Document $document): array =>
-                $this->expiryRow($document)
+                $this->expiryRow($document, $profile)
             )
             ->values();
 
@@ -141,7 +141,7 @@ class WorkflowSummaryService
                 ],
             ]);
 
-            return $this->expiryRow($document->refresh());
+            return $this->expiryRow($document->refresh(), $profile);
         });
     }
 
@@ -222,13 +222,44 @@ class WorkflowSummaryService
         ];
     }
 
-    private function expiryRow(Document $document): array
+    private function expiryRow(
+        Document $document,
+        Profile $profile
+    ): array
     {
+        $document->loadMissing('department');
+
         $daysRemaining = now()
             ->startOfDay()
             ->diffInDays($document->expiry_date, false);
 
         $classification = $this->expiryClassification($document);
+
+        if ($profile->role === Profile::ROLE_IRO_STAFF) {
+            return [
+                'id' => $document->id,
+                'tracking_number' => $document->tracking_number,
+                'department_id' => $document->department_id,
+                'department' => $document->department
+                    ? [
+                        'id' => $document->department->id,
+                        'code' => $document->department->code,
+                        'name' => $document->department->name,
+                    ]
+                    : null,
+                'effective_date' =>
+                    $document->effective_date?->toDateString(),
+                'expiry_date' =>
+                    $document->expiry_date?->toDateString(),
+                'expiry' => $this->expiryLabel($daysRemaining),
+                'days_remaining' => $daysRemaining,
+                'renewal_status' => $document->renewal_status,
+                'status' => $document->status,
+                'workflow_status' => $document->status,
+                'classification' => $classification,
+                'action' => 'Remind IRO Admin',
+            ];
+        }
 
         return [
             'id' => $document->id,

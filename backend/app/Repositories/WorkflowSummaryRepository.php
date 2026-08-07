@@ -41,13 +41,27 @@ class WorkflowSummaryRepository
             )
             ->when(
                 ($options['search'] ?? '') !== '',
-                fn ($query) => $query->where(function ($builder) use ($options) {
+                fn ($query) => $query->where(function ($builder) use ($options, $profile) {
                     $operator = Pagination::searchOperator();
 
-                    $builder
-                        ->where('tracking_number', $operator, "%{$options['search']}%")
-                        ->orWhere('title', $operator, "%{$options['search']}%")
-                        ->orWhere('partner_institution', $operator, "%{$options['search']}%");
+                    $builder->where(
+                        'tracking_number',
+                        $operator,
+                        "%{$options['search']}%"
+                    );
+
+                    if ($profile->role !== Profile::ROLE_IRO_STAFF) {
+                        $builder
+                            ->orWhere('title', $operator, "%{$options['search']}%")
+                            ->orWhere('partner_institution', $operator, "%{$options['search']}%");
+                    }
+
+                    $builder->orWhereHas(
+                        'department',
+                        fn ($departmentQuery) => $departmentQuery
+                            ->where('code', $operator, "%{$options['search']}%")
+                            ->orWhere('name', $operator, "%{$options['search']}%")
+                    );
                 })
             )
             ->when(

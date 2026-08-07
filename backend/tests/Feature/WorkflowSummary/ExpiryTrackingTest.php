@@ -206,7 +206,10 @@ class ExpiryTrackingTest extends SecurityTestCase
 
         $this->getJson('/api/expiry', $this->authHeaders($iro))
             ->assertOk()
-            ->assertJsonPath('data.stats.total_expiring_soon', 3);
+            ->assertJsonPath('data.stats.total_expiring_soon', 3)
+            ->assertJsonMissingPath('data.records.0.partner_institution')
+            ->assertJsonMissingPath('data.records.0.title')
+            ->assertJsonMissingPath('data.records.0.document_type');
 
         $this->getJson('/api/expiry', $this->authHeaders($superAdmin))
             ->assertForbidden();
