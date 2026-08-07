@@ -1,0 +1,42 @@
+.super-admin-page {
+  display: grid;
+  gap: 24px;
+}
+
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.monitor-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  color: #064e3b;
+  background: #dfeee7;
+}
+
+.monitor-card span {
+  color: #34443d;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.monitor-card strong {
+  font-size: 1.35rem;
+}
+
+@media (max-width: 1000px) {
+  .monitor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .monitor-grid {
+    grid-template-columns: 1fr;
+  }
+}
