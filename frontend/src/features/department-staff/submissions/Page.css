@@ -1,0 +1,44 @@
+.department-tracking-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+}
+
+.department-tracking-page > div {
+  display: grid;
+  gap: 24px;
+}
+
+.department-detail-panel {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 24px;
+  border-left: 1px solid #d9e1dd;
+  background: #ffffff;
+}
+
+.department-detail-panel button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #064e3b;
+  font-weight: 800;
+}
+
+.department-detail-panel button:disabled {
+  color: #667085;
+  background: #e5e7eb;
+}
+
+@media (max-width: 1100px) {
+  .department-tracking-page {
+    grid-template-columns: 1fr;
+  }
+
+  .department-detail-panel {
+    border-left: 0;
+    border-top: 1px solid #d9e1dd;
+  }
+}
