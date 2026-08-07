@@ -1,0 +1,5 @@
+.iro-staff-incoming-page .table-action-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
