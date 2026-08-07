@@ -1,0 +1,6 @@
+.iro-admin-log-review-page textarea:disabled,
+.iro-admin-log-review-page select:disabled,
+.iro-admin-log-review-page input:disabled,
+.iro-admin-log-review-page button:disabled {
+  cursor: not-allowed;
+}

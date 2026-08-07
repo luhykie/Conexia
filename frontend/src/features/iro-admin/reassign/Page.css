@@ -1,0 +1,5 @@
+.iro-admin-reassign-page textarea:disabled,
+.iro-admin-reassign-page select:disabled,
+.iro-admin-reassign-page button:disabled {
+  cursor: not-allowed;
+}
