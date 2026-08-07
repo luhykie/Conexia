@@ -66,13 +66,14 @@ class SupabaseEs256JwtVerificationTest extends SecurityTestCase
 
         Http::fakeSequence()
             ->push($this->jwks($knownKeys['jwk']))
-            ->push($this->jwks($knownKeys['jwk']));
+            ->push($this->jwks($knownKeys['jwk']))
+            ->push([], 401);
 
         $this->getJson('/api/me', [
             'Authorization' => 'Bearer '.$token,
         ])->assertUnauthorized();
 
-        Http::assertSentCount(2);
+        Http::assertSentCount(3);
     }
 
     public function test_invalid_signature_returns_unauthorized_after_jwks_refresh(): void
@@ -84,13 +85,14 @@ class SupabaseEs256JwtVerificationTest extends SecurityTestCase
 
         Http::fakeSequence()
             ->push($this->jwks($wrongKeys['jwk']))
-            ->push($this->jwks($wrongKeys['jwk']));
+            ->push($this->jwks($wrongKeys['jwk']))
+            ->push([], 401);
 
         $this->getJson('/api/me', [
             'Authorization' => 'Bearer '.$token,
         ])->assertUnauthorized();
 
-        Http::assertSentCount(2);
+        Http::assertSentCount(3);
     }
 
     public function test_expired_token_returns_unauthorized(): void

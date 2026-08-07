@@ -1,0 +1,13 @@
+.cx-app-layout {
+  min-height: 100vh;
+  background: var(--cx-color-page);
+}
+
+.cx-app-layout__content {
+  min-height: 100vh;
+  margin-left: var(--cx-sidebar-width);
+  padding:
+    calc(var(--cx-header-height) + 28px)
+    30px
+    40px;
+}

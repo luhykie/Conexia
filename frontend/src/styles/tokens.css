@@ -1,0 +1,47 @@
+:root {
+  --cx-color-primary-900: #003820;
+  --cx-color-primary-800: #004629;
+  --cx-color-primary-700: #005a38;
+  --cx-color-primary-600: #007a52;
+  --cx-color-primary-400: #12b886;
+
+  --cx-color-accent-gold: #ffc20e;
+  --cx-color-accent-green: #66f0ad;
+  --cx-color-danger: #c9181d;
+  --cx-color-warning: #df8b00;
+  --cx-color-info: #4b56e8;
+
+  --cx-color-text: #132033;
+  --cx-color-muted: #66706d;
+  --cx-color-border: #dfe5e1;
+  --cx-color-page: #f4f6fb;
+  --cx-color-surface: #ffffff;
+
+  --cx-sidebar-width: 272px;
+  --cx-header-height: 72px;
+
+  --cx-radius-sm: 8px;
+  --cx-radius-md: 12px;
+  --cx-radius-lg: 18px;
+
+  --cx-shadow-sm: 0 3px 12px rgba(19, 32, 51, 0.06);
+  --cx-shadow-md: 0 12px 32px rgba(19, 32, 51, 0.1);
+
+  --cx-space-1: 4px;
+  --cx-space-2: 8px;
+  --cx-space-3: 12px;
+  --cx-space-4: 16px;
+  --cx-space-5: 20px;
+  --cx-space-6: 24px;
+  --cx-space-8: 32px;
+  --cx-space-10: 40px;
+
+  --cx-font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}

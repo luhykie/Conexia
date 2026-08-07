@@ -1,86 +1,86 @@
 import React from "react";
 
-// Reusable fixed-grid table for tabular data.
 export function DataTable({
   headers = [],
   rows = [],
-  meta = null,
-  onPageChange = null,
+  meta,
+  onPageChange,
+  emptyMessage = "No records found.",
 }) {
-  const safeHeaders = Array.isArray(headers) ? headers : [];
-  const safeRows = Array.isArray(rows) ? rows : [];
-
   const currentPage = meta?.current_page ?? 1;
   const lastPage = meta?.last_page ?? 1;
-  const from = meta?.from ?? (safeRows.length === 0 ? 0 : 1);
-  const to = meta?.to ?? safeRows.length;
-  const total = meta?.total ?? safeRows.length;
+
+  const from = meta?.from ?? (rows.length ? 1 : 0);
+  const to = meta?.to ?? rows.length;
+  const total = meta?.total ?? rows.length;
 
   return (
-    <div
-      className="table"
-      style={{ "--cols": Math.max(safeHeaders.length, 1) }}
-    >
-      <div className="thead">
-        {safeHeaders.map((header, index) => (
-          <span key={`${header}-${index}`}>{header}</span>
-        ))}
-      </div>
+    <div className="cx-table">
+      <table>
+        <thead>
+          <tr>
+            {headers.map((header) => (
+              <th key={header}>{header}</th>
+            ))}
+          </tr>
+        </thead>
 
-      {safeRows.length === 0 ? (
-        <div className="tr empty-row">
-          <span style={{ gridColumn: "1 / -1" }}>
-            No records found.
-          </span>
-        </div>
-      ) : (
-        safeRows.map((row, rowIndex) => {
-          const safeRow = Array.isArray(row) ? row : [];
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td
+                colSpan={headers.length}
+                className="cx-table-empty"
+              >
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : (
+            rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, cellIndex) => (
+                  <td
+                    key={cellIndex}
+                    className={
+                      cellIndex === row.length - 1
+                        ? statusClass(cell)
+                        : ""
+                    }
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
 
-          return (
-            <div
-              className="tr"
-              key={`${safeRow[0] ?? "row"}-${rowIndex}`}
-            >
-              {safeRow.map((cell, cellIndex) => (
-                <span
-                  key={`${String(cell)}-${cellIndex}`}
-                  className={
-                    cellIndex === safeRow.length - 1
-                      ? statusClass(cell)
-                      : ""
-                  }
-                >
-                  {cell ?? ""}
-                </span>
-              ))}
-            </div>
-          );
-        })
-      )}
+      <footer className="cx-table-footer">
+        <span>
+          Showing {from}-{to} of {total}
+        </span>
 
-      <footer>
-        Showing {from || 0}-{to || 0} of {total} records
-
-        <div>
+        <div className="cx-pagination">
           <button
-            type="button"
             disabled={!onPageChange || currentPage <= 1}
-            onClick={() => onPageChange?.(currentPage - 1)}
+            onClick={() => onPageChange(currentPage - 1)}
           >
-            &lt;
+            Previous
           </button>
 
-          <button type="button" className="active-page">
-            {currentPage}
-          </button>
+          <span>
+            {currentPage} / {lastPage}
+          </span>
 
           <button
-            type="button"
-            disabled={!onPageChange || currentPage >= lastPage}
-            onClick={() => onPageChange?.(currentPage + 1)}
+            disabled={
+              !onPageChange ||
+              currentPage >= lastPage
+            }
+            onClick={() => onPageChange(currentPage + 1)}
           >
-            &gt;
+            Next
           </button>
         </div>
       </footer>
@@ -89,14 +89,9 @@ export function DataTable({
 }
 
 function statusClass(value) {
-  if (
-    typeof value !== "string" &&
-    typeof value !== "number"
-  ) {
-    return "";
-  }
+  if (typeof value !== "string") return "";
 
-  return `badge ${String(value)
+  return `badge ${value
     .toLowerCase()
-    .replaceAll(" ", "-")}`;
+    .replace(/\s+/g, "-")}`;
 }

@@ -111,7 +111,10 @@ export function DashboardView({ roleKey, title, subtitle, action }) {
       try {
         const response = await dashboardLoaders[roleKey]();
         const loadedDashboard =
-          response.dashboard ?? response.data ?? {};
+          response.dashboard ??
+          response.data?.dashboard ??
+          response.data ??
+          {};
 
         if (active) {
           setDashboard(loadedDashboard);
@@ -223,25 +226,6 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
 
-  async function loadExpiry() {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await getExpirySummary({ page });
-
-      setSummary(response.data ?? {});
-      setMeta(response.meta ?? null);
-    } catch (requestError) {
-      reportClientError("Unable to load expiry records:", requestError);
-
-      setError(requestError.message);
-      setSummary(null);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   React.useEffect(() => {
     let active = true;
 
@@ -287,7 +271,9 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
     try {
       await requestDocumentRenewal(record.id);
       setSuccess("Renewal request recorded.");
-      await loadExpiry();
+      const response = await getExpirySummary({ page });
+      setSummary(response.data ?? {});
+      setMeta(response.meta ?? null);
     } catch (requestError) {
       reportClientError("Unable to request renewal:", requestError);
       setError(requestError.message);

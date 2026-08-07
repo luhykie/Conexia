@@ -30,6 +30,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supabase JWT secret
+    |--------------------------------------------------------------------------
+    |
+    | Older Supabase projects can issue HS256 access tokens. Keep this only on
+    | the Laravel backend and never expose it to the React frontend.
+    |
+    */
+
+    'jwt_secret' => env('SUPABASE_JWT_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Supabase JWKS cache time
     |--------------------------------------------------------------------------
     |

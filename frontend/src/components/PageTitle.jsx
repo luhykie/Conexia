@@ -1,19 +1,40 @@
 import React from "react";
 import { Plus } from "lucide-react";
 
-// Shared page heading with an optional action button.
-export function PageTitle({ title, subtitle, action }) {
+export function PageTitle({
+  title,
+  subtitle,
+  action,
+  onAction,
+  actionIcon = <Plus size={18} />,
+  actionDisabled = false,
+  children,
+}) {
   return (
-    <div className="page-title">
-      <div>
+    <header className="page-title">
+      <div className="page-title__content">
         <h1>{title}</h1>
-        <p>{subtitle}</p>
+
+        {subtitle && (
+          <p>{subtitle}</p>
+        )}
       </div>
-      {action && (
-        <button className="primary">
-          <Plus size={20} /> {action}
-        </button>
-      )}
-    </div>
+
+      <div className="page-title__actions">
+        {children}
+
+        {action && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={actionDisabled}
+            onClick={onAction}
+          >
+            {actionIcon}
+            <span>{action}</span>
+          </button>
+        )}
+      </div>
+    </header>
   );
 }

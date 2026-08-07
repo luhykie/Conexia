@@ -58,6 +58,8 @@ import React, {
   useState,
 } from "react";
 
+import SuperAdminDashboard
+  from "../features/super-admin/dashboard/SuperAdminDashboard";
 /* ==========================================================================
    Super Admin Page Router
    ========================================================================== */
@@ -142,7 +144,7 @@ function emptyTrendPoint(period) {
    Super Admin Dashboard
    ========================================================================== */
 
-function SuperAdminDashboard() {
+function LegacySuperAdminDashboard() {
   const [selectedPeriod, setSelectedPeriod] =
     useState("daily");
 

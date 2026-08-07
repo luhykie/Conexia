@@ -1,6 +1,23 @@
-import { apiGet } from "../api/apiClient";
+import {
+  AuthenticationError,
+  apiGet,
+  clearApiAccessToken,
+  primeApiAccessToken,
+} from "../api/apiClient";
 import { supabase } from "../supabaseConfig";
 import { reportClientError } from "../utils/reportClientError";
+
+let profileRequestPromise = null;
+
+async function loadAuthenticatedProfile() {
+  if (!profileRequestPromise) {
+    profileRequestPromise = apiGet("/me").finally(() => {
+      profileRequestPromise = null;
+    });
+  }
+
+  return profileRequestPromise;
+}
 
 /**
  * Sign in through Supabase Auth, then load the authorised
@@ -15,6 +32,7 @@ export async function loginWithSupabase(
     .toLowerCase();
 
   const {
+    data,
     error: authError,
   } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
@@ -28,8 +46,10 @@ export async function loginWithSupabase(
     };
   }
 
+  primeApiAccessToken(data.session);
+
   try {
-    const response = await apiGet("/me");
+    const response = await loadAuthenticatedProfile();
 
     if (
       !response?.ok ||
@@ -59,6 +79,7 @@ export async function loginWithSupabase(
       account: response.account,
     };
   } catch (error) {
+    clearApiAccessToken();
     await supabase.auth.signOut();
 
     return {
@@ -78,10 +99,13 @@ export async function getAuthenticatedAccount() {
     } = await supabase.auth.getSession();
 
     if (error || !session) {
+      clearApiAccessToken();
       return null;
     }
 
-    const response = await apiGet("/me");
+    primeApiAccessToken(session);
+
+    const response = await loadAuthenticatedProfile();
 
     return response?.account || null;
   } catch (error) {
@@ -90,11 +114,47 @@ export async function getAuthenticatedAccount() {
       error,
     );
 
+    if (error instanceof AuthenticationError) {
+      clearApiAccessToken();
+      await supabase.auth.signOut();
+    }
+
     return null;
   }
 }
 
+export function subscribeToAuthChanges(onAccountChange) {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "INITIAL_SESSION") {
+      if (session) {
+        primeApiAccessToken(session);
+      }
+
+      return;
+    }
+
+    if (event === "SIGNED_OUT" || !session) {
+      clearApiAccessToken();
+      onAccountChange(null);
+      return;
+    }
+
+    primeApiAccessToken(session);
+
+    window.setTimeout(async () => {
+      const account = await getAuthenticatedAccount();
+      onAccountChange(account);
+    }, 0);
+  });
+
+  return () => subscription.unsubscribe();
+}
+
 export async function logoutFromSupabase() {
+  clearApiAccessToken();
+
   const { error } =
     await supabase.auth.signOut();
 

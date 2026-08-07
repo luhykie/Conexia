@@ -14,12 +14,20 @@ import {
   Zap,
 } from "lucide-react";
 import "./styles.css";
-import { loginWithSupabase, logoutFromSupabase } from "./auth/supabaseAuth";
+import {
+  getAuthenticatedAccount,
+  loginWithSupabase,
+  logoutFromSupabase,
+  subscribeToAuthChanges,
+} from "./auth/supabaseAuth";
 import { canAccessPage, getDefaultPage } from "./auth/rbac";
-import { Shell } from "./components/Shell";
 import { reportClientError } from "./utils/reportClientError";
 import {BrowserRouter, Navigate, Route, Routes, useNavigate, useParams,} from "react-router-dom";
 
+import "./styles/tokens.css";
+import "./styles/reset.css";
+import "./styles/globals.css";
+import { AppLayout } from "./layouts/AppLayout/AppLayout";
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
 const AUTH_STORAGE_KEY = "conexia-account";
 const DepartmentStaff = React.lazy(() =>
@@ -48,35 +56,75 @@ const SuperAdmin = React.lazy(() =>
   }))
 );
 
-function getSavedAccount() {
-  try {
-    const savedAccount = localStorage.getItem(AUTH_STORAGE_KEY);
-
-    return savedAccount ? JSON.parse(savedAccount) : null;
-  } catch (error) {
-    reportClientError("Unable to restore saved account:", error);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    return null;
-  }
-}
-
 function App() {
-  const [account, setAccount] = React.useState(getSavedAccount);
+  const [account, setAccount] = React.useState(null);
+  const [authChecked, setAuthChecked] = React.useState(false);
 
-  function handleLogin(nextAccount) {
-    localStorage.setItem(
-      AUTH_STORAGE_KEY,
-      JSON.stringify(nextAccount)
+  function syncAccount(nextAccount) {
+    if (nextAccount?.roleKey) {
+      localStorage.setItem(
+        AUTH_STORAGE_KEY,
+        JSON.stringify(nextAccount)
+      );
+      setAccount(nextAccount);
+      return;
+    }
+
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setAccount(null);
+  }
+
+  React.useEffect(() => {
+    let active = true;
+
+    async function restoreSession() {
+      const restoredAccount =
+        await getAuthenticatedAccount();
+
+      if (!active) {
+        return;
+      }
+
+      syncAccount(restoredAccount);
+      setAuthChecked(true);
+    }
+
+    restoreSession();
+
+    const unsubscribe = subscribeToAuthChanges(
+      (nextAccount) => {
+        if (active) {
+          syncAccount(nextAccount);
+          setAuthChecked(true);
+        }
+      }
     );
 
-    setAccount(nextAccount);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  function handleLogin(nextAccount) {
+    syncAccount(nextAccount);
   }
 
   async function handleLogout() {
     await logoutFromSupabase();
 
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    setAccount(null);
+    syncAccount(null);
+  }
+
+  if (!authChecked) {
+    return (
+      <main className="auth-screen">
+        <div className="auth-card">
+          <h1>CONEXIA</h1>
+          <p>Restoring your secure session...</p>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -181,10 +229,7 @@ function WorkspaceRoute({ account, onLogout }) {
   }
 
   return (
-    <Shell
-      roleKey={account.roleKey}
-      page={safePage}
-      setPage={navigateToPage}
+    <AppLayout
       account={account}
       onLogout={handleLogout}
     >
@@ -195,7 +240,7 @@ function WorkspaceRoute({ account, onLogout }) {
           account={account}
         />
       </React.Suspense>
-    </Shell>
+    </AppLayout>
   );
 }
 
@@ -458,9 +503,8 @@ function RolePage({ roleKey, page, account }) {
 }
 
 createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
 );
+  

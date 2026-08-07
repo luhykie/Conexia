@@ -7,6 +7,7 @@ use App\Services\SupabaseAuthService;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -26,6 +27,10 @@ class AuthenticateSupabaseUser
         $accessToken = $request->bearerToken();
 
         if (!$accessToken) {
+            Log::warning('Supabase auth middleware rejected request: missing bearer token.', [
+                'path' => $request->path(),
+            ]);
+
             return $this->unauthorised(
                 'Authentication token is required.'
             );
@@ -47,6 +52,10 @@ class AuthenticateSupabaseUser
         }
 
         if ($supabaseUser === []) {
+            Log::warning('Supabase auth middleware rejected request: token verification returned no user.', [
+                'path' => $request->path(),
+            ]);
+
             return $this->unauthorised(
                 'Your authentication token is invalid or expired.'
             );
@@ -57,6 +66,11 @@ class AuthenticateSupabaseUser
             ->find($supabaseUser['id']);
 
         if (!$profile) {
+            Log::warning('Supabase auth middleware rejected request: profile not found.', [
+                'path' => $request->path(),
+                'supabase_user_id' => $supabaseUser['id'] ?? null,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'ok' => false,
@@ -66,6 +80,11 @@ class AuthenticateSupabaseUser
         }
 
         if (!$profile->is_active) {
+            Log::warning('Supabase auth middleware rejected request: profile inactive.', [
+                'path' => $request->path(),
+                'profile_id' => $profile->id,
+            ]);
+
             return response()->json([
                 'success' => false,
                 'ok' => false,

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ProfileResource;
 use App\Models\Profile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +28,28 @@ class AuthController extends Controller
 
         return response()->json([
             'ok' => true,
-            'account' => new ProfileResource($profile),
+            'account' => [
+                'id' => $profile->id,
+                'name' => $profile->full_name,
+                'email' => $profile->email,
+                'role' => $profile->role,
+                'roleKey' => $this->roleKey($profile->role),
+                'departmentId' => $profile->department_id,
+                'department' => $profile->department?->name,
+                'departmentCode' => $profile->department?->code,
+                'isActive' => (bool) $profile->is_active,
+            ],
         ]);
+    }
+
+    private function roleKey(string $role): string
+    {
+        return match ($role) {
+            Profile::ROLE_SUPER_ADMIN => 'super',
+            Profile::ROLE_IRO_ADMIN => 'admin',
+            Profile::ROLE_IRO_STAFF => 'staff',
+            Profile::ROLE_LEGAL_COUNSEL => 'legal',
+            default => 'department',
+        };
     }
 }

@@ -51,8 +51,11 @@ class DashboardService
     public function iro(): array
     {
         $documents = $this->dashboards->iroDocuments();
-        $queueDocuments = $this->dashboards
-            ->iroDocuments(includeArchived: false);
+        $queueDocuments = $documents
+            ->reject(fn (Document $document): bool =>
+                $document->status === Document::STATUS_ARCHIVED
+            )
+            ->values();
 
         return [
             'stats' => [
