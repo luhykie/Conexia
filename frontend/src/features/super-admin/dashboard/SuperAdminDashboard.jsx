@@ -58,6 +58,7 @@ export default function SuperAdminDashboard() {
 
         const data =
           response.dashboard ??
+          response.data?.dashboard ??
           response.data ??
           {};
 
@@ -66,6 +67,7 @@ export default function SuperAdminDashboard() {
         }
 
         setDashboard({
+          stats: data.stats ?? {},
           trend: normalizeTrend(data.trend),
           recentActivity:
             data.recent_activity ?? [],
@@ -114,21 +116,26 @@ export default function SuperAdminDashboard() {
   const latest =
     trendData[trendData.length - 1] ?? {};
 
+  const currentStats =
+    Object.keys(dashboard.stats ?? {}).length
+      ? dashboard.stats
+      : latest;
+
   const stats = [
     {
       label: "Total Users",
-      value: formatCount(latest.totalUsers),
+      value: formatCount(currentStats.totalUsers),
       icon: Users,
     },
     {
       label: "Active Users",
-      value: formatCount(latest.activeUsers),
+      value: formatCount(currentStats.activeUsers),
       icon: UserCheck,
     },
     {
       label: "Active Departments",
       value: formatCount(
-        latest.activeDepartments,
+        currentStats.activeDepartments,
       ),
       icon: Building2,
       tag: "Complete",
@@ -136,7 +143,7 @@ export default function SuperAdminDashboard() {
     {
       label: "Active Sessions",
       value: formatCount(
-        latest.activeSessions,
+        currentStats.activeSessions,
       ),
       icon: Activity,
       tag: "Action Required",
@@ -554,6 +561,7 @@ function SystemOverview({ system = {} }) {
 
 function createEmptyDashboard() {
   return {
+    stats: {},
     trend: normalizeTrend(),
     recentActivity: [],
     system: {},
