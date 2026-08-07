@@ -141,13 +141,13 @@ export function DashboardView({ roleKey, title, subtitle, action }) {
   }, [roleKey]);
 
   const stats = dashboardCards[roleKey].map(
-    ([key, label, Icon, tag, tone]) => [
-      formatCount(dashboard?.stats?.[key] ?? 0),
+    ([key, label, Icon, tag, tone]) => ({
+      value: formatCount(dashboard?.stats?.[key] ?? 0),
       label,
-      Icon,
-      tag,
+      icon: Icon,
+      badge: tag,
       tone,
-    ],
+    }),
   );
 
   const activityRows = (dashboard?.recent_activity ?? []).map((item) => [
@@ -314,10 +314,27 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
       <PageTitle title={title} subtitle={subtitle} action={action} />
       <StatGrid
         stats={[
-          [formatCount(stats.total_expiring_soon), "Total Expiring Soon", Filter],
-          [formatCount(stats.urgent_renewals), "Urgent Renewals", Filter, "", "danger"],
-          [formatCount(stats.awaiting_department_action), "Awaiting Dept. Action", Filter],
-          [formatCount(stats.renewed_month_to_date), "Renewed (MTD)", Filter],
+          {
+            value: formatCount(stats.total_expiring_soon),
+            label: "Total Expiring Soon",
+            icon: Filter,
+          },
+          {
+            value: formatCount(stats.urgent_renewals),
+            label: "Urgent Renewals",
+            icon: Filter,
+            tone: "danger",
+          },
+          {
+            value: formatCount(stats.awaiting_department_action),
+            label: "Awaiting Dept. Action",
+            icon: Filter,
+          },
+          {
+            value: formatCount(stats.renewed_month_to_date),
+            label: "Renewed (MTD)",
+            icon: Filter,
+          },
         ]}
       />
       <Panel title="Urgent Attention (Next 30 Days)" tools={<button className="outline"><Filter size={18} /> Filter</button>}>

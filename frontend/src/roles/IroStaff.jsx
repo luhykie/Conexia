@@ -525,33 +525,33 @@ function IncomingSubmissions() {
 
       <StatGrid
         stats={[
-          [
-            String(
+          {
+            value: String(
               pendingCount
             ).padStart(2, "0"),
-            "Pending Logging",
-            Folder,
-            "Needs Action",
-          ],
+            label: "Pending Logging",
+            icon: Folder,
+            badge: "Needs Action",
+          },
 
-          [
-            String(
+          {
+            value: String(
               loggedCount
             ).padStart(2, "0"),
-            "Needs Assignment",
-            FileText,
-            "Route to Legal",
-            "warn",
-          ],
+            label: "Needs Assignment",
+            icon: FileText,
+            badge: "Route to Legal",
+            tone: "warn",
+          },
 
-          [
-            String(
+          {
+            value: String(
               legalReviewCount
             ).padStart(2, "0"),
-            "Under Legal Review",
-            CheckCircle2,
-            "Assigned",
-          ],
+            label: "Under Legal Review",
+            icon: CheckCircle2,
+            badge: "Assigned",
+          },
         ]}
       />
 
@@ -1036,30 +1036,29 @@ function StatusTracker() {
 
         <StatGrid
           stats={[
-            [
-              String(
+            {
+              value: String(
                 documents.length
               ).padStart(2, "0"),
-              "Total Submissions",
-              Folder,
-            ],
+              label: "Total Submissions",
+              icon: Folder,
+            },
 
-            [
-              String(
+            {
+              value: String(
                 documents.filter(
                   (document) =>
                     document.status ===
                     "Under Legal Review"
                 ).length
               ).padStart(2, "0"),
-              "Under Legal Review",
-              Clock3,
-              "",
-              "blue",
-            ],
+              label: "Under Legal Review",
+              icon: Clock3,
+              tone: "blue",
+            },
 
-            [
-              String(
+            {
+              value: String(
                 documents.filter(
                   (document) =>
                     [
@@ -1072,9 +1071,9 @@ function StatusTracker() {
                     )
                 ).length
               ).padStart(2, "0"),
-              "Approved or Later",
-              CheckCircle2,
-            ],
+              label: "Approved or Later",
+              icon: CheckCircle2,
+            },
           ]}
         />
 

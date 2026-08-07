@@ -842,33 +842,32 @@ function NotarizationTracker() {
 
       <StatGrid
         stats={[
-          [
-            String(totalQueue).padStart(
+          {
+            value: String(totalQueue).padStart(
               2,
               "0"
             ),
-            "Total Queue",
-            Gavel,
-          ],
+            label: "Total Queue",
+            icon: Gavel,
+          },
 
-          [
-            String(pendingCount).padStart(
+          {
+            value: String(pendingCount).padStart(
               2,
               "0"
             ),
-            "Pending Notarization",
-            CalendarClock,
-            "",
-            "blue",
-          ],
+            label: "Pending Notarization",
+            icon: CalendarClock,
+            tone: "blue",
+          },
 
-          [
-            String(
+          {
+            value: String(
               completedCount
             ).padStart(2, "0"),
-            "Completed",
-            CheckCircle2,
-          ],
+            label: "Completed",
+            icon: CheckCircle2,
+          },
         ]}
       />
 

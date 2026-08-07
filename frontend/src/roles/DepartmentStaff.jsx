@@ -551,8 +551,8 @@ function MySubmissionsPage() {
 
         <StatGrid
           stats={[
-            [
-              String(
+            {
+              value: String(
                 documents.filter((document) =>
                   [
                     "Submitted",
@@ -561,36 +561,36 @@ function MySubmissionsPage() {
                   ].includes(document.status),
                 ).length,
               ).padStart(2, "0"),
-              "Currently in Review",
-              FileText,
-              "Active",
-            ],
-            [
-              String(
+              label: "Currently in Review",
+              icon: FileText,
+              badge: "Active",
+            },
+            {
+              value: String(
                 documents.filter(
                   (document) =>
                     document.status ===
                     "Pending Notarization",
                 ).length,
               ).padStart(2, "0"),
-              "Awaiting Notarization",
-              FileText,
-              "Pending",
-              "warn",
-            ],
-            [
-              String(
+              label: "Awaiting Notarization",
+              icon: FileText,
+              badge: "Pending",
+              tone: "warn",
+            },
+            {
+              value: String(
                 documents.filter(
                   (document) =>
                     document.status ===
                     "Corrections Needed",
                 ).length,
               ).padStart(2, "0"),
-              "Requires Resubmission",
-              FileText,
-              "Action",
-              "danger",
-            ],
+              label: "Requires Resubmission",
+              icon: FileText,
+              badge: "Action",
+              tone: "danger",
+            },
           ]}
         />
 
