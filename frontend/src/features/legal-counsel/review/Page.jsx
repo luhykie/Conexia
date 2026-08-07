@@ -1,0 +1,290 @@
+import React from "react";
+import { FileText } from "lucide-react";
+
+import { DataTable } from "../../../components/DataTable";
+import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
+import { PageTitle } from "../../../components/PageTitle";
+import { Panel } from "../../../components/Panel";
+import { FilterBar } from "../../../components/SharedViews";
+import {
+  getReviewDocuments,
+  submitLegalDecision,
+} from "../../../services/legalCounselServices";
+import { createNotification } from "../../../utils/notifications";
+import { reportClientError } from "../../../utils/reportClientError";
+import "./Page.css";
+
+export default function LegalCounselReviewPage() {
+  const [documents, setDocuments] = React.useState([]);
+  const [selectedDocument, setSelectedDocument] = React.useState(null);
+  const [legalNotes, setLegalNotes] = React.useState("");
+  const [complianceVerified, setComplianceVerified] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [processing, setProcessing] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [success, setSuccess] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [meta, setMeta] = React.useState(null);
+
+  async function loadDocuments() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await getReviewDocuments({ page });
+      const loadedDocuments = response.documents ?? response.data ?? [];
+
+      setDocuments(loadedDocuments);
+      setMeta(response.meta ?? null);
+      setSelectedDocument((current) => {
+        if (!loadedDocuments.length) return null;
+
+        return (
+          loadedDocuments.find((document) => document.id === current?.id) ||
+          loadedDocuments[0]
+        );
+      });
+    } catch (requestError) {
+      reportClientError("Unable to load review documents:", requestError);
+      setError(requestError.message);
+      setDocuments([]);
+      setSelectedDocument(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    loadDocuments();
+  }, [page]);
+
+  React.useEffect(() => {
+    setLegalNotes(
+      selectedDocument?.status === "Corrections Needed"
+        ? selectedDocument?.legal_notes || ""
+        : "",
+    );
+    setComplianceVerified(false);
+    setError("");
+    setSuccess("");
+  }, [selectedDocument]);
+
+  async function submitDecision(newStatus) {
+    if (!selectedDocument?.id) {
+      setError("Select a document first.");
+      return;
+    }
+
+    const notes = legalNotes.trim();
+
+    if (newStatus === "Corrections Needed" && !notes) {
+      setError("Enter the required corrections before returning the document.");
+      return;
+    }
+
+    if (newStatus === "Approved" && !complianceVerified) {
+      setError("Check Compliance Verified before approving.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      newStatus === "Approved"
+        ? "Approve this document?"
+        : "Return this document for corrections?",
+    );
+
+    if (!confirmed) return;
+
+    setProcessing(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await submitLegalDecision(selectedDocument.id, {
+        status: newStatus,
+        legal_notes: notes || null,
+      });
+    } catch (requestError) {
+      reportClientError("Unable to save the Legal decision:", requestError);
+      setError(requestError.message);
+      setProcessing(false);
+      return;
+    }
+
+    if (selectedDocument.submitted_by) {
+      const notificationResult = await createNotification({
+        userId: selectedDocument.submitted_by,
+        documentId: selectedDocument.id,
+        title:
+          newStatus === "Approved"
+            ? "Document Approved"
+            : "Corrections Required",
+        message:
+          newStatus === "Approved"
+            ? `${selectedDocument.tracking_number} has been approved by Legal Counsel.`
+            : `${selectedDocument.tracking_number} requires corrections. Please review the remarks and resubmit.`,
+        type:
+          newStatus === "Approved"
+            ? "document_approved"
+            : "corrections_required",
+      });
+
+      if (!notificationResult.success) {
+        reportClientError("Notification failed:", notificationResult.error);
+      }
+    }
+
+    setSuccess(
+      newStatus === "Approved"
+        ? "Document approved successfully."
+        : "Document returned for corrections.",
+    );
+    setLegalNotes("");
+    setComplianceVerified(false);
+
+    await loadDocuments();
+    setProcessing(false);
+  }
+
+  const rows = documents.map((document) => [
+    document.tracking_number,
+    document.partner_institution,
+    document.document_type,
+    document.updated_at
+      ? new Date(document.updated_at).toLocaleDateString()
+      : "-",
+    <span
+      key={`status-${document.id}`}
+      className={`badge ${
+        document.status === "Corrections Needed" ? "danger" : "pending"
+      }`}
+    >
+      {document.status}
+    </span>,
+    <button
+      key={`open-${document.id}`}
+      type="button"
+      className="table-action"
+      onClick={() => setSelectedDocument(document)}
+    >
+      Open
+    </button>,
+  ]);
+
+  return (
+    <section className="page split-page legal-page legal-counsel-review-page">
+      <div>
+        <PageTitle
+          title="Review Queue"
+          subtitle="Manage documents explicitly routed for your counsel."
+        />
+
+        <FilterBar
+          labels={["All Routed", "Under Legal Review", "Corrections Needed"]}
+        />
+
+        <Panel title="Routed Documents">
+          {loading && <p>Loading routed documents...</p>}
+          {error && !selectedDocument && <p className="auth-error">{error}</p>}
+
+          {!loading && !error && documents.length === 0 && (
+            <p>No documents are currently assigned to you.</p>
+          )}
+
+          {!loading && documents.length > 0 && (
+            <DataTable
+              headers={[
+                "Tracking #",
+                "Partner",
+                "Document Type",
+                "Route Date",
+                "Status",
+                "Action",
+              ]}
+              rows={rows}
+              meta={meta}
+              onPageChange={setPage}
+            />
+          )}
+        </Panel>
+      </div>
+
+      <aside className="review-sidebar">
+        <h2>Review Sidebar</h2>
+
+        {!selectedDocument ? (
+          <p>Select a routed document to begin reviewing.</p>
+        ) : (
+          <>
+            <div className="dropzone">
+              <FileText />
+              <b>{selectedDocument.title}</b>
+              <p>
+                {selectedDocument.tracking_number} -{" "}
+                {selectedDocument.document_type}
+              </p>
+            </div>
+
+            <p>
+              <b>Partner:</b> {selectedDocument.partner_institution}
+            </p>
+
+            <p>
+              <b>Status:</b> {selectedDocument.status}
+            </p>
+
+            {selectedDocument.description && (
+              <p>
+                <b>Description:</b> {selectedDocument.description}
+              </p>
+            )}
+
+            <DocumentFilesPanel documentId={selectedDocument.id} />
+
+            <label>
+              Liability Assessment and Legal Findings
+              <textarea
+                value={legalNotes}
+                onChange={(event) => setLegalNotes(event.target.value)}
+                placeholder="Enter findings, corrections, or approval remarks..."
+              />
+            </label>
+
+            <label className="checkline">
+              <input
+                type="checkbox"
+                checked={complianceVerified}
+                onChange={(event) =>
+                  setComplianceVerified(event.target.checked)
+                }
+              />
+              Compliance Verified
+            </label>
+
+            {error && <p className="auth-error">{error}</p>}
+            {success && <p className="success-message">{success}</p>}
+
+            <footer>
+              <button
+                type="button"
+                className="outline danger"
+                disabled={processing}
+                onClick={() => submitDecision("Corrections Needed")}
+              >
+                {processing ? "Saving..." : "Return"}
+              </button>
+
+              <button
+                type="button"
+                disabled={processing}
+                onClick={() => submitDecision("Approved")}
+              >
+                {processing ? "Saving..." : "Approve"}
+              </button>
+            </footer>
+          </>
+        )}
+      </aside>
+    </section>
+  );
+}
