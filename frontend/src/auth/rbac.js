@@ -1,6 +1,59 @@
-import { navItems, roles } from "../data/roles";
+export const ROLE_KEYS = [
+  "super",
+  "admin",
+  "staff",
+  "legal",
+  "department",
+];
 
-export const ROLE_KEYS = Object.keys(roles);
+const DEFAULT_PAGES = {
+  super: "dashboard",
+  admin: "dashboard",
+  staff: "dashboard",
+  legal: "dashboard",
+  department: "dashboard",
+};
+
+const NAV_ITEMS = {
+  department: [
+    ["dashboard", "Dashboard"],
+    ["submission", "Submission"],
+    ["submissions", "My Submissions"],
+    ["engagements", "Engagements"],
+    ["expiry", "Expiry"],
+  ],
+  staff: [
+    ["dashboard", "Dashboard"],
+    ["incoming", "Incoming Submissions"],
+    ["status", "Status Tracker"],
+    ["expiry", "Expiry"],
+  ],
+  admin: [
+    ["dashboard", "Dashboard"],
+    ["log-review", "Log & Review Form"],
+    ["validation", "Validation Queue"],
+    ["reassign", "Reassign Submissions"],
+    ["reports", "Performance Reports"],
+    ["archive", "Archive"],
+    ["engagements", "Engagements"],
+    ["expiry", "Expiry"],
+  ],
+  legal: [
+    ["dashboard", "Dashboard"],
+    ["review", "Review Queue"],
+    ["notarization", "Notarization Tracker"],
+    ["expiry", "Expiry"],
+    ["history", "My Action History"],
+  ],
+  super: [
+    ["dashboard", "Dashboard"],
+    ["users", "User Management"],
+    ["roles", "Role Management"],
+    ["departments", "Department Management"],
+    ["monitoring", "System Monitoring"],
+    ["audit", "Audit Logs"],
+  ],
+};
 
 // Central RBAC guard used by navigation and page rendering.
 export function canAccessPage(roleKey, pageId) {
@@ -9,16 +62,16 @@ export function canAccessPage(roleKey, pageId) {
   }
 
   return Boolean(
-    navItems[roleKey]?.some(([id]) => id === pageId)
+    NAV_ITEMS[roleKey]?.some(([id]) => id === pageId)
   );
 }
 
 export function getDefaultPage(roleKey) {
-  return roles[roleKey]?.defaultPage || "dashboard";
+  return DEFAULT_PAGES[roleKey] || "dashboard";
 }
 
 export function getAllowedNavItems(roleKey) {
-  return navItems[roleKey] || [];
+  return NAV_ITEMS[roleKey] || [];
 }
 
 export function isOperationalWorkflowPage(pageId) {

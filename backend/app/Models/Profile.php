@@ -50,6 +50,11 @@ class Profile extends Model
         return $this->belongsTo(Department::class, 'department_id');
     }
 
+    public function department(): BelongsTo
+    {
+        return $this->departmentRelation();
+    }
+
     public function submittedDocuments(): HasMany
     {
         return $this->hasMany(Document::class, 'submitted_by');

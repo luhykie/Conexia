@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\Profile;
 use App\Services\TrackingNumberService;
+use App\Services\SupabaseSubmissionGateway;
 use App\Support\DocumentPayload;
 use App\Support\Pagination;
 use Illuminate\Database\QueryException;
@@ -18,7 +19,8 @@ use Illuminate\Validation\ValidationException;
 class DepartmentDocumentController extends Controller
 {
     public function __construct(
-        private readonly TrackingNumberService $trackingNumbers
+        private readonly TrackingNumberService $trackingNumbers,
+        private readonly SupabaseSubmissionGateway $submissionGateway
     ) {
     }
 
@@ -31,36 +33,33 @@ class DepartmentDocumentController extends Controller
             'submitted_at',
             Document::workflowStatuses()
         );
-        $operator = Pagination::searchOperator();
 
-        $documents = Document::query()
-            ->with('department')
-            ->where('department_id', $profile->department_id)
-            ->when(
-                $options['search'] !== '',
-                fn ($query) => $query->where(function ($builder) use ($options, $operator) {
-                    $builder
-                        ->where('tracking_number', $operator, "%{$options['search']}%")
-                        ->orWhere('title', $operator, "%{$options['search']}%")
-                        ->orWhere('partner_institution', $operator, "%{$options['search']}%");
-                })
-            )
-            ->when(
-                $options['status'],
-                fn ($query) => $query->where('status', $options['status'])
-            )
-            ->orderBy($options['sort'], $options['direction'])
-            ->paginate(
-                $options['per_page'],
-                ['*'],
-                'page',
-                $options['page']
-            );
+        $documents = collect($this->submissionGateway->listSubmissions(
+            $request->bearerToken(),
+            [
+                'submitted_by' => 'eq.'.$profile->id,
+            ]
+        ));
 
         $items = $documents
-            ->map(fn (Document $document): array =>
-                DocumentPayload::make($document)
+            ->filter(function (array $document) use ($options): bool {
+                if ($options['search'] === '') {
+                    return true;
+                }
+
+                $search = strtolower($options['search']);
+
+                return str_contains(strtolower((string) ($document['tracking_number'] ?? '')), $search)
+                    || str_contains(strtolower((string) ($document['title'] ?? '')), $search)
+                    || str_contains(strtolower((string) ($document['partner_institution'] ?? '')), $search);
+            })
+            ->when(
+                $options['status'],
+                fn ($collection) => $collection->filter(
+                    fn (array $document): bool => (string) ($document['status'] ?? '') === $options['status']
+                )
             )
+            ->sortByDesc($options['sort'])
             ->values();
 
         return $this->success(
@@ -101,15 +100,88 @@ class DepartmentDocumentController extends Controller
             ],
         ]);
 
-        $document = $this->createDocumentWithTrackingNumber(
-            $validated,
-            $profile
+        $document = $this->submissionGateway->createSubmission(
+            $request->bearerToken(),
+            [
+                ...$validated,
+                'tracking_number' => $this->trackingNumbers
+                    ->generateForDate(now()),
+                'department_id' => $profile->department_id,
+                'submitted_by' => $profile->id,
+                'created_by' => $profile->id,
+                'office' => $profile->office,
+                'department' => $profile->department,
+                'status' => Document::STATUS_SUBMITTED,
+                'current_stage' => 'iro_staff',
+                'submitted_at' => now()->toIso8601String(),
+            ]
         );
 
         return $this->success(
             'Document submitted successfully.',
-            DocumentPayload::make($document),
-            ['document' => DocumentPayload::make($document)]
+            $document,
+            ['document' => $document]
+        );
+    }
+
+    public function show(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->departmentProfile($request);
+
+        $document = $this->submissionGateway->getSubmission(
+            $request->bearerToken(),
+            $id
+        );
+
+        if (! $document || (string) ($document['submitted_by'] ?? '') !== (string) $profile->id) {
+            abort(404, 'Department document not found.');
+        }
+
+        return $this->success(
+            'Department document loaded successfully.',
+            $document,
+            ['document' => $document]
+        );
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->departmentProfile($request);
+
+        $document = $this->submissionGateway->getSubmission(
+            $request->bearerToken(),
+            $id
+        );
+
+        if (! $document || (string) ($document['submitted_by'] ?? '') !== (string) $profile->id) {
+            abort(404, 'Department document not found.');
+        }
+
+        $validated = $request->validate([
+            'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'document_type' => ['sometimes', 'required', 'string', 'max:100'],
+            'partner_institution' => ['sometimes', 'required', 'string', 'max:255'],
+            'partner_email' => ['nullable', 'email', 'max:255'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'effective_date' => ['nullable', 'date'],
+            'expiry_date' => ['nullable', 'date', 'after_or_equal:effective_date'],
+            'renewal_notice_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'renewal_status' => ['nullable', Rule::in(Document::renewalStatuses())],
+            'file_name' => ['nullable', 'string', 'max:255'],
+            'storage_path' => ['nullable', 'string', 'max:1000'],
+            'status' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $updated = $this->submissionGateway->updateSubmission(
+            $request->bearerToken(),
+            $id,
+            array_filter($validated, static fn ($value) => $value !== null)
+        );
+
+        return $this->success(
+            'Department document updated successfully.',
+            $updated,
+            ['document' => $updated]
         );
     }
 
@@ -161,34 +233,37 @@ class DepartmentDocumentController extends Controller
     ): JsonResponse {
         $profile = $this->departmentProfile($request);
 
-        $document = DB::transaction(function () use ($id, $profile) {
-            $document = Document::query()
-                ->whereKey($id)
-                ->where('department_id', $profile->department_id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        $document = $this->submissionGateway->getSubmission(
+            $request->bearerToken(),
+            $id
+        );
 
-            if (
-                $document->status !==
-                Document::STATUS_CORRECTIONS_NEEDED
-            ) {
-                throw ValidationException::withMessages([
-                    'status' => 'Only documents needing corrections can be resubmitted.',
-                ]);
-            }
+        if (! $document || (string) ($document['submitted_by'] ?? '') !== (string) $profile->id) {
+            abort(404, 'Department document not found.');
+        }
 
-            $document->update([
+        if (
+            ($document['status'] ?? null) !==
+            Document::STATUS_CORRECTIONS_NEEDED
+        ) {
+            throw ValidationException::withMessages([
+                'status' => 'Only documents needing corrections can be resubmitted.',
+            ]);
+        }
+
+        $document = $this->submissionGateway->updateSubmission(
+            $request->bearerToken(),
+            $id,
+            [
                 'status' => Document::STATUS_SUBMITTED,
                 'legal_notes' => null,
-            ]);
-
-            return $document->refresh();
-        });
+            ]
+        );
 
         return $this->success(
             'Document resubmitted successfully.',
-            DocumentPayload::make($document),
-            ['document' => DocumentPayload::make($document)]
+            $document,
+            ['document' => $document]
         );
     }
 

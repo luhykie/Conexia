@@ -6,18 +6,32 @@ use App\Models\Document;
 use App\Models\Profile;
 use App\Repositories\DashboardRepository;
 use Illuminate\Database\Eloquent\Collection;
+use Throwable;
 
 class DashboardService
 {
     public function __construct(
-        private readonly DashboardRepository $dashboards
+        private readonly DashboardRepository $dashboards,
+        private readonly SupabaseSubmissionGateway $submissionGateway
     ) {
     }
 
     public function department(Profile $profile): array
     {
-        $documents = $this->dashboards
-            ->departmentDocuments($profile);
+        try {
+            $documents = $this->dashboards
+                ->departmentDocuments($profile);
+        } catch (Throwable $exception) {
+            $rows = $this->submissionGateway->listSubmissions(null, [
+                'submitted_by' => 'eq.'.$profile->id,
+            ]);
+
+            $documents = collect($rows)->map(function (array $row): Document {
+                $document = new Document();
+                $document->forceFill($row);
+                return $document;
+            });
+        }
 
         return [
             'stats' => [

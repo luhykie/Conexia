@@ -1,1 +1,33 @@
-<?php  use Illuminate\Foundation\Application; use Illuminate\Foundation\Configuration\Exceptions; use Illuminate\Foundation\Configuration\Middleware; use Illuminate\Http\Request; use App\Http\Middleware\SecurityHeaders;  return Application::configure(basePath: dirname(__DIR__))     ->withRouting(         web: __DIR__.'/../routes/web.php',         api: __DIR__.'/../routes/api.php',         commands: __DIR__.'/../routes/console.php',         health: '/up',     )     ->withMiddleware(function (Middleware $middleware): void {         $middleware->append(SecurityHeaders::class);     })     ->withExceptions(function (Exceptions $exceptions): void {         $exceptions->shouldRenderJsonWhen(             fn (Request $request) => $request->is('api/*'),         );     })->create();
+<?php
+
+use App\Http\Middleware\AuthenticateSupabaseUser;
+use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\EnsureUserDirectoryAccess;
+use App\Http\Middleware\EnsureUserManagementAccess;
+use App\Http\Middleware\SecurityHeaders;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(SecurityHeaders::class);
+        $middleware->alias([
+            'supabase.jwt' => AuthenticateSupabaseUser::class,
+            EnsureRole::class => EnsureRole::class,
+            EnsureUserDirectoryAccess::class => EnsureUserDirectoryAccess::class,
+            EnsureUserManagementAccess::class => EnsureUserManagementAccess::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request) => $request->is('api/*'),
+        );
+    })->create();

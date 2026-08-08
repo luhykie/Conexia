@@ -13,12 +13,27 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import {
+  Archive,
+  Building2,
+  CalendarClock,
+  ClipboardCheck,
+  FileCheck2,
+  FilePlus2,
+  FileText,
+  Folder,
+  Gauge,
+  Gavel,
+  Handshake,
+  History,
+  LayoutDashboard,
+  RefreshCw,
   Settings,
+  Shield,
+  ShieldCheck,
+  Users,
   LogOut,
 } from "lucide-react";
 
-import { getAllowedNavItems } from "../../auth/rbac";
-import { roles } from "../../data/roles";
 import conexiaLogo from "../../assets/conexia-logo.png";
 import "./Sidebar.css";
 
@@ -26,8 +41,58 @@ export function Sidebar({
   roleKey,
   onLogout,
 }) {
-  const role = roles[roleKey] || roles.department;
-  const items = getAllowedNavItems(roleKey).map(
+  const roleTheme =
+    roleKey === "super"
+      ? "SUPER ADMIN"
+      : roleKey === "admin"
+        ? "IRO ADMIN"
+        : roleKey === "staff"
+          ? "IRO STAFF PORTAL"
+          : roleKey === "legal"
+            ? "LEGAL COUNSEL"
+            : "Institutional Repository";
+  const navMap = {
+    department: [
+      ["dashboard", "Dashboard", LayoutDashboard],
+      ["submission", "Submission", FilePlus2],
+      ["submissions", "My Submissions", FileText],
+      ["engagements", "Engagements", Handshake],
+      ["expiry", "Expiry", CalendarClock],
+    ],
+    staff: [
+      ["dashboard", "Dashboard", LayoutDashboard],
+      ["incoming", "Incoming Submissions", Folder],
+      ["status", "Status Tracker", Gauge],
+      ["expiry", "Expiry", CalendarClock],
+    ],
+    admin: [
+      ["dashboard", "Dashboard", LayoutDashboard],
+      ["log-review", "Log & Review Form", FileText],
+      ["validation", "Validation Queue", ClipboardCheck],
+      ["reassign", "Reassign Submissions", RefreshCw],
+      ["reports", "Performance Reports", Gauge],
+      ["archive", "Archive", Archive],
+      ["engagements", "Engagements", Handshake],
+      ["expiry", "Expiry", CalendarClock],
+    ],
+    legal: [
+      ["dashboard", "Dashboard", LayoutDashboard],
+      ["review", "Review Queue", ClipboardCheck],
+      ["notarization", "Notarization Tracker", FileText],
+      ["expiry", "Expiry", CalendarClock],
+      ["history", "My Action History", History],
+    ],
+    super: [
+      ["dashboard", "Dashboard", LayoutDashboard],
+      ["users", "User Management", Users],
+      ["roles", "Role Management", Shield],
+      ["departments", "Department Management", Building2],
+      ["monitoring", "System Monitoring", Gauge],
+      ["audit", "Audit Logs", ClipboardCheck],
+    ],
+  };
+
+  const items = (navMap[roleKey] || navMap.department).map(
     ([key, label, Icon]) => ({
       key,
       label,
@@ -54,7 +119,7 @@ export function Sidebar({
 
         <div>
           <strong>CONEXIA</strong>
-          <span>{role.theme}</span>
+          <span>{roleTheme}</span>
         </div>
       </div>
 

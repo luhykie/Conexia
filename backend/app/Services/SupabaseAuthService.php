@@ -70,7 +70,31 @@ class SupabaseAuthService
             'kid' => $header['kid'] ?? null,
         ]);
 
-        return $this->userFromSupabase($accessToken, $supabaseUrl);
+        try {
+            return $this->userFromSupabase($accessToken, $supabaseUrl);
+        } catch (RuntimeException $exception) {
+            if ($this->isAuthServiceUnavailable($exception)) {
+                Log::warning('Supabase auth service unavailable; falling back to validated token claims.', [
+                    'alg' => $algorithm,
+                    'kid' => $header['kid'] ?? null,
+                ]);
+
+                $payload = $this->payloadFromToken($accessToken);
+
+                if ($this->claimsAreValid(
+                    $payload,
+                    "{$supabaseUrl}/auth/v1",
+                    $payload['aud'] ?? null
+                )) {
+                    return array_merge($payload, [
+                        'id' => $payload['sub'],
+                        'claims' => $payload,
+                    ]);
+                }
+            }
+
+            throw $exception;
+        }
     }
 
     private function decodeWithJwks(string $accessToken, string $kid): ?object
@@ -197,10 +221,11 @@ class SupabaseAuthService
                 ->timeout(10)
                 ->get("{$supabaseUrl}/auth/v1/.well-known/jwks.json");
         } catch (ConnectionException $exception) {
-            throw new RuntimeException(
-                'The authentication service is currently unavailable.',
-                previous: $exception
-            );
+            Log::warning('Supabase JWKS could not be reached; continuing with claim validation fallback.', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            return [];
         }
 
         if ($response->failed()) {
@@ -410,5 +435,10 @@ class SupabaseAuthService
         $supabaseUrl = rtrim((string) config('supabase.url'), '/');
 
         return 'supabase:jwks:'.sha1($supabaseUrl);
+    }
+
+    private function isAuthServiceUnavailable(RuntimeException $exception): bool
+    {
+        return $exception->getMessage() === 'The authentication service is currently unavailable.';
     }
 }

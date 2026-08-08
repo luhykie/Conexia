@@ -7,6 +7,7 @@ use App\Services\SupabaseAuthService;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -61,9 +62,18 @@ class AuthenticateSupabaseUser
             );
         }
 
-        $profile = Profile::query()
-            ->with('department')
-            ->find($supabaseUser['id']);
+        try {
+            $profile = Profile::query()
+                ->with('department')
+                ->find($supabaseUser['id']);
+        } catch (QueryException|RuntimeException $exception) {
+            Log::warning('Falling back to token-derived profile because the profiles table could not be queried.', [
+                'path' => $request->path(),
+                'message' => $exception->getMessage(),
+            ]);
+
+            $profile = $this->fallbackProfileFromSupabaseUser($supabaseUser);
+        }
 
         if (!$profile) {
             Log::warning('Supabase auth middleware rejected request: profile not found.', [
@@ -108,6 +118,64 @@ class AuthenticateSupabaseUser
         );
 
         return $next($request);
+    }
+
+    /**
+     * @param array<string, mixed> $supabaseUser
+     */
+    private function fallbackProfileFromSupabaseUser(array $supabaseUser): ?Profile
+    {
+        if (empty($supabaseUser['id'])) {
+            return null;
+        }
+
+        $profile = new Profile();
+        $roleKey = (string) ($supabaseUser['role_key'] ?? $this->roleKeyFromRole(
+            (string) ($supabaseUser['role'] ?? 'Department Staff')
+        ));
+        $profile->forceFill([
+            'id' => $supabaseUser['id'],
+            'full_name' => $supabaseUser['full_name'] ?? $supabaseUser['name'] ?? $supabaseUser['user_metadata']['full_name'] ?? $supabaseUser['email'] ?? 'CONEXIA User',
+            'email' => $supabaseUser['email'] ?? null,
+            'role' => $this->roleFromKey($roleKey),
+            'role_key' => $roleKey,
+            'office' => $supabaseUser['office'] ?? null,
+            'department' => $supabaseUser['department'] ?? null,
+            'department_id' => $supabaseUser['department_id'] ?? null,
+            'is_active' => (bool) ($supabaseUser['is_active'] ?? true),
+            'status' => $supabaseUser['status'] ?? 'active',
+        ]);
+
+        return $profile;
+    }
+
+    private function roleKeyFromRole(string $role): string
+    {
+        return match ($role) {
+            Profile::ROLE_DEPARTMENT_STAFF => 'department',
+            Profile::ROLE_SUPER_ADMIN => 'super',
+            Profile::ROLE_IRO_ADMIN => 'admin',
+            Profile::ROLE_IRO_STAFF => 'staff',
+            Profile::ROLE_LEGAL_COUNSEL => 'legal',
+            default => 'department',
+        };
+    }
+
+    private function roleFromKey(string $roleKey): string
+    {
+        return match ($roleKey) {
+            'department' => Profile::ROLE_DEPARTMENT_STAFF,
+            'department_staff' => Profile::ROLE_DEPARTMENT_STAFF,
+            'super' => Profile::ROLE_SUPER_ADMIN,
+            'super_admin' => Profile::ROLE_SUPER_ADMIN,
+            'admin' => Profile::ROLE_IRO_ADMIN,
+            'iro_admin' => Profile::ROLE_IRO_ADMIN,
+            'staff' => Profile::ROLE_IRO_STAFF,
+            'iro_staff' => Profile::ROLE_IRO_STAFF,
+            'legal' => Profile::ROLE_LEGAL_COUNSEL,
+            'legal_counsel' => Profile::ROLE_LEGAL_COUNSEL,
+            default => Profile::ROLE_DEPARTMENT_STAFF,
+        };
     }
 
     private function unauthorised(string $message): JsonResponse

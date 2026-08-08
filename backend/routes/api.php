@@ -25,6 +25,16 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('supabase.jwt')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/department/documents', [DepartmentDocumentController::class, 'index']);
+    Route::get('/department/documents/{id}', [DepartmentDocumentController::class, 'show']);
+    Route::post('/department/documents', [DepartmentDocumentController::class, 'store']);
+    Route::patch('/department/documents/{id}', [DepartmentDocumentController::class, 'update']);
+    Route::patch('/department/documents/{id}/resubmit', [DepartmentDocumentController::class, 'resubmit']);
+    Route::get('/iro/documents/incoming', [IroDocumentController::class, 'incoming']);
+    Route::get('/iro/documents/status', [IroDocumentController::class, 'status']);
+    Route::patch('/iro/documents/{id}/log', [IroDocumentController::class, 'markLogged']);
+    Route::patch('/iro/documents/{id}/assign-legal', [IroDocumentController::class, 'assignLegal']);
+    Route::patch('/iro/documents/{id}/archive', [IroDocumentController::class, 'archive']);
     Route::get('/submissions', [SubmissionController::class, 'index']);
     Route::post('/submissions', [SubmissionController::class, 'store']);
     Route::get('/submissions/{submissionId}', [SubmissionController::class, 'show']);
@@ -131,9 +141,9 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])->group(func
     });
 
     Route::middleware([
-        EnsureRole::class.':'.Profile::ROLE_DEPARTMENT_STAFF.','.Profile::ROLE_IRO_ADMIN.','.Profile::ROLE_IRO_STAFF,
+        EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN,
     ])->group(function (): void {
-        Route::get('/documents/{document}', [DepartmentDocumentController::class, 'show']);
-        Route::get('/iro/documents/{document}', [IroDocumentController::class, 'show']);
+        Route::get('/iro/archive', [WorkflowSummaryController::class, 'archive']);
+        Route::get('/iro/reports', [WorkflowSummaryController::class, 'reports']);
     });
 });

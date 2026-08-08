@@ -96,7 +96,14 @@ const dashboardCards = {
 };
 
 // Shared dashboard skeleton used by all roles.
-export function DashboardView({ roleKey, title, subtitle, action }) {
+export function DashboardView({
+  roleKey,
+  title,
+  subtitle,
+  action,
+  onAction,
+  actionDisabled = false,
+}) {
   const [dashboard, setDashboard] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -160,7 +167,13 @@ export function DashboardView({ roleKey, title, subtitle, action }) {
 
   return (
     <section className="page">
-      <PageTitle title={title} subtitle={subtitle} action={action} />
+      <PageTitle
+        title={title}
+        subtitle={subtitle}
+        action={action}
+        onAction={onAction}
+        actionDisabled={actionDisabled}
+      />
       <StatGrid stats={stats} />
       <div className="dashboard-grid">
         <Panel title="Recent Activity">

@@ -11,10 +11,18 @@ class DashboardRepository
 {
     public function departmentDocuments(Profile $profile): Collection
     {
-        return Document::query()
+        $query = Document::query()
             ->with('department')
-            ->where('department_id', $profile->department_id)
-            ->orderByDesc('updated_at')
+            ->orderByDesc('updated_at');
+
+        if ($profile->department_id) {
+            return $query
+                ->where('department_id', $profile->department_id)
+                ->get();
+        }
+
+        return $query
+            ->where('submitted_by', $profile->id)
             ->get();
     }
 

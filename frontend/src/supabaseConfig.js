@@ -5,14 +5,25 @@ const supabaseUrl =
 
 const supabasePublishableKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabasePublishableKey) {
-  throw new Error(
-    "Missing Supabase environment variables.",
+const supabaseKey =
+  supabasePublishableKey || supabaseAnonKey;
+
+if (!supabaseUrl) {
+  console.error(
+    "Missing VITE_SUPABASE_URL. The CONEXIA frontend will not be able to authenticate until it is configured.",
+  );
+}
+
+if (!supabaseKey) {
+  console.error(
+    "Missing VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY. The CONEXIA frontend will load, but authentication calls will fail until a public Supabase key is configured.",
   );
 }
 
 export const supabase = createClient(
-  supabaseUrl,
-  supabasePublishableKey,
+  supabaseUrl || "http://127.0.0.1",
+  supabaseKey || "public-anon-key",
 );
