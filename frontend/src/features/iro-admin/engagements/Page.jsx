@@ -1,12 +1,12 @@
 import React from "react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
-import {
-  ExportButton,
-  FilterBar,
-} from "../../../components/SharedViews";
 import { getIroStatusDocuments } from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
@@ -18,6 +18,17 @@ export default function IroAdminEngagementsPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   React.useEffect(() => {
     let active = true;
@@ -27,7 +38,10 @@ export default function IroAdminEngagementsPage() {
       setError("");
 
       try {
-        const response = await getIroStatusDocuments({ page });
+        const response = await getIroStatusDocuments({
+          page,
+          ...queryParams,
+        });
         const loadedDocuments = response.documents ?? response.data ?? [];
 
         if (active) {
@@ -60,7 +74,7 @@ export default function IroAdminEngagementsPage() {
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [page, queryParams]);
 
   const rows = documents.map((document) => [
     document.partner_institution || "-",
@@ -85,12 +99,35 @@ export default function IroAdminEngagementsPage() {
         <PageTitle
           title="Partner Engagements"
           subtitle="Global view of institutional partnerships."
-          action="New Engagement"
         />
 
-        <FilterBar labels={["All Departments", "All Agreement Types"]} />
-
-        <Panel title="Engagement Registry" tools={<ExportButton label="Export" />}>
+        <Panel title="Engagement Registry">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            statusOptions={[
+              "Submitted",
+              "Logged",
+              "Under Legal Review",
+              "Corrections Needed",
+              "Approved",
+              "Pending Notarization",
+              "Notarized",
+              "Archived",
+            ]}
+            showDepartment
+            unsupported={{
+              document_type: true,
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+              department: true,
+            }}
+          />
           {loading && <p>Loading engagement records...</p>}
           {error && <p className="auth-error">{error}</p>}
           {!loading && !error && rows.length === 0 && (

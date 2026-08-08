@@ -6,12 +6,12 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
-import {
-  ExportButton,
-  FilterBar,
-} from "../../../components/SharedViews";
 import { StatGrid } from "../../../components/StatGrid";
 import { getIncomingDocuments } from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -23,13 +23,27 @@ export default function IroStaffIncomingPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   async function loadDocuments() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await getIncomingDocuments({ page });
+      const response = await getIncomingDocuments({
+        page,
+        ...queryParams,
+      });
 
       setDocuments(response.documents ?? response.data ?? []);
       setMeta(response.meta ?? null);
@@ -44,7 +58,7 @@ export default function IroStaffIncomingPage() {
 
   React.useEffect(() => {
     loadDocuments();
-  }, [page]);
+  }, [page, queryParams]);
 
   const submittedCount = documents.filter(
     (document) => document.status === "Submitted",
@@ -103,21 +117,32 @@ export default function IroStaffIncomingPage() {
         ]}
       />
 
-      <FilterBar
-        labels={[
-          "All Departments",
-          "SCS",
-          "SEA",
-          "SBM",
-          "SAS",
-          "SAMS",
-          "SED",
-          "SOL",
-          "ETEEAP",
-        ]}
-      />
-
-      <Panel title="Reminder Queue" tools={<ExportButton label="Export CSV" />}>
+      <Panel title="Reminder Queue">
+        <DocumentFilters
+          filters={filters}
+          onChange={changeFilter}
+          onClear={() => {
+            clearFilters();
+            setPage(1);
+          }}
+          searchPlaceholder="Search by tracking number or submitting office..."
+          statusOptions={[
+            "Submitted",
+            "Logged",
+            "Under Legal Review",
+            "Corrections Needed",
+            "Approved",
+            "Pending Notarization",
+            "Notarized",
+          ]}
+          showAgreementType={false}
+          showDepartment={false}
+          unsupported={{
+            partnership_scope: true,
+            date_from: true,
+            date_to: true,
+          }}
+        />
         {loading && <p>Loading reminder queue...</p>}
         {error && <p className="auth-error">{error}</p>}
 

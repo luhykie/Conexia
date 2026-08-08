@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
@@ -20,6 +24,17 @@ export default function IroAdminArchivePage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters({ status: "Archived" });
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   React.useEffect(() => {
     let active = true;
@@ -29,7 +44,10 @@ export default function IroAdminArchivePage() {
       setError("");
 
       try {
-        const response = await getArchiveSummary({ page });
+        const response = await getArchiveSummary({
+          page,
+          ...queryParams,
+        });
 
         if (active) {
           setSummary(response.data ?? {});
@@ -52,7 +70,7 @@ export default function IroAdminArchivePage() {
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [page, queryParams]);
 
   const stats = summary?.stats ?? {};
   const rows = (summary?.records ?? []).map((record) => [
@@ -74,7 +92,6 @@ export default function IroAdminArchivePage() {
       <PageTitle
         title="Records Archive"
         subtitle="Secure workspace for finalizing agreement distribution and archival."
-        action="Export Registry"
       />
 
       <StatGrid
@@ -105,6 +122,23 @@ export default function IroAdminArchivePage() {
       />
 
       <Panel title="Archive Records">
+        <DocumentFilters
+          filters={filters}
+          onChange={changeFilter}
+          onClear={() => {
+            clearFilters();
+            setPage(1);
+          }}
+          statusOptions={["Archived"]}
+          showDepartment
+          unsupported={{
+            document_type: true,
+            partnership_scope: true,
+            date_from: true,
+            date_to: true,
+            department: true,
+          }}
+        />
         {loading && <p>Loading archive records...</p>}
         {error && <p className="auth-error">{error}</p>}
         {!loading && !error && rows.length === 0 && (

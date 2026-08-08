@@ -2,10 +2,13 @@ import React from "react";
 import { FileText } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
-import { FilterBar } from "../../../components/SharedViews";
 import {
   getReviewDocuments,
   submitLegalDecision,
@@ -25,13 +28,27 @@ export default function LegalCounselReviewPage() {
   const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   async function loadDocuments() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await getReviewDocuments({ page });
+      const response = await getReviewDocuments({
+        page,
+        ...queryParams,
+      });
       const loadedDocuments = response.documents ?? response.data ?? [];
 
       setDocuments(loadedDocuments);
@@ -56,7 +73,7 @@ export default function LegalCounselReviewPage() {
 
   React.useEffect(() => {
     loadDocuments();
-  }, [page]);
+  }, [page, queryParams]);
 
   React.useEffect(() => {
     setLegalNotes(
@@ -179,11 +196,24 @@ export default function LegalCounselReviewPage() {
           subtitle="Manage documents explicitly routed for your counsel."
         />
 
-        <FilterBar
-          labels={["All Routed", "Under Legal Review", "Corrections Needed"]}
-        />
-
         <Panel title="Routed Documents">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            statusOptions={["Under Legal Review", "Corrections Needed"]}
+            showDepartment
+            unsupported={{
+              document_type: true,
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+              department: true,
+            }}
+          />
           {loading && <p>Loading routed documents...</p>}
           {error && !selectedDocument && <p className="auth-error">{error}</p>}
 

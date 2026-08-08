@@ -1,6 +1,10 @@
 import React from "react";
 import { FileText } from "lucide-react";
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
@@ -21,13 +25,27 @@ export default function Page() {
   const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   async function loadDocuments() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await getDepartmentDocuments({ page });
+      const response = await getDepartmentDocuments({
+        page,
+        ...queryParams,
+      });
       const loadedDocuments = response.documents ?? response.data ?? [];
 
       setDocuments(loadedDocuments);
@@ -52,7 +70,7 @@ export default function Page() {
 
   React.useEffect(() => {
     loadDocuments();
-  }, [page]);
+  }, [page, queryParams]);
 
   async function resubmitDocument() {
     if (!selectedDocument?.id) {
@@ -149,6 +167,31 @@ export default function Page() {
         />
 
         <Panel title="Submission Records">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            statusOptions={[
+              "Submitted",
+              "Logged",
+              "Under Legal Review",
+              "Corrections Needed",
+              "Approved",
+              "Pending Notarization",
+              "Notarized",
+              "Archived",
+            ]}
+            showDepartment={false}
+            unsupported={{
+              document_type: true,
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+            }}
+          />
           {loading && <p>Loading submissions...</p>}
           {error && <p className="auth-error">Unable to load submissions: {error}</p>}
           {!loading && !error && documents.length === 0 && (

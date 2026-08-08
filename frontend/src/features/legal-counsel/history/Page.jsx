@@ -3,7 +3,10 @@ import { ShieldCheck } from "lucide-react";
 
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
-import { FilterBar } from "../../../components/SharedViews";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { getLegalHistory } from "../../../services/legalCounselServices";
 import {
   getExpirySummary,
@@ -21,6 +24,17 @@ export default function LegalCounselHistoryPage() {
   const [expiryItems, setExpiryItems] = React.useState([]);
   const [expiryError, setExpiryError] = React.useState("");
   const [expiryProcessingId, setExpiryProcessingId] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   React.useEffect(() => {
     async function loadHistory() {
@@ -28,7 +42,10 @@ export default function LegalCounselHistoryPage() {
       setError("");
 
       try {
-        const response = await getLegalHistory({ page });
+        const response = await getLegalHistory({
+          page,
+          ...queryParams,
+        });
         const loadedHistory =
           response.history ?? response.data ?? response.items ?? [];
 
@@ -44,7 +61,7 @@ export default function LegalCounselHistoryPage() {
     }
 
     loadHistory();
-  }, [page]);
+  }, [page, queryParams]);
 
   React.useEffect(() => {
     async function loadExpiry() {
@@ -92,13 +109,33 @@ export default function LegalCounselHistoryPage() {
       <PageTitle
         title="Legal Action History"
         subtitle="Audit Log & Activity"
-        action="Download Report"
       />
-
-      <FilterBar labels={["All Entities", "Date Range", "Any Status"]} />
 
       <div className="two-col">
         <Panel title="Audit Log & Activity">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            statusOptions={[
+              "Corrections Needed",
+              "Approved",
+              "Pending Notarization",
+              "Notarized",
+              "Archived",
+            ]}
+            showDepartment
+            unsupported={{
+              document_type: true,
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+              department: true,
+            }}
+          />
           {loading && <p>Loading legal action history...</p>}
           {error && <p className="auth-error">{error}</p>}
 

@@ -172,6 +172,7 @@ abstract class SecurityTestCase extends TestCase
     private function setUpSecurityTables(): void
     {
         Schema::dropIfExists('audit_logs');
+        Schema::dropIfExists('role_permissions');
         Schema::dropIfExists('document_files');
         Schema::dropIfExists('notifications');
         Schema::dropIfExists('documents');
@@ -256,6 +257,13 @@ abstract class SecurityTestCase extends TestCase
             $table->string('action');
             $table->json('metadata')->nullable();
             $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('role_permissions', function (Blueprint $table) {
+            $table->string('role')->primary();
+            $table->json('permissions');
+            $table->uuid('updated_by')->nullable();
+            $table->timestamps();
         });
     }
 }

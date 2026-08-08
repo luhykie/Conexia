@@ -1,11 +1,14 @@
 import React from "react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import {
   Dropzone,
-  FilterBar,
 } from "../../../components/SharedViews";
 import { getIncomingDocuments } from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -17,6 +20,17 @@ export default function IroAdminLogReviewPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   React.useEffect(() => {
     let active = true;
@@ -26,7 +40,10 @@ export default function IroAdminLogReviewPage() {
       setError("");
 
       try {
-        const response = await getIncomingDocuments({ page });
+          const response = await getIncomingDocuments({
+            page,
+            ...queryParams,
+          });
 
         if (active) {
           setDocuments(response.documents ?? response.data ?? []);
@@ -49,7 +66,7 @@ export default function IroAdminLogReviewPage() {
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [page, queryParams]);
 
   const rows = documents.map((document) => [
     document.tracking_number,
@@ -66,10 +83,25 @@ export default function IroAdminLogReviewPage() {
         subtitle="Monitor incoming agreements and administrative review readiness."
       />
 
-      <FilterBar labels={["All Incoming", "Submitted", "Logged"]} />
-
       <div className="two-col">
         <Panel title="Incoming Queue">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            statusOptions={["Submitted", "Logged"]}
+            showDepartment
+            unsupported={{
+              document_type: true,
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+              department: true,
+            }}
+          />
           {loading && <p>Loading incoming documents...</p>}
           {error && <p className="auth-error">{error}</p>}
           {!loading && !error && rows.length === 0 && (

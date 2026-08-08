@@ -14,7 +14,7 @@ export default function Page() {
         subtitle="Partner engagement records will appear here once a department engagements endpoint is available."
       >
         <Button icon={Handshake} disabled>
-          Create Engagement - Backend Required
+          Engagement Creation Unavailable
         </Button>
       </PageTitle>
 

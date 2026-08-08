@@ -6,9 +6,12 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
-import { ExportButton } from "../../../components/SharedViews";
 import { StatGrid } from "../../../components/StatGrid";
 import { getIroStatusDocuments } from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -21,13 +24,27 @@ export default function IroStaffStatusPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   async function loadStatusTracker() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await getIroStatusDocuments({ page });
+      const response = await getIroStatusDocuments({
+        page,
+        ...queryParams,
+      });
       const loadedDocuments = response.documents ?? response.data ?? [];
 
       setDocuments(loadedDocuments);
@@ -53,7 +70,7 @@ export default function IroStaffStatusPage() {
 
   React.useEffect(() => {
     loadStatusTracker();
-  }, [page]);
+  }, [page, queryParams]);
 
   const activeCount = documents.filter(
     (document) => document.status !== "Archived",
@@ -116,10 +133,32 @@ export default function IroStaffStatusPage() {
           ]}
         />
 
-        <Panel
-          title="Submission Status Tracker"
-          tools={<ExportButton label="Export CSV" />}
-        >
+        <Panel title="Submission Status Tracker">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            searchPlaceholder="Search by tracking number or submitting office..."
+            statusOptions={[
+              "Submitted",
+              "Logged",
+              "Under Legal Review",
+              "Corrections Needed",
+              "Approved",
+              "Pending Notarization",
+              "Notarized",
+            ]}
+            showAgreementType={false}
+            showDepartment={false}
+            unsupported={{
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+            }}
+          />
           {loading && <p>Loading submission statuses...</p>}
           {error && <p className="auth-error">{error}</p>}
 

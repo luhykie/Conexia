@@ -18,30 +18,39 @@ import "./Page.css";
 export default function Page() {
   const [system, setSystem] = useState({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [lastRefreshed, setLastRefreshed] = useState("");
 
-  useEffect(() => {
-    async function loadSystem() {
+  async function loadSystem(isRefresh = false) {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      setError("");
-
-      try {
-        const response = await getSuperAdminDashboard();
-        const dashboard =
-          response.dashboard ??
-          response.data?.dashboard ??
-          response.data ??
-          {};
-
-        setSystem(dashboard.system ?? {});
-      } catch (requestError) {
-        reportClientError("Unable to load system monitoring:", requestError);
-        setError(requestError.message || "Unable to load system monitoring.");
-      } finally {
-        setLoading(false);
-      }
     }
 
+    setError("");
+
+    try {
+      const response = await getSuperAdminDashboard();
+      const dashboard =
+        response.dashboard ??
+        response.data?.dashboard ??
+        response.data ??
+        {};
+
+      setSystem(dashboard.system ?? {});
+      setLastRefreshed(new Date().toLocaleTimeString());
+    } catch (requestError) {
+      reportClientError("Unable to load system monitoring:", requestError);
+      setError(requestError.message || "Unable to load system monitoring.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
     loadSystem();
   }, []);
 
@@ -51,8 +60,8 @@ export default function Page() {
         title="System Monitoring"
         subtitle="Monitor application availability, database connectivity, storage status, and security alerts."
       >
-        <Button icon={Server} disabled>
-          Live Refresh - Backend Required
+        <Button icon={Server} onClick={() => loadSystem(true)} disabled={loading || refreshing}>
+          {refreshing ? "Refreshing..." : "Refresh Now"}
         </Button>
       </PageTitle>
 
@@ -83,8 +92,9 @@ export default function Page() {
 
       <Panel title="Operational Telemetry">
         <p>
-          Session lists, failed-login streams, queue health, and uptime probes
-          require dedicated backend monitoring endpoints.
+          {lastRefreshed
+            ? `Last refreshed at ${lastRefreshed}.`
+            : "Monitoring data loads when this page opens."}
         </p>
       </Panel>
     </section>

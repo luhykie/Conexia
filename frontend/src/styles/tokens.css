@@ -24,6 +24,11 @@
   --cx-radius-md: 6px;
   --cx-radius-lg: 8px;
 
+  --cx-control-height: 34px;
+  --cx-control-padding-x: 14px;
+  --cx-card-min-height: 112px;
+  --cx-table-min-width: 760px;
+
   --cx-shadow-sm: 0 2px 8px rgba(19, 32, 51, 0.07);
   --cx-shadow-md: 0 8px 22px rgba(19, 32, 51, 0.12);
 

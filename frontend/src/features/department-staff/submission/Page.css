@@ -40,6 +40,12 @@
   padding-top: 10px;
 }
 
+.department-form-grid .auto-filled-input {
+  border-color: #b7d6c4;
+  background: #f0f8f3;
+  color: #004629;
+}
+
 .department-form-wide {
   grid-column: 1 / -1;
 }

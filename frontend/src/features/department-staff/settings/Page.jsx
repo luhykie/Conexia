@@ -13,7 +13,7 @@ export default function Page({ account }) {
         subtitle="Review your signed-in department profile. Profile edits require a backend account settings endpoint."
       >
         <Button icon={Settings} disabled>
-          Save Settings - Backend Required
+          Settings Read-Only
         </Button>
       </PageTitle>
 

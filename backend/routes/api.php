@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentDocumentController;
 use App\Http\Controllers\Api\DocumentFileController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\IroDocumentController;
 use App\Http\Controllers\Api\LegalCounselController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\RoleSettingsController;
 use App\Http\Controllers\Api\WorkflowSummaryController;
 use App\Http\Middleware\AuthenticateSupabaseUser;
 use App\Http\Middleware\EnsureRole;
@@ -118,6 +120,41 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 Route::get(
                     '/users',
                     [UserController::class, 'index']
+                );
+            });
+
+        Route::middleware(
+            EnsureRole::class.':'.Profile::ROLE_SUPER_ADMIN
+        )
+            ->group(function (): void {
+                Route::post(
+                    '/users',
+                    [UserController::class, 'store']
+                );
+
+                Route::post(
+                    '/departments',
+                    [DepartmentController::class, 'store']
+                );
+
+                Route::get(
+                    '/super-admin/roles',
+                    [RoleSettingsController::class, 'index']
+                );
+
+                Route::patch(
+                    '/super-admin/roles',
+                    [RoleSettingsController::class, 'update']
+                );
+
+                Route::get(
+                    '/super-admin/audit-logs',
+                    [AuditLogController::class, 'index']
+                );
+
+                Route::get(
+                    '/super-admin/audit-logs/export',
+                    [AuditLogController::class, 'export']
                 );
             });
 

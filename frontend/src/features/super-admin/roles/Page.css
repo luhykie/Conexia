@@ -34,3 +34,131 @@
     grid-template-columns: 1fr;
   }
 }
+
+.role-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(19, 32, 51, 0.42);
+}
+
+.role-modal {
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  display: grid;
+  gap: 20px;
+  overflow: auto;
+  padding: 24px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(19, 32, 51, 0.22);
+}
+
+.role-modal header,
+.role-modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.role-modal h2,
+.role-modal p {
+  margin: 0;
+}
+
+.role-modal h2 {
+  color: #004629;
+  font-size: 1.35rem;
+}
+
+.role-modal p,
+.permission-row small {
+  color: #66706d;
+}
+
+.role-modal header button,
+.role-modal footer button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid #d7dfd9;
+  border-radius: 6px;
+  color: #004629;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.role-modal footer button.primary {
+  border-color: #004629;
+  color: #ffffff;
+  background: #004629;
+}
+
+.role-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.role-detail-grid span {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #d7dfd9;
+  border-radius: 6px;
+  color: #66706d;
+  background: #f8fbfa;
+  font-size: .82rem;
+}
+
+.role-detail-grid b {
+  color: #132033;
+  font-size: .95rem;
+}
+
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.permission-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid #d7dfd9;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.permission-row.locked {
+  background: #f6f7f6;
+}
+
+.permission-row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #004629;
+}
+
+.permission-row span {
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 800px) {
+  .role-detail-grid,
+  .permission-grid {
+    grid-template-columns: 1fr;
+  }
+}

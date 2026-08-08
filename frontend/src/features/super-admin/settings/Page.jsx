@@ -35,10 +35,10 @@ export default function Page() {
     <section className="super-admin-page">
       <PageTitle
         title="System Settings"
-        subtitle="Review deployment-facing configuration. Saving requires a backend settings endpoint."
+        subtitle="Review deployment-facing configuration. Settings are read-only until configuration endpoints are enabled."
       >
         <Button icon={Save} disabled>
-          Save Settings - Backend Required
+          Settings Read-Only
         </Button>
       </PageTitle>
 
@@ -88,7 +88,7 @@ export default function Page() {
             />
           </label>
           <Button icon={Mail} disabled>
-            Send Test Email - Backend Required
+            Mail Test Not Configured
           </Button>
         </SettingsPanel>
 

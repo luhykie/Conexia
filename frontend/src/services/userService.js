@@ -1,6 +1,7 @@
 import {
   apiGet,
   apiPatch,
+  apiPost,
   withQuery,
 } from "../api/apiClient";
 
@@ -24,4 +25,19 @@ export async function toggleUserStatus(
   );
 
   return response.user;
+}
+
+export async function createUser(payload) {
+  const response = await apiPost("/users", payload);
+
+  return response.user ?? response.data;
+}
+
+export async function updateUserAssignment(id, payload) {
+  const response = await apiPatch(
+    `/users/${id}/assignment`,
+    payload,
+  );
+
+  return response.user ?? response.data;
 }

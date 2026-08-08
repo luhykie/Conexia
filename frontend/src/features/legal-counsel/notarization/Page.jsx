@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
@@ -30,13 +34,27 @@ export default function LegalCounselNotarizationPage() {
   const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   async function loadDocuments() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await getNotarizationDocuments({ page });
+      const response = await getNotarizationDocuments({
+        page,
+        ...queryParams,
+      });
       const loadedDocuments = response.documents ?? response.data ?? [];
 
       setDocuments(loadedDocuments);
@@ -61,7 +79,7 @@ export default function LegalCounselNotarizationPage() {
 
   React.useEffect(() => {
     loadDocuments();
-  }, [page]);
+  }, [page, queryParams]);
 
   React.useEffect(() => {
     setReferenceNumber(selectedDocument?.notarial_reference_number || "");
@@ -254,6 +272,23 @@ export default function LegalCounselNotarizationPage() {
 
       <div className="two-col">
         <Panel title="Document Tracking Queue">
+          <DocumentFilters
+            filters={filters}
+            onChange={changeFilter}
+            onClear={() => {
+              clearFilters();
+              setPage(1);
+            }}
+            statusOptions={["Approved", "Pending Notarization", "Notarized"]}
+            showDepartment
+            unsupported={{
+              document_type: true,
+              partnership_scope: true,
+              date_from: true,
+              date_to: true,
+              department: true,
+            }}
+          />
           {loading && <p>Loading notarization documents...</p>}
           {error && !selectedDocument && <p className="auth-error">{error}</p>}
 

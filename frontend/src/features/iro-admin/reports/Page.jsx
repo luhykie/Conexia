@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
+import {
+  DocumentFilters,
+  useDocumentFilters,
+} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
@@ -19,6 +23,17 @@ export default function IroAdminReportsPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const {
+    filters,
+    queryParams,
+    updateFilter,
+    clearFilters,
+  } = useDocumentFilters();
+
+  function changeFilter(key, value) {
+    updateFilter(key, value);
+    setPage(1);
+  }
 
   React.useEffect(() => {
     let active = true;
@@ -28,7 +43,10 @@ export default function IroAdminReportsPage() {
       setError("");
 
       try {
-        const response = await getReportSummary({ page });
+          const response = await getReportSummary({
+            page,
+            ...queryParams,
+          });
 
         if (active) {
           setSummary(response.data ?? {});
@@ -51,7 +69,7 @@ export default function IroAdminReportsPage() {
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [page, queryParams]);
 
   const stats = summary?.stats ?? {};
   const breakdownRows = (summary?.department_breakdown ?? []).map((row) => [
@@ -68,7 +86,6 @@ export default function IroAdminReportsPage() {
       <PageTitle
         title="Institutional Performance Reports"
         subtitle="Institutional oversight"
-        action="Export Report"
       />
 
       <StatGrid
@@ -115,6 +132,32 @@ export default function IroAdminReportsPage() {
       </div>
 
       <Panel title="Departmental Breakdown">
+        <DocumentFilters
+          filters={filters}
+          onChange={changeFilter}
+          onClear={() => {
+            clearFilters();
+            setPage(1);
+          }}
+          statusOptions={[
+            "Submitted",
+            "Logged",
+            "Under Legal Review",
+            "Corrections Needed",
+            "Approved",
+            "Pending Notarization",
+            "Notarized",
+            "Archived",
+          ]}
+          showDepartment
+          unsupported={{
+            document_type: true,
+            partnership_scope: true,
+            date_from: true,
+            date_to: true,
+            department: true,
+          }}
+        />
         {loading && <p>Loading report data...</p>}
         {error && <p className="auth-error">{error}</p>}
         {!loading && !error && breakdownRows.length === 0 && (

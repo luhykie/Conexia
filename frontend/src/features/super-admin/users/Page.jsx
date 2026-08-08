@@ -15,6 +15,7 @@ import { Button } from "../../../components/Button/Button";
 import { getDepartments } from "../../../services/departmentService";
 import {
   getUsers,
+  createUser,
   toggleUserStatus,
 } from "../../../services/userService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -27,6 +28,15 @@ export default function Page() {
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newUser, setNewUser] = useState({
+    full_name: "",
+    email: "",
+    role: "department_staff",
+    department_id: "",
+    is_active: true,
+  });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -83,6 +93,49 @@ export default function Page() {
     }
   }
 
+  async function submitNewUser(event) {
+    event.preventDefault();
+
+    setCreating(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await createUser({
+        ...newUser,
+        department_id:
+          newUser.role === "department_staff"
+            ? newUser.department_id
+            : null,
+      });
+
+      setNewUser({
+        full_name: "",
+        email: "",
+        role: "department_staff",
+        department_id: "",
+        is_active: true,
+      });
+      setShowCreateForm(false);
+      setSuccess("User created successfully.");
+      await loadUsers();
+    } catch (requestError) {
+      reportClientError("Unable to create user:", requestError);
+      setError(requestError.message || "Unable to create user.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function updateNewUser(event) {
+    const { name, value, type, checked } = event.target;
+
+    setNewUser((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
   const departmentCount = departments.length;
   const activeCount = users.filter((user) => user.is_active).length;
 
@@ -113,8 +166,8 @@ export default function Page() {
         title="User Management"
         subtitle="Review CONEXIA user accounts, roles, department assignments, and account status."
       >
-        <Button icon={UserPlus} disabled>
-          Add User - Backend Required
+        <Button icon={UserPlus} onClick={() => setShowCreateForm((value) => !value)}>
+          {showCreateForm ? "Close Form" : "Add User"}
         </Button>
       </PageTitle>
 
@@ -137,6 +190,81 @@ export default function Page() {
       </section>
 
       <Panel title="User Directory">
+        {showCreateForm && (
+          <form className="admin-inline-form" onSubmit={submitNewUser}>
+            <label>
+              Full Name
+              <input
+                name="full_name"
+                value={newUser.full_name}
+                onChange={updateNewUser}
+                disabled={creating}
+                required
+              />
+            </label>
+            <label>
+              Email
+              <input
+                name="email"
+                type="email"
+                value={newUser.email}
+                onChange={updateNewUser}
+                disabled={creating}
+                required
+              />
+            </label>
+            <label>
+              Role
+              <select
+                name="role"
+                value={newUser.role}
+                onChange={updateNewUser}
+                disabled={creating}
+              >
+                <option value="department_staff">Department Staff</option>
+                <option value="iro_staff">IRO Staff</option>
+                <option value="iro_admin">IRO Admin</option>
+                <option value="legal_counsel">Legal Counsel</option>
+                <option value="super_admin">Super Admin</option>
+              </select>
+            </label>
+            <label>
+              Department
+              <select
+                name="department_id"
+                value={newUser.department_id}
+                onChange={updateNewUser}
+                disabled={creating || newUser.role !== "department_staff"}
+                required={newUser.role === "department_staff"}
+              >
+                <option value="">Select department</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.code} - {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="admin-checkbox">
+              <input
+                name="is_active"
+                type="checkbox"
+                checked={newUser.is_active}
+                onChange={updateNewUser}
+                disabled={creating}
+              />
+              Active account
+            </label>
+            <div className="admin-form-actions">
+              <button type="button" onClick={() => setShowCreateForm(false)} disabled={creating}>
+                Cancel
+              </button>
+              <button type="submit" disabled={creating}>
+                {creating ? "Creating..." : "Create User"}
+              </button>
+            </div>
+          </form>
+        )}
         {loading && <p>Loading users...</p>}
         {error && <p className="auth-error">{error}</p>}
         {success && <p className="success-message">{success}</p>}

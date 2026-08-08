@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
+use App\Models\AuditLog;
 use App\Models\Profile;
 use App\Support\Pagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -127,6 +131,90 @@ class UserController extends Controller
         $profile->load('department');
 
         return new UserResource($profile);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('profiles', 'email'),
+            ],
+            'role' => [
+                'required',
+                Rule::in([
+                    Profile::ROLE_SUPER_ADMIN,
+                    Profile::ROLE_IRO_ADMIN,
+                    Profile::ROLE_IRO_STAFF,
+                    Profile::ROLE_LEGAL_COUNSEL,
+                    Profile::ROLE_DEPARTMENT_STAFF,
+                ]),
+            ],
+            'department_id' => [
+                'nullable',
+                'uuid',
+                'exists:departments,id',
+            ],
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        if (
+            $validated['role'] === Profile::ROLE_DEPARTMENT_STAFF
+            && empty($validated['department_id'])
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Department Staff must be assigned to a department.',
+                'errors' => [
+                    'department_id' => ['Department assignment is required.'],
+                ],
+            ], 422);
+        }
+
+        if ($validated['role'] !== Profile::ROLE_DEPARTMENT_STAFF) {
+            $validated['department_id'] = null;
+        }
+
+        $supabaseUserId = $this->createSupabaseUser(
+            strtolower(trim($validated['email'])),
+            trim($validated['full_name'])
+        );
+
+        $profile = DB::transaction(function () use ($request, $validated, $supabaseUserId) {
+            $profile = new Profile([
+                'full_name' => trim($validated['full_name']),
+                'email' => strtolower(trim($validated['email'])),
+                'role' => $validated['role'],
+                'department_id' => $validated['department_id'],
+                'is_active' => $validated['is_active'],
+            ]);
+
+            $profile->id = $supabaseUserId;
+            $profile->save();
+
+            AuditLog::query()->create([
+                'actor_id' => $request->attributes->get('authenticated_profile')?->id,
+                'action' => 'super_admin.user.created',
+                'metadata' => [
+                    'profile_id' => $profile->id,
+                    'email' => $profile->email,
+                    'role' => $profile->role,
+                ],
+            ]);
+
+            return $profile;
+        });
+
+        $profile->load('department');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User created successfully.',
+            'user' => new UserResource($profile),
+        ], 201);
     }
 
     /**
@@ -263,5 +351,64 @@ class UserController extends Controller
             'message' => 'User information updated successfully.',
             'user' => new UserResource($profile),
         ]);
+    }
+
+    private function createSupabaseUser(
+        string $email,
+        string $fullName
+    ): string {
+        $url = rtrim((string) config('supabase.url'), '/');
+        $serviceRoleKey = config('supabase.service_role_key');
+
+        if (!$url || !$serviceRoleKey) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'Supabase Admin configuration is missing.',
+                'errors' => [
+                    'supabase' => ['Service role key is required on the backend.'],
+                ],
+            ], 422));
+        }
+
+        $response = Http::withToken($serviceRoleKey)
+            ->withHeaders([
+                'apikey' => $serviceRoleKey,
+            ])
+            ->post("{$url}/auth/v1/admin/users", [
+                'email' => $email,
+                'password' => Str::random(24).'aA1!',
+                'email_confirm' => true,
+                'user_metadata' => [
+                    'full_name' => $fullName,
+                ],
+            ]);
+
+        if ($response->status() === 422 || $response->status() === 409) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'A Supabase Auth user with this email already exists.',
+                'errors' => [
+                    'email' => ['Email is already registered.'],
+                ],
+            ], 422));
+        }
+
+        if (!$response->successful()) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'Unable to create the Supabase Auth user.',
+            ], 502));
+        }
+
+        $id = $response->json('id');
+
+        if (!$id) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'Supabase Auth did not return a user ID.',
+            ], 502));
+        }
+
+        return $id;
     }
 }

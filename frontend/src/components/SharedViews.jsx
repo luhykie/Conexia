@@ -225,6 +225,14 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
   const [processingId, setProcessingId] = React.useState(null);
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const [filters, setFilters] = React.useState({
+    expiryWindow: "all",
+    agreementType: "all",
+    partnershipScope: "all",
+    department: "all",
+    status: "all",
+    search: "",
+  });
 
   React.useEffect(() => {
     let active = true;
@@ -234,7 +242,17 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
       setError("");
 
       try {
-        const response = await getExpirySummary({ page });
+        const response = await getExpirySummary({
+          page,
+          search: filters.search || undefined,
+          status: filters.status === "all" ? undefined : filters.status,
+          expiry_window:
+            filters.expiryWindow === "all" ? undefined : filters.expiryWindow,
+          document_type:
+            filters.agreementType === "all" ? undefined : filters.agreementType,
+          department:
+            filters.department === "all" ? undefined : filters.department,
+        });
 
         if (active) {
           setSummary(response.data ?? {});
@@ -259,7 +277,15 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
     return () => {
       active = false;
     };
-  }, [page]);
+  }, [page, filters]);
+
+  function updateFilter(name, value) {
+    setFilters((current) => ({
+      ...current,
+      [name]: value,
+    }));
+    setPage(1);
+  }
 
   async function requestRenewal(record) {
     if (!record?.id) return;
@@ -272,8 +298,8 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
       await requestDocumentRenewal(record.id);
       setSuccess("Renewal request recorded.");
       const response = await getExpirySummary({ page });
-      setSummary(response.data ?? {});
-      setMeta(response.meta ?? null);
+          setSummary(response.data ?? {});
+          setMeta(response.meta ?? null);
     } catch (requestError) {
       reportClientError("Unable to request renewal:", requestError);
       setError(requestError.message);
@@ -315,8 +341,19 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
       <div className="expiry-milestone-strip" aria-label="Expiry reminder windows">
         {expiryMilestones.map((milestone) => (
           <span
-            className={`expiry-milestone ${milestone.tone}`}
+            className={`expiry-milestone ${milestone.tone} ${
+              filters.expiryWindow === milestone.value ? "selected" : ""
+            }`}
             key={milestone.label}
+            role="button"
+            tabIndex={0}
+            onClick={() => updateFilter("expiryWindow", milestone.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                updateFilter("expiryWindow", milestone.value);
+              }
+            }}
           >
             <strong>{milestone.label}</strong>
             <small>{milestone.detail}</small>
@@ -348,7 +385,8 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
           },
         ]}
       />
-      <Panel title="Urgent Attention (Next 30 Days)" tools={<button className="outline"><Filter size={18} /> Filter</button>}>
+      <ExpiryFilters filters={filters} updateFilter={updateFilter} />
+      <Panel title="Urgent Attention (Next 30 Days)">
         {loading && <p>Loading expiry records...</p>}
         {error && <p className="auth-error">{error}</p>}
         {success && <p className="success-message">{success}</p>}
@@ -368,31 +406,116 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
   );
 }
 
+function ExpiryFilters({ filters, updateFilter }) {
+  return (
+    <div className="expiry-filter-panel" aria-label="Expiry filters">
+      <label>
+        Search
+        <input
+          value={filters.search}
+          onChange={(event) => updateFilter("search", event.target.value)}
+          placeholder="Tracking number, partner, or department"
+        />
+      </label>
+      <label>
+        Expiry Window
+        <select
+          value={filters.expiryWindow}
+          onChange={(event) => updateFilter("expiryWindow", event.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="120">120 Days</option>
+          <option value="90">90 Days</option>
+          <option value="60">60 Days</option>
+          <option value="30">30 Days</option>
+          <option value="expired">Expired</option>
+        </select>
+      </label>
+      <label>
+        Agreement Type
+        <select
+          value={filters.agreementType}
+          onChange={(event) => updateFilter("agreementType", event.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="MOA">MOA</option>
+          <option value="MOU">MOU</option>
+          <option value="MOF">MOF</option>
+        </select>
+      </label>
+      <label>
+        Partnership Scope
+        <select value={filters.partnershipScope} disabled>
+          <option value="all">All</option>
+          <option value="Departmental">Departmental</option>
+          <option value="Local">Local</option>
+          <option value="International">International</option>
+        </select>
+      </label>
+      <label>
+        Office / Department
+        <select
+          value={filters.department}
+          onChange={(event) => updateFilter("department", event.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="SCS">SCS</option>
+          <option value="SEA">SEA</option>
+          <option value="SBM">SBM</option>
+          <option value="SAS">SAS</option>
+          <option value="SAMS">SAMS</option>
+          <option value="SED">SED</option>
+          <option value="SOL">SOL</option>
+          <option value="ETEEAP">ETEEAP</option>
+        </select>
+      </label>
+      <label>
+        Status
+        <select
+          value={filters.status}
+          onChange={(event) => updateFilter("status", event.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="Active">Active</option>
+          <option value="Renewal Required">Renewal Required</option>
+          <option value="Renewed">Renewed</option>
+          <option value="Expired">Expired</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
 const expiryMilestones = [
   {
     label: "120 Days",
     detail: "Early watch",
     tone: "early",
+    value: "120",
   },
   {
     label: "90 Days",
     detail: "Review window",
     tone: "review",
+    value: "90",
   },
   {
     label: "60 Days",
     detail: "Renewal prep",
     tone: "prep",
+    value: "60",
   },
   {
     label: "30 Days",
     detail: "Urgent action",
     tone: "urgent",
+    value: "30",
   },
   {
     label: "Expired",
     detail: "Overdue",
     tone: "expired",
+    value: "expired",
   },
 ];
 
@@ -486,14 +609,88 @@ export function FilterBar({ labels }) {
 }
 
 // Shared upload dropzone used by submission and log/review pages.
-export function Dropzone({ label = "Drag and drop file here", detail = "PDF, DOCX up to 25MB" }) {
+export function Dropzone({
+  label = "Drag and drop file here",
+  detail = "PDF, DOCX up to 25MB",
+  selectedFile = null,
+  disabled = false,
+  onFileSelect,
+  onRemove,
+}) {
+  const inputRef = React.useRef(null);
+  const canPickFile = typeof onFileSelect === "function";
+
+  function chooseFile(file) {
+    if (!file || disabled || !canPickFile) return;
+    onFileSelect(file);
+  }
+
+  function handleDrop(event) {
+    if (!canPickFile) return;
+
+    event.preventDefault();
+    chooseFile(event.dataTransfer.files?.[0]);
+  }
+
+  function handleDragOver(event) {
+    if (canPickFile) {
+      event.preventDefault();
+    }
+  }
+
   return (
-    <div className="dropzone">
+    <div
+      className={`dropzone ${canPickFile ? "dropzone--interactive" : ""}`}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+    >
       <UploadCloud size={42} />
-      <b>{label}</b>
-      <p>{detail}</p>
+      <b>{selectedFile?.name || label}</b>
+      {canPickFile && !selectedFile && <span>or</span>}
+      {canPickFile && (
+        <>
+          <input
+            ref={inputRef}
+            className="visually-hidden-file"
+            type="file"
+            accept=".pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text"
+            disabled={disabled}
+            onChange={(event) =>
+              chooseFile(event.target.files?.[0])
+            }
+          />
+          <button
+            type="button"
+            className="outline"
+            disabled={disabled}
+            onClick={() => inputRef.current?.click()}
+          >
+            {selectedFile ? "Replace file" : "Browse files"}
+          </button>
+        </>
+      )}
+      <p>{selectedFile ? formatFileSize(selectedFile.size) : detail}</p>
+      {selectedFile && onRemove && (
+        <button
+          type="button"
+          className="table-action"
+          disabled={disabled}
+          onClick={onRemove}
+        >
+          Remove
+        </button>
+      )}
     </div>
   );
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes)) return "-";
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(bytes / 1024, 1).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 export function ExportButton({ label = "Export" }) {

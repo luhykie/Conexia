@@ -11,7 +11,10 @@ import { DataTable } from "../../../components/DataTable";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { Button } from "../../../components/Button/Button";
-import { getDepartments } from "../../../services/departmentService";
+import {
+  createDepartment,
+  getDepartments,
+} from "../../../services/departmentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -20,29 +23,72 @@ export default function Page() {
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newDepartment, setNewDepartment] = useState({
+    code: "",
+    name: "",
+    email: "",
+    office_assignment: "",
+  });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  async function loadDepartments() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await getDepartments({ page });
+
+      setDepartments(response.data ?? []);
+      setMeta(response.meta ?? null);
+    } catch (requestError) {
+      reportClientError("Unable to load departments:", requestError);
+      setError(requestError.message || "Unable to load departments.");
+      setDepartments([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadDepartments() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const response = await getDepartments({ page });
-
-        setDepartments(response.data ?? []);
-        setMeta(response.meta ?? null);
-      } catch (requestError) {
-        reportClientError("Unable to load departments:", requestError);
-        setError(requestError.message || "Unable to load departments.");
-        setDepartments([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadDepartments();
   }, [page]);
+
+  async function submitDepartment(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await createDepartment(newDepartment);
+      setNewDepartment({
+        code: "",
+        name: "",
+        email: "",
+        office_assignment: "",
+      });
+      setShowCreateForm(false);
+      setSuccess("Department created successfully.");
+      await loadDepartments();
+    } catch (requestError) {
+      reportClientError("Unable to create department:", requestError);
+      setError(requestError.message || "Unable to create department.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateDepartment(event) {
+    const { name, value } = event.target;
+
+    setNewDepartment((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
 
   const activeDepartments = departments.filter(
     (department) => department.status === "Active" || department.is_active,
@@ -68,8 +114,8 @@ export default function Page() {
         title="Department Management"
         subtitle="Maintain the institutional department directory used for user assignments."
       >
-        <Button icon={Building2} disabled>
-          Add Department - Backend Required
+        <Button icon={Building2} onClick={() => setShowCreateForm((value) => !value)}>
+          {showCreateForm ? "Close Form" : "Add Department"}
         </Button>
       </PageTitle>
 
@@ -92,8 +138,37 @@ export default function Page() {
       </section>
 
       <Panel title="Department Directory">
+        {showCreateForm && (
+          <form className="admin-inline-form" onSubmit={submitDepartment}>
+            <label>
+              Department Code
+              <input name="code" value={newDepartment.code} onChange={updateDepartment} disabled={saving} required />
+            </label>
+            <label>
+              Department Name
+              <input name="name" value={newDepartment.name} onChange={updateDepartment} disabled={saving} required />
+            </label>
+            <label>
+              Department Email
+              <input name="email" type="email" value={newDepartment.email} onChange={updateDepartment} disabled={saving} />
+            </label>
+            <label>
+              Office Assignment
+              <input name="office_assignment" value={newDepartment.office_assignment} onChange={updateDepartment} disabled={saving} placeholder="Optional display note" />
+            </label>
+            <div className="admin-form-actions">
+              <button type="button" onClick={() => setShowCreateForm(false)} disabled={saving}>
+                Cancel
+              </button>
+              <button type="submit" disabled={saving}>
+                {saving ? "Creating..." : "Create Department"}
+              </button>
+            </div>
+          </form>
+        )}
         {loading && <p>Loading departments...</p>}
         {error && <p className="auth-error">{error}</p>}
+        {success && <p className="success-message">{success}</p>}
         {!loading && !error && rows.length === 0 && (
           <p>No departments are available.</p>
         )}

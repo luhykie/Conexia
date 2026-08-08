@@ -30,6 +30,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supabase service role key
+    |--------------------------------------------------------------------------
+    |
+    | Backend only. Used for privileged Admin Auth actions such as creating
+    | institutional accounts. Never expose this value to the React frontend.
+    |
+    */
+
+    'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Supabase JWT secret
     |--------------------------------------------------------------------------
     |
