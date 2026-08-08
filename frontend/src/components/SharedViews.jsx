@@ -310,8 +310,19 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
   ]);
 
   return (
-    <section className="page">
+    <section className="page expiry-page">
       <PageTitle title={title} subtitle={subtitle} action={action} />
+      <div className="expiry-milestone-strip" aria-label="Expiry reminder windows">
+        {expiryMilestones.map((milestone) => (
+          <span
+            className={`expiry-milestone ${milestone.tone}`}
+            key={milestone.label}
+          >
+            <strong>{milestone.label}</strong>
+            <small>{milestone.detail}</small>
+          </span>
+        ))}
+      </div>
       <StatGrid
         stats={[
           {
@@ -356,6 +367,34 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
     </section>
   );
 }
+
+const expiryMilestones = [
+  {
+    label: "120 Days",
+    detail: "Early watch",
+    tone: "early",
+  },
+  {
+    label: "90 Days",
+    detail: "Review window",
+    tone: "review",
+  },
+  {
+    label: "60 Days",
+    detail: "Renewal prep",
+    tone: "prep",
+  },
+  {
+    label: "30 Days",
+    detail: "Urgent action",
+    tone: "urgent",
+  },
+  {
+    label: "Expired",
+    detail: "Overdue",
+    tone: "expired",
+  },
+];
 
 // Shared notification archive for Department Staff and IRO Admin.
 export function NotificationsView() {

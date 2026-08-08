@@ -62,6 +62,18 @@ export default function IroStaffExpiryPage() {
         subtitle="Monitor renewal timing for IRO Admin follow-up."
       />
 
+      <div className="expiry-milestone-strip" aria-label="Expiry reminder windows">
+        {expiryMilestones.map((milestone) => (
+          <span
+            className={`expiry-milestone ${milestone.tone}`}
+            key={milestone.label}
+          >
+            <strong>{milestone.label}</strong>
+            <small>{milestone.detail}</small>
+          </span>
+        ))}
+      </div>
+
       <StatGrid
         stats={[
           {
@@ -114,6 +126,34 @@ export default function IroStaffExpiryPage() {
     </section>
   );
 }
+
+const expiryMilestones = [
+  {
+    label: "120 Days",
+    detail: "Early watch",
+    tone: "early",
+  },
+  {
+    label: "90 Days",
+    detail: "Review window",
+    tone: "review",
+  },
+  {
+    label: "60 Days",
+    detail: "Renewal prep",
+    tone: "prep",
+  },
+  {
+    label: "30 Days",
+    detail: "Urgent action",
+    tone: "urgent",
+  },
+  {
+    label: "Expired",
+    detail: "Overdue",
+    tone: "expired",
+  },
+];
 
 function departmentName(record) {
   return record.department?.code || record.department?.name || "-";

@@ -322,7 +322,7 @@ function WelcomePage({ onLogin }) {
         <FooterColumn title="Platform" items={["Solutions", "Resources", "Accessibility"]} />
         <FooterColumn title="Company" items={["Company", "Contact", "Careers"]} />
         <FooterColumn title="Legal" items={["Compliance", "Legal", "Privacy Policy"]} />
-        <small>© 2024 CONEXIA University Document Systems. All rights reserved. Secure and Compliant Document Management.</small>
+        <small>© 2026 CONEXIA University Document Systems. All rights reserved. Secure and Compliant Document Management.</small>
       </footer>
     </main>
   );
@@ -491,7 +491,7 @@ function LoginScreen({ onBack, onLogin }) {
       </form>
 
       <footer>
-        <span>2024 CONEXIA University Systems</span>
+        <span>2026 CONEXIA University Systems</span>
         <span>Secure Institutional Portal</span>
         <span>Privacy Policy</span>
         <span>Accessibility</span>

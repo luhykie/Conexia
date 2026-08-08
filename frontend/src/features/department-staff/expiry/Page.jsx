@@ -7,7 +7,6 @@ export default function Page() {
     <ExpiryView
       title="Expiry Overview"
       subtitle="Track department agreements that are expired, expiring soon, or ready for renewal action."
-      action="Manual Update"
     />
   );
 }

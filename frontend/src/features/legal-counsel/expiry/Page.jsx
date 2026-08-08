@@ -6,8 +6,8 @@ import "./Page.css";
 export default function LegalCounselExpiryPage() {
   return (
     <ExpiryView
-      title="Institutional Workspace"
-      action="New Submission"
+      title="Expiry Monitoring"
+      subtitle="Monitor agreements approaching expiry for legal review awareness."
     />
   );
 }

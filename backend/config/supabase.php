@@ -51,4 +51,16 @@ return [
     */
 
     'jwks_cache_seconds' => env('SUPABASE_JWKS_CACHE_SECONDS', 3600),
+
+    /*
+    |--------------------------------------------------------------------------
+    | JWT clock skew allowance
+    |--------------------------------------------------------------------------
+    |
+    | Supabase access tokens can be issued a few seconds ahead of the Laravel
+    | server clock. Keep this small so local verification remains strict.
+    |
+    */
+
+    'jwt_leeway_seconds' => env('SUPABASE_JWT_LEEWAY_SECONDS', 60),
 ];

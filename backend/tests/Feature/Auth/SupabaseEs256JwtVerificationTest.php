@@ -20,6 +20,7 @@ class SupabaseEs256JwtVerificationTest extends SecurityTestCase
         config([
             'supabase.url' => $this->supabaseUrl,
             'supabase.jwks_cache_seconds' => 3600,
+            'supabase.jwt_leeway_seconds' => 60,
         ]);
 
         Cache::flush();
@@ -47,6 +48,30 @@ class SupabaseEs256JwtVerificationTest extends SecurityTestCase
             ->assertJsonPath('ok', true);
 
         $this->getJson('/api/me', $headers)
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_valid_es256_token_with_small_clock_skew_verifies_locally(): void
+    {
+        $profile = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $keys = $this->keyPair('kid-one');
+        $token = $this->tokenForClaims(
+            $profile->id,
+            $keys['private'],
+            issuedAt: time() + 30
+        );
+
+        Http::fake([
+            $this->jwksUrl() => Http::response($this->jwks($keys['jwk'])),
+            "{$this->supabaseUrl}/auth/v1/user" => Http::response([], 500),
+        ]);
+
+        $this->getJson('/api/me', [
+            'Authorization' => 'Bearer '.$token,
+        ])
             ->assertOk()
             ->assertJsonPath('ok', true);
 
@@ -204,13 +229,14 @@ PEM,
         string $kid = 'kid-one',
         ?int $expiresAt = null,
         ?string $issuer = null,
-        string $audience = 'authenticated'
+        string $audience = 'authenticated',
+        ?int $issuedAt = null
     ): string {
         return JWT::encode([
             'iss' => $issuer ?? $this->supabaseUrl.'/auth/v1',
             'aud' => $audience,
             'exp' => $expiresAt ?? time() + 3600,
-            'iat' => time(),
+            'iat' => $issuedAt ?? time(),
             'sub' => $subject,
             'email' => 'legal@example.test',
         ], $privateKey, 'ES256', $kid);

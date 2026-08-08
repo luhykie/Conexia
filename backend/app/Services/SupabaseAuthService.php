@@ -47,12 +47,6 @@ class SupabaseAuthService
 
         $algorithm = $header['alg'] ?? null;
 
-        Log::info('Supabase auth token header decoded.', [
-            'alg' => $algorithm,
-            'kid' => $header['kid'] ?? null,
-            'has_kid' => !empty($header['kid']),
-        ]);
-
         $claims = match ($algorithm) {
             'ES256' => empty($header['kid'])
                 ? null
@@ -64,11 +58,6 @@ class SupabaseAuthService
         if ($claims !== null) {
             return $this->userFromClaims($claims, $supabaseUrl);
         }
-
-        Log::warning('Supabase auth local JWT verification failed; using Supabase user verification.', [
-            'alg' => $algorithm,
-            'kid' => $header['kid'] ?? null,
-        ]);
 
         return $this->userFromSupabase($accessToken, $supabaseUrl);
     }
@@ -86,7 +75,7 @@ class SupabaseAuthService
         }
 
         try {
-            return JWT::decode($accessToken, $key);
+            return $this->decodeJwt($accessToken, $key);
         } catch (SignatureInvalidException) {
             $refreshedKey = $this->keyForKid($kid, forceRefresh: true);
 
@@ -95,7 +84,7 @@ class SupabaseAuthService
             }
 
             try {
-                return JWT::decode($accessToken, $refreshedKey);
+                return $this->decodeJwt($accessToken, $refreshedKey);
             } catch (
                 BeforeValidException |
                 ExpiredException |
@@ -122,7 +111,10 @@ class SupabaseAuthService
         }
 
         try {
-            return JWT::decode($accessToken, new Key($jwtSecret, 'HS256'));
+            return $this->decodeJwt(
+                $accessToken,
+                new Key($jwtSecret, 'HS256')
+            );
         } catch (
             BeforeValidException |
             ExpiredException |
@@ -152,6 +144,21 @@ class SupabaseAuthService
         return $keys[$kid] ?? null;
     }
 
+    private function decodeJwt(string $accessToken, Key $key): object
+    {
+        $previousLeeway = JWT::$leeway;
+        JWT::$leeway = max(
+            0,
+            (int) config('supabase.jwt_leeway_seconds', 60)
+        );
+
+        try {
+            return JWT::decode($accessToken, $key);
+        } finally {
+            JWT::$leeway = $previousLeeway;
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -159,6 +166,7 @@ class SupabaseAuthService
     {
         $cacheKey = $this->jwksCacheKey();
         $useRuntimeCache = !app()->environment('testing');
+        $ttl = (int) config('supabase.jwks_cache_seconds', 3600);
 
         if ($forceRefresh) {
             Cache::forget($cacheKey);
@@ -172,11 +180,24 @@ class SupabaseAuthService
             return self::$runtimeJwks[$cacheKey];
         }
 
-        $jwks = Cache::remember(
-            $cacheKey,
-            (int) config('supabase.jwks_cache_seconds', 3600),
-            fn (): array => $this->fetchJwks()
-        );
+        $jwks = Cache::get($cacheKey);
+
+        if (!is_array($jwks)) {
+            $jwks = Cache::lock($cacheKey.':lock', 10)
+                ->block(3, function () use ($cacheKey, $ttl): array {
+                    $cached = Cache::get($cacheKey);
+
+                    if (is_array($cached)) {
+                        return $cached;
+                    }
+
+                    $fresh = $this->fetchJwks();
+
+                    Cache::put($cacheKey, $fresh, $ttl);
+
+                    return $fresh;
+                });
+        }
 
         if ($useRuntimeCache) {
             self::$runtimeJwks[$cacheKey] = $jwks;
@@ -348,10 +369,6 @@ class SupabaseAuthService
 
             return [];
         }
-
-        Log::info('Supabase auth remote user verification accepted token.', [
-            'subject' => $claimsArray['sub'],
-        ]);
 
         return array_merge($claimsArray, [
             'id' => $claimsArray['sub'],

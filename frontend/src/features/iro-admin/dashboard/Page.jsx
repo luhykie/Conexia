@@ -9,7 +9,6 @@ export default function IroAdminDashboardPage() {
       roleKey="admin"
       title="Office Overview"
       subtitle="Real-time status of institutional document submissions and office throughput."
-      action="New Submission"
     />
   );
 }

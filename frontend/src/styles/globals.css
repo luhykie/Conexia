@@ -1,5 +1,12 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
 body {
-  overflow-x: hidden;
+  overflow: hidden;
   min-width: 0;
 }
 
@@ -641,6 +648,237 @@ textarea {
   .dashboard-grid,
   .two-col,
   .split-page,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- FIRST-PASS AUTHENTICATED UI POLISH ---------- */
+
+.page {
+  min-width: 0;
+}
+
+.page-title {
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.page-title__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.page-title h1 {
+  line-height: 1.18;
+}
+
+.page-title p {
+  max-width: 760px;
+}
+
+.stats-grid {
+  align-items: stretch;
+}
+
+.stat-card {
+  display: grid;
+  min-height: 112px;
+  align-content: space-between;
+  gap: 8px;
+}
+
+.stat-card__top {
+  min-height: 28px;
+}
+
+.stat-card.warning .stat-card__icon,
+.stat-card.warn .stat-card__icon {
+  background: #fff1cf;
+  color: #9b5b00;
+}
+
+.stat-card.blue .stat-card__icon,
+.stat-card.info .stat-card__icon {
+  background: #e7efff;
+  color: #3159a8;
+}
+
+.stat-card.danger .stat-card__icon {
+  background: #ffe1e4;
+  color: #c9181d;
+}
+
+.panel,
+.form-card,
+.review-panel,
+.review-sidebar,
+.detail-drawer,
+.feature-card,
+.auth-card,
+.status-card {
+  border-color: #cdd8d0;
+}
+
+.panel__header,
+.panel > header {
+  min-width: 0;
+}
+
+.panel__tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-bar button,
+.btn,
+.table-action,
+.primary,
+.outline {
+  white-space: nowrap;
+}
+
+.cx-table {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cx-table table,
+.cx-table-footer {
+  min-width: 760px;
+}
+
+.cx-table th {
+  white-space: nowrap;
+}
+
+.cx-table td {
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.cx-table td:last-child {
+  white-space: nowrap;
+}
+
+.cx-table-footer {
+  gap: 16px;
+}
+
+.cx-pagination {
+  flex-shrink: 0;
+}
+
+.badge {
+  line-height: 1;
+}
+
+.badge.submitted,
+.badge.logged,
+.badge.active,
+.badge.approved,
+.badge.complete,
+.badge.completed,
+.badge.archived {
+  background: #dff8eb;
+  color: #007a52;
+}
+
+.badge.corrections-needed,
+.badge.requires-resubmission,
+.badge.returned,
+.badge.revision,
+.badge.overdue {
+  background: #ffe0e1;
+  color: #c9181d;
+}
+
+.badge.pending,
+.badge.pending-validation,
+.badge.pending-notarization,
+.badge.under-legal-review,
+.badge.under-review,
+.badge.expiring-soon,
+.badge.renewal-required {
+  background: #ffe8c6;
+  color: #9b5b00;
+}
+
+.expiry-milestone-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(128px, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.expiry-milestone {
+  display: grid;
+  min-height: 58px;
+  align-content: center;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid #cdd8d0;
+  border-left: 4px solid var(--cx-color-primary-700);
+  border-radius: 5px;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(19, 32, 51, 0.05);
+}
+
+.expiry-milestone strong {
+  color: var(--cx-color-primary-900);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.expiry-milestone small {
+  color: #5f6b67;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.expiry-milestone.review {
+  border-left-color: #0a7d55;
+}
+
+.expiry-milestone.prep {
+  border-left-color: #3159a8;
+}
+
+.expiry-milestone.urgent {
+  border-left-color: #df8b00;
+}
+
+.expiry-milestone.expired {
+  border-left-color: #c9181d;
+}
+
+@media (max-width: 1100px) {
+  .expiry-milestone-strip {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .page-title {
+    align-items: flex-start;
+  }
+
+  .page-title__actions,
+  .panel__tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
   }

@@ -7,7 +7,7 @@ export default function IroAdminExpiryPage() {
   return (
     <ExpiryView
       title="Agreement Expiry Tracking"
-      action="Apply Filters"
+      subtitle="Review agreement expiry windows and renewal attention areas."
     />
   );
 }

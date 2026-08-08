@@ -6,15 +6,28 @@
   z-index: 15;
 
   display: flex;
+  height: var(--cx-header-height);
   min-height: var(--cx-header-height);
   align-items: center;
   justify-content: space-between;
 
   padding: 0 18px;
 
-  border-bottom: 1px solid #0A5C3A;
+  border-bottom: 0;
   color: #ffffff;
-  background: #004629;
+
+  /* Match the authenticated sidebar shell */
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(0, 56, 32, 0.48),
+      rgba(0, 56, 32, 0.68)
+    ),
+    url("../../assets/sidebar-background.png");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  box-shadow: none;
 }
 
 .cx-header__search {
@@ -120,7 +133,7 @@
 
   border-top: 1px solid #cfd9d2;
   border-left: 1px solid #cfd9d2;
-  background: var(--cx-color-primary-900);
+  background: #004629;
 }
 
 .cx-notification-panel__header {
@@ -133,7 +146,7 @@
   padding: 10px 12px;
 
   color: #ffffff;
-  background: var(--cx-color-primary-900);
+  background: #004629;
 }
 
 .cx-notification-panel__header strong,
