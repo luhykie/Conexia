@@ -419,9 +419,9 @@ export async function getIncomingDocuments() {
   return result.data ?? result;
 }
 
-export async function getIroStaffDashboard() {
+export async function getIroStaffDashboard(includeIncoming = false) {
   const result = await apiRequest(
-    "/iro-staff/dashboard"
+    `/iro-staff/dashboard${includeIncoming ? "?include_incoming=1" : ""}`
   );
 
   return result.data ?? result;

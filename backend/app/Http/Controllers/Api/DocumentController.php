@@ -40,9 +40,13 @@ class DocumentController extends Controller
             });
         }
 
-        $documents = $query
-            ->orderByDesc('submitted_at')
-            ->get();
+        $query->orderByDesc('submitted_at');
+        $perPage = min(max($request->integer('per_page'), 0), 100);
+        if ($perPage > 0) {
+            return response()->json($query->paginate($perPage));
+        }
+
+        $documents = $query->get();
 
         return response()->json([
             'data' => $documents,
@@ -122,6 +126,9 @@ class DocumentController extends Controller
                 'queue' => $queue,
                 'assignedQueue' => $assignedQueue,
                 'activities' => $activities,
+                'incoming' => $request->boolean('include_incoming')
+                    ? $documents->where('status', 'Submitted')->sortByDesc('submitted_at')->values()
+                    : null,
             ],
         ]);
     }
@@ -1032,11 +1039,17 @@ class DocumentController extends Controller
             abort(404);
         }
 
-        $documents = Document::query()
-            ->with($this->documentRelationships())
+        $query = Document::query()
+            ->with('department:id,name')
             ->where('department_id', $departmentId)
-            ->orderByDesc('submitted_at')
-            ->get();
+            ->orderByDesc('submitted_at');
+        $perPage = min(max($request->integer('per_page'), 0), 100);
+        if ($perPage > 0) {
+            return response()->json($query->paginate($perPage));
+        }
+
+        $documents = $query->limit(200)->get()
+            ->each(fn (Document $document) => $document->setRelation('departments', $document->department));
 
         return response()->json([
             'data' => $documents,

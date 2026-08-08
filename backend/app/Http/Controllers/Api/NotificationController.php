@@ -12,9 +12,10 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $profileId = $this->profileId($request);
         $notifications = Notification::query()
             ->with('document:id,tracking_number,status,document_type')
-            ->where('user_id', $this->profileId($request))
+            ->where('user_id', $profileId)
             ->orderByDesc('created_at')
             ->paginate(25);
 
@@ -22,7 +23,15 @@ class NotificationController extends Controller
             fn (Notification $notification): array => $this->serialize($notification)
         );
 
-        return response()->json($notifications);
+        $payload = $notifications->toArray();
+        if ($request->boolean('include_unread_count')) {
+            $payload['unread_count'] = Notification::query()
+                ->where('user_id', $profileId)
+                ->where('is_read', false)
+                ->count();
+        }
+
+        return response()->json($payload);
     }
 
     public function unreadCount(Request $request): JsonResponse

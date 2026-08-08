@@ -1,26 +1,41 @@
 import { apiRequest } from "./documentService";
 
-let unreadCountRequest = null;
-let unreadCountRequestedAt = 0;
+let notificationSnapshotRequest = null;
+let notificationSnapshot = null;
+let notificationSnapshotAt = 0;
+
+function clearNotificationSnapshot() {
+  notificationSnapshotRequest = null;
+  notificationSnapshot = null;
+  notificationSnapshotAt = 0;
+}
+
+window.addEventListener("conexia:workflow-changed", clearNotificationSnapshot);
 
 export async function getNotifications(page = 1) {
-  return apiRequest(`/notifications?page=${page}`);
+  if (page !== 1) return apiRequest(`/notifications?page=${page}`);
+
+  if (notificationSnapshot && Date.now() - notificationSnapshotAt < 5000) {
+    return notificationSnapshot;
+  }
+  if (notificationSnapshotRequest) return notificationSnapshotRequest;
+
+  notificationSnapshotRequest = apiRequest(
+    "/notifications?page=1&include_unread_count=1"
+  ).then((result) => {
+    notificationSnapshot = result;
+    notificationSnapshotAt = Date.now();
+    return result;
+  }).finally(() => {
+    notificationSnapshotRequest = null;
+  });
+
+  return notificationSnapshotRequest;
 }
 
 export async function getUnreadNotificationCount() {
-  const now = Date.now();
-  if (unreadCountRequest && now - unreadCountRequestedAt < 5000) {
-    return unreadCountRequest;
-  }
-  unreadCountRequestedAt = now;
-  unreadCountRequest = apiRequest("/notifications/unread-count")
-    .then((result) => result.data?.count ?? 0)
-    .finally(() => {
-      window.setTimeout(() => {
-        unreadCountRequest = null;
-      }, 5000);
-    });
-  return unreadCountRequest;
+  const result = await getNotifications(1);
+  return result.unread_count ?? 0;
 }
 
 export async function markNotificationRead(notificationId) {
@@ -28,13 +43,17 @@ export async function markNotificationRead(notificationId) {
     throw new Error("Notification ID is required.");
   }
 
-  return apiRequest(`/notifications/${notificationId}/read`, {
+  const result = await apiRequest(`/notifications/${notificationId}/read`, {
     method: "PATCH",
   });
+  clearNotificationSnapshot();
+  return result;
 }
 
 export async function markAllNotificationsRead() {
-  return apiRequest("/notifications/read-all", {
+  const result = await apiRequest("/notifications/read-all", {
     method: "PATCH",
   });
+  clearNotificationSnapshot();
+  return result;
 }

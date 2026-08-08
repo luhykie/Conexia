@@ -8,7 +8,6 @@ import IncomingTable from "./IncomingTable";
 import Pagination from "./Pagination";
 
 import {
-  getIncomingDocuments,
   getIroStaffDashboard,
 } from "../services/documentService";
 
@@ -61,10 +60,8 @@ export function IncomingSubmissions({ roleKey = "staff" }) {
     setErrorMessage("");
 
     try {
-      const [incoming, dashboard] = await Promise.all([
-        getIncomingDocuments(),
-        getIroStaffDashboard(),
-      ]);
+      const dashboard = await getIroStaffDashboard(true);
+      const incoming = dashboard?.incoming ?? [];
       const validDocuments = (incoming ?? []).filter((document) =>
         AGREEMENT_TYPES.has(
           document.document_type?.toUpperCase()

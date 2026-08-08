@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Download, Filter } from "lucide-react";
 import {
   useLocation,
@@ -62,14 +62,20 @@ function IroStaffDashboard({ account }) {
   });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const dashboardRequestRef = useRef(null);
+  const lastDashboardLoadRef = useRef(0);
 
   useEffect(() => {
     loadDashboardDocuments();
-    const refresh = () => loadDashboardDocuments();
+    const refresh = () => {
+      if (Date.now() - lastDashboardLoadRef.current >= 10000) {
+        loadDashboardDocuments();
+      }
+    };
     const handleStorage = (event) => {
       if (event.key === "conexia-workflow-changed-at") refresh();
     };
-    const timer = window.setInterval(refresh, 15000);
+    const timer = window.setInterval(refresh, 60000);
     window.addEventListener("focus", refresh);
     window.addEventListener("storage", handleStorage);
     window.addEventListener("conexia:workflow-changed", refresh);
@@ -82,10 +88,13 @@ function IroStaffDashboard({ account }) {
   }, []);
 
   async function loadDashboardDocuments() {
+    if (dashboardRequestRef.current) return dashboardRequestRef.current;
+
     setLoading(true);
     setErrorMessage("");
 
-    try {
+    const request = (async () => {
+      try {
       const data = await getIroStaffDashboard();
       setDashboard({
         stats: data?.stats ?? {},
@@ -97,16 +106,21 @@ function IroStaffDashboard({ account }) {
           ? data.activities
           : [],
       });
-    } catch (error) {
+      lastDashboardLoadRef.current = Date.now();
+      } catch (error) {
       console.error(
         "Failed to load IRO Staff dashboard documents:",
         error
       );
 
       setErrorMessage("Unable to load dashboard records.");
-    } finally {
-      setLoading(false);
-    }
+      } finally {
+        setLoading(false);
+        dashboardRequestRef.current = null;
+      }
+    })();
+    dashboardRequestRef.current = request;
+    return request;
   }
 
   function handleCardClick(label) {

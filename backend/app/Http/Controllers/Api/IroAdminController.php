@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\Department;
 use App\Models\Profile;
+use App\Models\ReviewForm;
 use App\Models\WorkflowEvent;
 use App\Services\NotificationService;
 use Carbon\Carbon;
@@ -25,19 +27,70 @@ class IroAdminController extends Controller
     public function overview(Request $request): JsonResponse
     {
         $documents = Document::query()
-            ->with([
-                'department:id,name',
-                'assignedIroStaffProfile:id,full_name,email,role',
-                'reviewForm:id,document_id,review_form_status,validated_at',
+            ->leftJoin('departments as overview_department', 'overview_department.id', '=', 'documents.department_id')
+            ->leftJoin('profiles as overview_staff', 'overview_staff.id', '=', 'documents.assigned_iro_staff')
+            ->leftJoin('review_forms as overview_review', 'overview_review.document_id', '=', 'documents.id')
+            ->select('documents.*')
+            ->addSelect([
+                'overview_department.name as overview_department_name',
+                'overview_staff.full_name as overview_staff_name',
+                'overview_staff.email as overview_staff_email',
+                'overview_staff.role as overview_staff_role',
+                'overview_review.id as overview_review_id',
+                'overview_review.review_form_status as overview_review_status',
+                'overview_review.validated_at as overview_review_validated_at',
             ])
-            ->orderByDesc('updated_at')
+            ->orderByDesc('documents.updated_at')
             ->limit(200)
-            ->get();
+            ->get()
+            ->each(function (Document $document): void {
+                $document->setRelation('department', $document->department_id
+                    ? (new Department())->forceFill(['id' => $document->department_id, 'name' => $document->overview_department_name])
+                    : null);
+                $document->setRelation('assignedIroStaffProfile', $document->assigned_iro_staff
+                    ? (new Profile())->forceFill([
+                        'id' => $document->assigned_iro_staff,
+                        'full_name' => $document->overview_staff_name,
+                        'email' => $document->overview_staff_email,
+                        'role' => $document->overview_staff_role,
+                    ])
+                    : null);
+                $document->setRelation('reviewForm', $document->overview_review_id
+                    ? (new ReviewForm())->forceFill([
+                        'id' => $document->overview_review_id,
+                        'document_id' => $document->id,
+                        'review_form_status' => $document->overview_review_status,
+                        'validated_at' => $document->overview_review_validated_at,
+                    ])
+                    : null);
+                $document->makeHidden([
+                    'overview_department_name', 'overview_staff_name', 'overview_staff_email',
+                    'overview_staff_role', 'overview_review_id', 'overview_review_status',
+                    'overview_review_validated_at',
+                ]);
+            });
         $events = WorkflowEvent::query()
-            ->with('document:id,tracking_number,partner_institution,document_type')
-            ->orderBy('created_at')
+            ->leftJoin('documents as activity_document', 'activity_document.id', '=', 'workflow_events.document_id')
+            ->select('workflow_events.*')
+            ->addSelect([
+                'activity_document.tracking_number as activity_tracking_number',
+                'activity_document.partner_institution as activity_partner_institution',
+                'activity_document.document_type as activity_document_type',
+            ])
+            ->orderByDesc('workflow_events.created_at')
             ->limit(100)
-            ->get();
+            ->get()
+            ->each(function (WorkflowEvent $event): void {
+                $event->setRelation('document', (new Document())->forceFill([
+                    'id' => $event->document_id,
+                    'tracking_number' => $event->activity_tracking_number,
+                    'partner_institution' => $event->activity_partner_institution,
+                    'document_type' => $event->activity_document_type,
+                ]));
+                $event->makeHidden([
+                    'activity_tracking_number', 'activity_partner_institution', 'activity_document_type',
+                ]);
+            });
 
         return response()->json([
             'data' => [

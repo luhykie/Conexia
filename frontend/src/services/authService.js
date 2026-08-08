@@ -37,7 +37,24 @@ export async function signInWithSupabase(email, password) {
   return loadAccountForUser(authData.user);
 }
 
-export async function loadAccountForUser(user) {
+let pendingAccountUserId = "";
+let pendingAccountRequest = null;
+
+export function loadAccountForUser(user) {
+  if (pendingAccountRequest && pendingAccountUserId === user.id) {
+    return pendingAccountRequest;
+  }
+
+  pendingAccountUserId = user.id;
+  pendingAccountRequest = loadAccountProfile(user).finally(() => {
+    pendingAccountRequest = null;
+    pendingAccountUserId = "";
+  });
+
+  return pendingAccountRequest;
+}
+
+async function loadAccountProfile(user) {
   let { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(`
