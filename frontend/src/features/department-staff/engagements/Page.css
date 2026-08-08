@@ -1,0 +1,4 @@
+.department-page-grid {
+  display: grid;
+  gap: 24px;
+}

@@ -1,0 +1,126 @@
+.cx-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 20;
+
+  display: flex;
+  width: var(--cx-sidebar-width);
+  min-height: 100vh;
+  flex-direction: column;
+
+  padding: 28px 18px 20px;
+
+  color: #ffffff;
+
+  /* Official CONEXIA sidebar image + readable green overlay */
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(0, 56, 32, 0.35),
+      rgba(0, 56, 32, 0.55)
+    ),
+    url("../../assets/sidebar-background.png");
+
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.cx-sidebar__brand {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 10px 34px;
+  text-align: center;
+}
+
+.cx-sidebar__brand-mark {
+  display: grid;
+  width: 110px;
+  height: 110px;
+  place-items: center;
+
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.22));
+}
+
+.cx-sidebar__brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+
+.cx-sidebar__brand strong {
+  display: block;
+  color: var(--cx-color-accent-gold);
+  font-size: 22px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.cx-sidebar__brand span {
+  display: block;
+  margin-top: 7px;
+
+  color: #8ed1a5;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cx-sidebar__nav {
+  display: grid;
+  gap: 4px;
+}
+
+.cx-sidebar__link,
+.cx-sidebar__logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 42px;
+  padding: 0 13px;
+
+  border: 0;
+  border-radius: 5px;
+
+  color: rgba(255, 255, 255, 0.86);
+  background: transparent;
+
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.cx-sidebar__link:hover,
+.cx-sidebar__logout:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cx-sidebar__link--active {
+  color: var(--cx-color-accent-gold);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: inset 4px 0 0 var(--cx-color-accent-gold);
+}
+
+.cx-sidebar__logout {
+  margin-top: auto;
+}
+
+@media (max-width: 900px) {
+  .cx-sidebar {
+    position: static;
+    width: 100%;
+    min-height: auto;
+  }
+}

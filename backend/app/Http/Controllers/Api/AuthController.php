@@ -43,19 +43,42 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        /** @var Profile $profile */
-        $profile = $request->attributes->get('auth_profile');
+        /** @var Profile|null $profile */
+        $profile = $request->attributes->get('authenticated_profile')
+            ?: $request->attributes->get('auth_profile');
+
+        if (! $profile) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Authenticated profile is unavailable.',
+            ], 401);
+        }
 
         return response()->json([
+            'ok' => true,
+            'account' => [
+                'id' => $profile->id,
+                'name' => $profile->full_name,
+                'fullName' => $profile->full_name,
+                'email' => $profile->email ?? null,
+                'role' => $profile->role,
+                'roleKey' => $profile->role_key ?? $this->roleKey($profile->role),
+                'departmentId' => $profile->department_id ?? null,
+                'department' => $profile->department?->name ?? $profile->department ?? null,
+                'departmentCode' => $profile->department?->code ?? null,
+                'office' => $profile->office ?? null,
+                'isActive' => (bool) ($profile->is_active ?? true),
+                'status' => $profile->status ?? 'active',
+            ],
             'user' => [
                 'id' => $profile->id,
                 'email' => $profile->email ?? null,
                 'fullName' => $profile->full_name,
                 'role' => $profile->role,
-                'roleKey' => $profile->role_key,
-                'office' => $profile->office,
-                'department' => $profile->department,
-                'status' => $profile->status,
+                'roleKey' => $profile->role_key ?? $this->roleKey($profile->role),
+                'office' => $profile->office ?? null,
+                'department' => $profile->department ?? null,
+                'status' => $profile->status ?? 'active',
             ],
         ]);
     }
@@ -64,10 +87,10 @@ class AuthController extends Controller
     {
         $accounts = [
             'admin@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000001', 'full_name' => 'Conexia Super Admin', 'role' => 'Super Admin', 'role_key' => 'super_admin', 'office' => 'System Administration', 'department' => '-', 'status' => 'active'],
-            'irostaff@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000002', 'full_name' => 'PAIR IRO Staff', 'role' => 'IRO Staff', 'role_key' => 'staff', 'office' => 'Partnerships and International Relations Office', 'department' => '-', 'status' => 'active'],
-            'iroadmin@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000003', 'full_name' => 'PAIR IRO Administrator', 'role' => 'IRO Admin', 'role_key' => 'admin', 'office' => 'Partnerships and International Relations Office', 'department' => '-', 'status' => 'active'],
-            'legal@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000004', 'full_name' => 'Legal Counsel', 'role' => 'Legal Counsel', 'role_key' => 'legal', 'office' => 'Legal Office', 'department' => '-', 'status' => 'active'],
-            'department@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000005', 'full_name' => 'Department Staff', 'role' => 'Department Staff', 'role_key' => 'department', 'office' => 'Department Office', 'department' => 'Department', 'status' => 'active'],
+            'irostaff@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000002', 'full_name' => 'PAIR IRO Staff', 'role' => 'IRO Staff', 'role_key' => 'iro_staff', 'office' => 'Partnerships and International Relations Office', 'department' => '-', 'status' => 'active'],
+            'iroadmin@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000003', 'full_name' => 'PAIR IRO Administrator', 'role' => 'IRO Admin', 'role_key' => 'iro_admin', 'office' => 'Partnerships and International Relations Office', 'department' => '-', 'status' => 'active'],
+            'legal@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000004', 'full_name' => 'Legal Counsel', 'role' => 'Legal Counsel', 'role_key' => 'legal_counsel', 'office' => 'Legal Office', 'department' => '-', 'status' => 'active'],
+            'department@conexia.edu' => ['id' => '00000000-0000-4000-8000-000000000005', 'full_name' => 'Department Staff', 'role' => 'Department Staff', 'role_key' => 'department_staff', 'office' => 'Department Office', 'department' => 'Department', 'status' => 'active'],
         ];
 
         if (! isset($accounts[$email])) {
@@ -103,5 +126,16 @@ class AuthController extends Controller
         $signature = hash_hmac('sha256', $payload, config('app.key'));
 
         return 'conexia.'.$payload.'.'.$signature;
+    }
+
+    private function roleKey(string $role): string
+    {
+        return match ($role) {
+            Profile::ROLE_SUPER_ADMIN => 'super',
+            Profile::ROLE_IRO_ADMIN => 'admin',
+            Profile::ROLE_IRO_STAFF => 'staff',
+            Profile::ROLE_LEGAL_COUNSEL => 'legal',
+            default => 'department',
+        };
     }
 }

@@ -1,0 +1,135 @@
+.super-page {
+  display: grid;
+  gap: 24px;
+}
+
+.super-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #f3b4b6;
+  border-radius: 6px;
+  color: #b42318;
+  background: #fff0f0;
+}
+
+.super-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.super-stat {
+  min-height: 148px;
+  padding: 22px;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  color: #063f2c;
+  background: #dfeee7;
+}
+
+.super-stat strong {
+  display: block;
+  margin-top: 20px;
+  font-size: 2rem;
+}
+
+.super-stat p {
+  margin: 18px 0 0;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.super-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 24px;
+}
+
+.super-segments {
+  display: flex;
+  gap: 6px;
+}
+
+.super-segments button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  color: #667085;
+  background: #eef2f7;
+  text-transform: capitalize;
+}
+
+.super-segments button.active {
+  color: #ffffff;
+  background: #064e3b;
+}
+
+.super-chart svg {
+  width: 100%;
+  min-height: 220px;
+}
+
+.super-chart polyline {
+  fill: none;
+  stroke: #064e3b;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.super-chart circle {
+  fill: #047857;
+}
+
+.super-chart div,
+.super-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.super-list {
+  display: grid;
+}
+
+.super-list > div {
+  padding: 14px 0;
+  border-bottom: 1px solid #d9e1dd;
+}
+
+.super-list span {
+  color: #667085;
+}
+
+.super-list strong {
+  color: #064e3b;
+}
+
+.super-activity {
+  padding: 14px 0;
+  border-bottom: 1px solid #d9e1dd;
+}
+
+.super-activity p {
+  margin: 4px 0;
+  color: #667085;
+}
+
+@media (max-width: 1100px) {
+  .super-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .super-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .super-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

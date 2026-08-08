@@ -1,0 +1,36 @@
+.super-admin-page {
+  display: grid;
+  gap: 24px;
+}
+
+.super-admin-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.super-admin-stats article {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  color: #064e3b;
+  background: #dfeee7;
+}
+
+.super-admin-stats strong {
+  font-size: 2rem;
+}
+
+.super-admin-stats span {
+  color: #34443d;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@media (max-width: 800px) {
+  .super-admin-stats {
+    grid-template-columns: 1fr;
+  }
+}
