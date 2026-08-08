@@ -12,9 +12,9 @@
 
   padding: 0 18px;
 
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid #0A5C3A;
   color: #ffffff;
-  background: #004239;
+  background: #004629;
 }
 
 .cx-header__search {
@@ -26,19 +26,23 @@
   min-height: 30px;
   padding: 0 12px;
 
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 4px;
-  color: #d5e5de;
-  background: rgba(255, 255, 255, 0.92);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .cx-header__search input {
   width: 100%;
   border: 0;
   outline: 0;
-  color: var(--cx-color-text);
+  color: #ffffff;
   background: transparent;
   font-size: 12px;
+}
+
+.cx-header__search input::placeholder {
+  color: rgba(255, 255, 255, 0.70);
 }
 
 .cx-header__actions {
@@ -60,6 +64,10 @@
   border-radius: 4px;
   color: #ffffff;
   background: transparent;
+}
+
+.cx-header__icon-button:hover {
+  background: rgba(255, 255, 255, 0.10);
 }
 
 .cx-header__notification-badge {
@@ -266,6 +274,10 @@
   background: transparent;
 }
 
+.cx-header__profile:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
 .cx-header__avatar {
   display: grid;
   width: 32px;
@@ -294,7 +306,7 @@
 
 .cx-header__profile-copy small {
   margin-top: 1px;
-  color: #bed9ce;
+  color: #ffffff;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
