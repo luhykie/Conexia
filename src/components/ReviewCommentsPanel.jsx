@@ -12,6 +12,7 @@ export function ReviewCommentsPanel({ review, title = "Comments" }) {
     canAnnotate,
     activeCommentId,
     setActiveCommentId,
+    focusComment,
     resolveComment,
     removeComment,
     beginGeneralNote,
@@ -48,7 +49,7 @@ export function ReviewCommentsPanel({ review, title = "Comments" }) {
                   key={comment.id}
                   type="button"
                   className={`review-comment-card ${comment.resolved ? "resolved" : ""} ${isActive ? "active" : ""}`.trim()}
-                  onClick={() => setActiveCommentId(isActive ? null : overlayId)}
+                  onClick={() => (isActive ? setActiveCommentId(null) : focusComment?.(comment))}
                 >
                   <div className="review-comment-card__meta">
                     <b>{comment.created_by_name || comment.role || "Reviewer"}</b>

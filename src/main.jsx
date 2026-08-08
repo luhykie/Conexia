@@ -19,11 +19,11 @@ import { canAccessPage, getDefaultPage } from "./auth/rbac";
 import { Shell } from "./components/Shell";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 
-const DepartmentStaff = React.lazy(() => import("./pages/roles/DepartmentStaff").then((module) => ({ default: module.DepartmentStaff })));
-const IroAdmin = React.lazy(() => import("./pages/roles/IroAdmin").then((module) => ({ default: module.IroAdmin })));
-const IroStaff = React.lazy(() => import("./pages/roles/IroStaff").then((module) => ({ default: module.IroStaff })));
-const LegalCounsel = React.lazy(() => import("./pages/roles/LegalCounsel").then((module) => ({ default: module.LegalCounsel })));
-const SuperAdmin = React.lazy(() => import("./pages/roles/SuperAdmin").then((module) => ({ default: module.SuperAdmin })));
+const DepartmentStaff = React.lazy(() => import("./pages/department/DepartmentStaff").then((module) => ({ default: module.DepartmentStaff })));
+const IroAdmin = React.lazy(() => import("./pages/iro/IroAdmin").then((module) => ({ default: module.IroAdmin })));
+const IroStaff = React.lazy(() => import("./pages/iro/IroStaff").then((module) => ({ default: module.IroStaff })));
+const LegalCounsel = React.lazy(() => import("./pages/legal/LegalCounsel").then((module) => ({ default: module.LegalCounsel })));
+const SuperAdmin = React.lazy(() => import("./pages/admin/SuperAdmin").then((module) => ({ default: module.SuperAdmin })));
 
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
 const AUTH_STORAGE_KEY = "user";

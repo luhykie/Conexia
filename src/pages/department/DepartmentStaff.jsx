@@ -1,4 +1,4 @@
-ï»¿import React from "react";
+import React from "react";
 import { DataTable } from "../../components/DataTable";
 import { DocumentReviewViewer } from "../../components/DocumentReviewViewer";
 import { PageTitle } from "../../components/PageTitle";
@@ -541,7 +541,7 @@ function SubmissionWizard({ account, onClose, onContinue }) {
       <div className="wizard-modal" role="dialog" aria-modal="true" aria-labelledby="submission-wizard-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <h2 id="submission-wizard-title">Start a New Agreement Submission</h2>
-          <button className="icon-close" type="button" onClick={onClose}>Ã—</button>
+          <button className="icon-close" type="button" onClick={onClose}>×</button>
         </header>
         <p className="wizard-intro">Submit a new Memorandum of Agreement (MOA), Memorandum of Understanding (MOU), or Memorandum of Friendship (MOF). Your submission will automatically follow the official CONEXIA review workflow.</p>
         <div className="wizard-section">
@@ -1099,12 +1099,12 @@ function MySubmissionsPage({ account, setPage }) {
       {drawerOpen && (
         <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
           <aside className="detail-drawer drawer-overlay" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="icon-close drawer-close" type="button" onClick={closeDrawer}>Ã—</button>
+            <button className="icon-close drawer-close" type="button" onClick={closeDrawer}>×</button>
             <div className="drawer-grid">
               <section className="drawer-left">
                 <h2>Document Preview</h2>
                 {drawerLoading ? (
-                  <p>Loading document previewâ€¦</p>
+                  <p>Loading document preview…</p>
                 ) : activeSubmission ? (
                   <DocumentReviewViewer submission={activeSubmission} account={account} viewerTitle="Review Document" />
                 ) : (

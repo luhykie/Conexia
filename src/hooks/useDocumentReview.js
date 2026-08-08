@@ -195,6 +195,20 @@ export function useDocumentReview(submission, account) {
     }
   }
 
+  function focusComment(comment) {
+    if (!comment) return;
+    const overlayId = `comment-${comment.id}`;
+    setActiveCommentId(overlayId);
+
+    const pageNumber = Number(comment.page_number || 0);
+    if (!pageNumber) return;
+
+    window.requestAnimationFrame(() => {
+      const pageShell = document.querySelector(`.document-viewer__page-shell[data-page="${pageNumber}"]`);
+      pageShell?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    });
+  }
+
   return {
     comments,
     inlineComments,
@@ -216,6 +230,7 @@ export function useDocumentReview(submission, account) {
     submitPendingComment,
     resolveComment,
     removeComment,
+    focusComment,
     setMessage,
   };
 }

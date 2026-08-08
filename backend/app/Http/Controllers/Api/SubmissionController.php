@@ -18,6 +18,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class SubmissionController extends Controller
@@ -332,18 +333,24 @@ class SubmissionController extends Controller
         $nextVersion = $currentVersion + 1;
 
         try {
-            $currentVersion = (int) (SubmissionVersion::where('submission_id', $submissionId)->max('version_number') ?: $currentVersion);
-            $nextVersion = $currentVersion + 1;
+            if (Schema::hasTable('submission_versions')) {
+                $currentVersion = (int) (SubmissionVersion::where('submission_id', $submissionId)->max('version_number') ?: $currentVersion);
+                $nextVersion = $currentVersion + 1;
 
-            SubmissionVersion::create([
-                'submission_id' => $submissionId,
-                'version_number' => $nextVersion,
-                'storage_path' => $storagePath,
-                'file_name' => $fileName,
-                'uploaded_by' => $profile->id,
-                'upload_reason' => $currentVersion > 0 ? 'revision_upload' : 'original_draft',
-                'notes' => $currentVersion > 0 ? 'Uploaded as a new document version.' : 'Initial document upload.',
-            ]);
+                SubmissionVersion::create([
+                    'submission_id' => $submissionId,
+                    'version_number' => $nextVersion,
+                    'storage_path' => $storagePath,
+                    'file_name' => $fileName,
+                    'uploaded_by' => $profile->id,
+                    'upload_reason' => $currentVersion > 0 ? 'revision_upload' : 'original_draft',
+                    'notes' => $currentVersion > 0 ? 'Uploaded as a new document version.' : 'Initial document upload.',
+                ]);
+            } else {
+                Log::warning('Submission version table unavailable; skipping version history record.', [
+                    'submission_id' => $submissionId,
+                ]);
+            }
         } catch (QueryException $exception) {
             Log::warning('Submission version table unavailable; falling back to submission version field.', [
                 'submission_id' => $submissionId,

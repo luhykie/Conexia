@@ -351,12 +351,14 @@ export function DocumentViewer({
     const selection = window.getSelection?.();
     const selectedText = String(selection?.toString() || "").trim();
     if (!selectedText || selection.rangeCount === 0) {
+      clearSelectionUi();
       return;
     }
 
     const anchorNode = selection.anchorNode;
     const pageShell = findPageShellFromNode(anchorNode instanceof Element ? anchorNode : anchorNode?.parentElement);
     if (!pageShell || !scrollRef.current?.contains(pageShell)) {
+      clearSelectionUi();
       return;
     }
 
@@ -367,7 +369,10 @@ export function DocumentViewer({
     const coordinates = layerBox
       ? normalizeHighlightCoordinates(clientRects, layerBox)
       : normalizeHighlightCoordinates(clientRects, pageRect);
-    if (!coordinates) return;
+    if (!coordinates) {
+      clearSelectionUi();
+      return;
+    }
 
     const pageNumber = Number(pageShell.dataset.page || 1);
     const lastRect = range.getClientRects()[range.getClientRects().length - 1] || range.getBoundingClientRect();
