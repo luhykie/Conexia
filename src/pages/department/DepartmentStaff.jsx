@@ -6,7 +6,7 @@ import { Panel } from "../../components/Panel";
 import { DashboardView, Dropzone, ExpiryView, FilterBar, NotificationsView } from "../../components/SharedViews";
 import { StatGrid } from "../../components/StatGrid";
 import { UploadCloud, Eye, Trash2 } from "lucide-react";
-import { createDraftSubmission, getSubmission, getSubmissionFile, getSubmissionReviewData, listSubmissions, updateSubmission, updateSubmissionStatus, uploadSubmissionAttachment } from "../../services/submissions";
+import { createDraftSubmission, deleteSubmission, getSubmission, getSubmissionFile, getSubmissionReviewData, listSubmissions, updateSubmission, updateSubmissionStatus, uploadSubmissionAttachment } from "../../services/submissions";
 import { formatTrackingNumber, getSchoolCode, getSchoolLabel, parseTrackingSequence } from "../../utils/school";
 
 // Routes all Department Staff pages through one role-owned component.
@@ -299,7 +299,18 @@ function SubmissionPage({ account, setPage, pageState }) {
   async function ensureDraftSubmissionId() {
     const existingId = resolveSubmissionId();
     if (existingId) {
-      return existingId;
+      try {
+        const existing = await getSubmission(account, existingId);
+        if (existing?.data) {
+          return existingId;
+        }
+      } catch (error) {
+        // If the stored draft was deleted or expired, fall through and create a new one.
+      }
+
+      localStorage.removeItem("department-active-submission-id");
+      sessionStorage.removeItem("department-active-submission-id");
+      setSubmissionId("");
     }
 
     const departmentCode = getSchoolCode(account.department || account.office);
@@ -541,7 +552,7 @@ function SubmissionWizard({ account, onClose, onContinue }) {
       <div className="wizard-modal" role="dialog" aria-modal="true" aria-labelledby="submission-wizard-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <h2 id="submission-wizard-title">Start a New Agreement Submission</h2>
-          <button className="icon-close" type="button" onClick={onClose}>×</button>
+          <button className="icon-close" type="button" onClick={onClose}>Ã—</button>
         </header>
         <p className="wizard-intro">Submit a new Memorandum of Agreement (MOA), Memorandum of Understanding (MOU), or Memorandum of Friendship (MOF). Your submission will automatically follow the official CONEXIA review workflow.</p>
         <div className="wizard-section">
@@ -783,11 +794,11 @@ function MySubmissionsPage({ account, setPage }) {
           aria-label="Delete submission"
           style={{ marginLeft: 8, padding: '6px 8px' }}
             onClick={async () => {
-            const confirmed = window.confirm("Delete Submission? This action cannot be undone.");
+            const confirmed = window.confirm("Permanently delete this submission from the database? This cannot be undone.");
             if (!confirmed) return;
             try {
-              await updateSubmissionStatus(account, row.id, "archived", "Submission deleted by Department Staff via list view.");
-              setMessage("Submission archived.");
+              await deleteSubmission(account, row.id);
+              setMessage("Submission deleted permanently.");
               await loadSubmissions();
             } catch (err) {
               setMessage(err?.message || "Unable to delete submission.");
@@ -1099,12 +1110,12 @@ function MySubmissionsPage({ account, setPage }) {
       {drawerOpen && (
         <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
           <aside className="detail-drawer drawer-overlay" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="icon-close drawer-close" type="button" onClick={closeDrawer}>×</button>
+            <button className="icon-close drawer-close" type="button" onClick={closeDrawer}>Ã—</button>
             <div className="drawer-grid">
               <section className="drawer-left">
                 <h2>Document Preview</h2>
                 {drawerLoading ? (
-                  <p>Loading document preview…</p>
+                  <p>Loading document previewâ€¦</p>
                 ) : activeSubmission ? (
                   <DocumentReviewViewer submission={activeSubmission} account={account} viewerTitle="Review Document" />
                 ) : (

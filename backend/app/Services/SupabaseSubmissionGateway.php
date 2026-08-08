@@ -149,6 +149,30 @@ class SupabaseSubmissionGateway
         return $updated;
     }
 
+    public function deleteSubmission(?string $bearerToken, string $id): bool
+    {
+        try {
+            $response = $this->client($bearerToken)
+                ->delete('/rest/v1/submissions?id=eq.'.$id);
+
+            if ($response->failed()) {
+                throw new RuntimeException($this->formatError($response));
+            }
+
+            return true;
+        } catch (Throwable $e) {
+            $rows = $this->readFallback();
+            $filtered = array_values(array_filter($rows, fn ($row) => (string) ($row['id'] ?? '') !== $id));
+
+            if (count($filtered) === count($rows)) {
+                return false;
+            }
+
+            $this->writeFallback($filtered);
+            return true;
+        }
+    }
+
     private function fallbackQuery(array $query = []): array
     {
         $rows = $this->normalizeRows($this->readFallback());

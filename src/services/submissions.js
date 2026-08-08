@@ -1,6 +1,6 @@
 import { apiRequest } from "./api";
 import { getAuthToken } from "../utils/authToken";
-import { addLocalSubmission, listLocalSubmissions, updateLocalSubmission } from "../lib/submissionFallback";
+import { addLocalSubmission, deleteLocalSubmission, listLocalSubmissions, updateLocalSubmission } from "../lib/submissionFallback";
 
 function isBackendUnavailable(error) {
   const message = String(error?.message || "");
@@ -148,6 +148,19 @@ export async function updateSubmissionStatus(account, submissionId, status, note
       updated_at: new Date().toISOString(),
     }));
     return { data: updated };
+  }
+}
+
+export async function deleteSubmission(account, submissionId) {
+  try {
+    return await apiRequest(`/api/submissions/${submissionId}`, {
+      account,
+      method: "DELETE",
+    });
+  } catch (error) {
+    if (!isBackendUnavailable(error)) throw error;
+    deleteLocalSubmission(submissionId);
+    return { data: null };
   }
 }
 

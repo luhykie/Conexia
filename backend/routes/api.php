@@ -15,6 +15,7 @@ Route::middleware('supabase.jwt')->group(function () {
     Route::post('/submissions', [SubmissionController::class, 'store']);
     Route::get('/submissions/{submissionId}', [SubmissionController::class, 'show']);
     Route::patch('/submissions/{submissionId}', [SubmissionController::class, 'update']);
+    Route::delete('/submissions/{submissionId}', [SubmissionController::class, 'destroy']);
     Route::get('/submissions/{submissionId}/file', [SubmissionController::class, 'downloadFile']);
     Route::get('/submissions/{submissionId}/document', [SubmissionController::class, 'downloadDocument']);
     Route::get('/submissions/{submissionId}/file/download', [SubmissionController::class, 'downloadFileRaw'])->name('submissions.file.download');

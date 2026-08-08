@@ -74,3 +74,10 @@ export function updateLocalSubmission(id, updater) {
   writeLocalSubmissions(next);
   return next.find((submission) => submission.id === id) || null;
 }
+
+export function deleteLocalSubmission(id) {
+  const submissions = readLocalSubmissions();
+  const next = submissions.filter((submission) => submission.id !== id);
+  writeLocalSubmissions(next);
+  return next;
+}

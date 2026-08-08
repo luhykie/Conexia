@@ -109,6 +109,40 @@ class SubmissionController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, string $submissionId): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->attributes->get('auth_profile');
+
+        $submission = $this->submissionGateway->getSubmission($request->bearerToken(), $submissionId);
+        if (! $submission) {
+            abort(404, 'Submission not found.');
+        }
+
+        if (($submission['submitted_by'] ?? null) !== $profile->id && $profile->role_key !== 'super_admin') {
+            abort(403, 'You are not allowed to delete this submission.');
+        }
+
+        $deleted = false;
+
+        try {
+            $deleted = $this->submissionGateway->deleteSubmission($request->bearerToken(), $submissionId);
+        } catch (\Throwable $exception) {
+            Log::warning('Submission delete failed.', [
+                'submission_id' => $submissionId,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+
+        if (! $deleted) {
+            abort(500, 'Unable to delete the submission.');
+        }
+
+        return response()->json([
+            'message' => 'Submission deleted permanently.',
+        ]);
+    }
+
     public function show(Request $request, string $submissionId): JsonResponse
     {
         return response()->json([
