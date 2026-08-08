@@ -58,7 +58,7 @@ abstract class SecurityTestCase extends TestCase
         return Document::query()->create([
             'id' => $overrides['id'] ?? (string) Str::uuid(),
             'tracking_number' => $overrides['tracking_number'] ??
-                'CONEXIA-TEST-'.random_int(1000, 9999),
+                'CONEXIA-TEST-'.Str::uuid(),
             'title' => $overrides['title'] ?? 'Test Agreement',
             'document_type' => $overrides['document_type'] ?? 'MOA',
             'partner_institution' =>
@@ -196,7 +196,7 @@ abstract class SecurityTestCase extends TestCase
 
         Schema::create('documents', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('tracking_number')->nullable();
+            $table->string('tracking_number')->nullable()->unique();
             $table->string('title')->nullable();
             $table->string('document_type')->nullable();
             $table->string('partner_institution')->nullable();

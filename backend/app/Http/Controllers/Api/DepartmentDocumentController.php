@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\Profile;
+use App\Services\TrackingNumberService;
 use App\Support\DocumentPayload;
 use App\Support\Pagination;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +17,11 @@ use Illuminate\Validation\ValidationException;
 
 class DepartmentDocumentController extends Controller
 {
+    public function __construct(
+        private readonly TrackingNumberService $trackingNumbers
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $profile = $this->departmentProfile($request);
@@ -71,7 +78,6 @@ class DepartmentDocumentController extends Controller
         $profile = $this->departmentProfile($request);
 
         $validated = $request->validate([
-            'tracking_number' => ['required', 'string', 'max:100'],
             'title' => ['required', 'string', 'max:255'],
             'document_type' => ['required', 'string', 'max:100'],
             'partner_institution' => ['required', 'string', 'max:255'],
@@ -95,22 +101,58 @@ class DepartmentDocumentController extends Controller
             ],
         ]);
 
-        $document = Document::query()->create([
-            ...$validated,
-            'renewal_status' => $validated['renewal_status'] ??
-                ($validated['expiry_date'] ?? null
-                    ? Document::RENEWAL_ACTIVE
-                    : Document::RENEWAL_NOT_REQUIRED),
-            'department_id' => $profile->department_id,
-            'submitted_by' => $profile->id,
-            'status' => Document::STATUS_SUBMITTED,
-        ]);
+        $document = $this->createDocumentWithTrackingNumber(
+            $validated,
+            $profile
+        );
 
         return $this->success(
             'Document submitted successfully.',
             DocumentPayload::make($document),
             ['document' => DocumentPayload::make($document)]
         );
+    }
+
+    private function createDocumentWithTrackingNumber(
+        array $validated,
+        Profile $profile
+    ): Document {
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            try {
+                return DB::transaction(function () use ($validated, $profile) {
+                    $createdAt = now();
+
+                    return Document::query()->create([
+                        ...$validated,
+                        'tracking_number' => $this->trackingNumbers
+                            ->generateForDate($createdAt),
+                        'renewal_status' => $validated['renewal_status'] ??
+                            ($validated['expiry_date'] ?? null
+                                ? Document::RENEWAL_ACTIVE
+                                : Document::RENEWAL_NOT_REQUIRED),
+                        'department_id' => $profile->department_id,
+                        'submitted_by' => $profile->id,
+                        'status' => Document::STATUS_SUBMITTED,
+                        'submitted_at' => $createdAt,
+                    ]);
+                });
+            } catch (QueryException $exception) {
+                if (!$this->isTrackingNumberCollision($exception) || $attempt === 3) {
+                    throw $exception;
+                }
+            }
+        }
+
+        abort(500, 'Unable to generate a tracking number.');
+    }
+
+    private function isTrackingNumberCollision(QueryException $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'documents_tracking_number_unique') ||
+            str_contains($message, 'documents_tracking_number_unique_idx') ||
+            str_contains($message, 'tracking_number');
     }
 
     public function resubmit(

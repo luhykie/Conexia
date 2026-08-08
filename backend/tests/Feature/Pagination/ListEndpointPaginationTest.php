@@ -240,7 +240,11 @@ class ListEndpointPaginationTest extends SecurityTestCase
         for ($i = 1; $i <= $count; $i++) {
             $this->document([
                 'department_id' => $departmentId,
-                'tracking_number' => sprintf('CONEXIA-PAGE-%03d', $i),
+                'tracking_number' => sprintf(
+                    'CONEXIA-PAGE-%s-%03d',
+                    $departmentId,
+                    $i
+                ),
                 'title' => "Paginated Agreement {$i}",
             ]);
         }

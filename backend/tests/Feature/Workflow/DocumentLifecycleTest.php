@@ -29,7 +29,6 @@ class DocumentLifecycleTest extends SecurityTestCase
         $document = $this->postJson(
             '/api/department/documents',
             [
-                'tracking_number' => 'CONEXIA-E2E-001',
                 'title' => 'E2E Partnership MOA',
                 'document_type' => 'MOA',
                 'partner_institution' => 'E2E Partner',

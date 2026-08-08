@@ -55,7 +55,6 @@ export default function Page({ account }) {
 
     try {
       const response = await createDepartmentDocument({
-        tracking_number: createTrackingNumber(),
         title: `${form.partnerInstitution.trim()} ${form.agreementType}`,
         document_type: form.agreementType,
         partner_institution: form.partnerInstitution.trim(),
@@ -208,13 +207,6 @@ export default function Page({ account }) {
       </form>
     </section>
   );
-}
-
-function createTrackingNumber() {
-  const datePart = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  const randomPart = Math.floor(1000 + Math.random() * 9000);
-
-  return `CONEXIA-${datePart}-${randomPart}`;
 }
 
 function expiryPayload(expectedDuration) {

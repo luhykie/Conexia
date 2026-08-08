@@ -70,19 +70,6 @@ function SubmissionPage({ account }) {
     setSuccess("");
   }
 
-  function createTrackingNumber() {
-    const datePart = new Date()
-      .toISOString()
-      .slice(0, 10)
-      .replaceAll("-", "");
-
-    const randomPart = Math.floor(
-      1000 + Math.random() * 9000,
-    );
-
-    return `CONEXIA-${datePart}-${randomPart}`;
-  }
-
   function expiryPayload() {
     const effectiveDate = new Date();
     const expiryDate = new Date(effectiveDate);
@@ -132,15 +119,11 @@ function SubmissionPage({ account }) {
     setError("");
     setSuccess("");
 
-    const trackingNumber =
-      createTrackingNumber();
-
     let data;
 
     try {
       const response =
         await createDepartmentDocument({
-          tracking_number: trackingNumber,
           title: `${form.partnerInstitution.trim()} ${form.agreementType}`,
           document_type: form.agreementType,
           partner_institution:
