@@ -304,6 +304,25 @@ class DocumentController extends Controller
         return response()->json(['data' => $documents]);
     }
 
+    public function iroStaffExpiry(): JsonResponse
+    {
+        $documents = Document::query()
+            ->select([
+                'id',
+                'tracking_number',
+                'document_type',
+                'partner_institution',
+                'status',
+                'expiry_date',
+            ])
+            ->whereNotNull('expiry_date')
+            ->orderBy('expiry_date')
+            ->limit(200)
+            ->get();
+
+        return response()->json(['data' => $documents]);
+    }
+
     /**
      * GET /api/documents/{document}
      * Return one document.

@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw, Download, Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 
 export function IncomingFilters({
   searchTerm,
@@ -15,13 +15,12 @@ export function IncomingFilters({
   documentTypes,
   onRefresh,
   refreshing,
-  onExport,
-  canExport,
 }) {
   return (
-    <div className="incoming-filters">
+    <div className="incoming-filters" role="search" aria-label="Incoming submission filters">
       <div className="filters-left">
         <label className="incoming-search">
+          <span className="sr-only">Search incoming submissions</span>
           <Search size={17} />
           <input
             id="incoming-search"
@@ -34,53 +33,29 @@ export function IncomingFilters({
           />
         </label>
 
-        <select
-          aria-label="Department"
-          className="select"
-          value={department}
-          onChange={(event) =>
-            onDepartmentChange(event.target.value)
-          }
-        >
-          <option value="All">All Departments</option>
-          {departments.map((name) => (
-            <option value={name} key={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        <label className="incoming-filter-field department-filter">
+          <span className="sr-only">Department</span>
+          <select className="select" value={department} onChange={(event) => onDepartmentChange(event.target.value)}>
+            <option value="All">All Departments</option>
+            {departments.map((name) => <option value={name} key={name}>{name}</option>)}
+          </select>
+        </label>
 
-        <select
-          aria-label="Partner"
-          className="select"
-          value={partner}
-          onChange={(event) =>
-            onPartnerChange(event.target.value)
-          }
-        >
-          <option value="All">All Partners</option>
-          {partners.map((name) => (
-            <option value={name} key={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        <label className="incoming-filter-field partner-filter">
+          <span className="sr-only">Partner</span>
+          <select className="select" value={partner} onChange={(event) => onPartnerChange(event.target.value)}>
+            <option value="All">All Partners</option>
+            {partners.map((name) => <option value={name} key={name}>{name}</option>)}
+          </select>
+        </label>
 
-        <select
-          aria-label="Submission Type"
-          className="select"
-          value={documentType}
-          onChange={(event) =>
-            onDocumentTypeChange(event.target.value)
-          }
-        >
-          <option value="All">All Types</option>
-          {documentTypes.map((type) => (
-            <option value={type} key={type}>
-              {type}
-            </option>
-          ))}
-        </select>
+        <label className="incoming-filter-field type-filter">
+          <span className="sr-only">Document type</span>
+          <select className="select" value={documentType} onChange={(event) => onDocumentTypeChange(event.target.value)}>
+            <option value="All">All Types</option>
+            {documentTypes.map((type) => <option value={type} key={type}>{type}</option>)}
+          </select>
+        </label>
       </div>
 
       <div className="filters-right">
@@ -92,14 +67,6 @@ export function IncomingFilters({
         >
           <RefreshCw size={16} />
           {refreshing ? "Refreshing..." : "Refresh Queue"}
-        </button>
-        <button
-          className="btn outline"
-          type="button"
-          onClick={onExport}
-          disabled={!canExport}
-        >
-          <Download size={16} /> Export CSV
         </button>
       </div>
     </div>

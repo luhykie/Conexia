@@ -160,6 +160,11 @@ Route::middleware('supabase.auth')->group(function (): void {
         [DocumentController::class, 'iroStaffDocuments']
     )->middleware('role:iro_staff');
 
+    Route::get(
+        '/iro-staff/expiry',
+        [DocumentController::class, 'iroStaffExpiry']
+    )->middleware('role:iro_staff');
+
     Route::patch('/documents/{document}/log', [DocumentController::class, 'log'])
         ->middleware('role:iro_staff,iro_admin');
 

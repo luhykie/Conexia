@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Filter } from "lucide-react";
+import { Download } from "lucide-react";
 import {
   useLocation,
   useNavigate,
@@ -8,10 +8,10 @@ import {
 
 import { DashboardHeader } from "../components/DashboardHeader";
 import { DashboardStats } from "../components/DashboardStats";
+import { DataTable } from "../components/DataTable";
 import { PageTitle } from "../components/PageTitle";
 import { NotificationsView } from "../components/SharedViews";
 import { Panel } from "../components/Panel";
-import { StatGrid } from "../components/StatGrid";
 import { QueuePreview } from "../components/QueuePreview";
 import { WorkflowActivity } from "../components/WorkflowActivity";
 import IncomingSubmissions from "../components/IncomingSubmissions";
@@ -20,6 +20,7 @@ import DistributionTasks from "../components/DistributionTasks";
 
 import {
   getIroStaffDocuments,
+  getIroStaffExpiryDocuments,
   getIncomingDocuments,
   getIroStaffDashboard,
 } from "../services/documentService";
@@ -261,13 +262,91 @@ function LogReview({ account }) {
 }
 
 function IroStaffExpiry() {
-  const navigate = useNavigate();
   const [documents, setDocuments] = useState([]);
-  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    loadExpiryDocuments();
+  }, []);
+
+  async function loadExpiryDocuments() {
+    setLoading(true);
+    setError("");
+    try {
+      const items = await getIroStaffExpiryDocuments();
+      setDocuments(
+        (items || [])
+          .filter((item) => item.expiry_date)
+          .sort(
+            (first, second) =>
+              new Date(first.expiry_date) - new Date(second.expiry_date)
+          )
+      );
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load expiry records.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const rows = documents.map((document) => [
+    document.tracking_number,
+    document.partner_institution,
+    document.document_type,
+    formatExpiryDate(document.expiry_date),
+    expiryState(document.expiry_date),
+  ]);
+
+  return (
+    <section className="page iro-staff-page">
+      <PageTitle
+        title="Agreement Expiry Tracking"
+        subtitle="Documents with persisted expiry dates."
+        action={loading ? "Refreshing..." : "Refresh"}
+        onAction={loadExpiryDocuments}
+        actionDisabled={loading}
+      />
+
+      {error ? (
+        <div className="notice">
+          <p>{error}</p>
+          <button className="btn outline" type="button" onClick={loadExpiryDocuments}>Try Again</button>
+        </div>
+      ) : (
+        <Panel title="Expiry Records">
+          {loading ? (
+            <p className="notification-state">Loading expiry records...</p>
+          ) : rows.length ? (
+            <DataTable
+              headers={["Tracking #", "Partner", "Type", "Expiry Date", "State"]}
+              rows={rows}
+            />
+          ) : (
+            <p className="notification-state">No documents have an expiry date.</p>
+          )}
+        </Panel>
+      )}
+    </section>
+  );
+}
+
+function formatExpiryDate(value) {
+  if (!value) return "Not available";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Not available" : date.toLocaleDateString();
+}
+
+function expiryState(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const days = Math.ceil((date.getTime() - Date.now()) / 86400000);
+  if (days < 0) return `Expired ${Math.abs(days)} days ago`;
+  if (days === 0) return "Expires today";
+  return `${days} days remaining`;
+}
+
+/*
     getIroStaffDocuments()
       .then((items) =>
         setDocuments(
@@ -455,6 +534,7 @@ function expiryDaysLabel(days) {
   if (days === 0) return "Expires today";
   return `${days} day${days === 1 ? "" : "s"} remaining`;
 }
+*/
 
 // Displays document workflow progress using Supabase records.
 function StatusTracker() {
@@ -492,7 +572,9 @@ function StatusTracker() {
       const data = await getIroStaffDocuments();
       setDocuments(data ?? []);
       setSelectedDocumentId((current) =>
-        current || data?.[0]?.id || ""
+        current && data?.some((document) => document.id === current)
+          ? current
+          : ""
       );
     } catch (error) {
       console.error(
@@ -521,7 +603,7 @@ function StatusTracker() {
   const selectedDocument =
     visibleDocuments.find(
       (document) => document.id === selectedDocumentId
-    ) || visibleDocuments[0] || null;
+    ) || null;
   const auditEvents = [...(selectedDocument?.workflow_events || [])]
     .sort(
       (first, second) =>
@@ -586,7 +668,7 @@ function StatusTracker() {
   }
 
   return (
-    <section className="page split-page iro-staff-page">
+    <section className={`page split-page iro-staff-page status-tracker-page ${selectedDocument ? "audit-open" : ""}`}>
       <div>
         <PageTitle
           title="Submission Progression"
@@ -618,11 +700,15 @@ function StatusTracker() {
             role="button"
             tabIndex={0}
             aria-pressed={selectedDocument?.id === document.id}
-            onClick={() => setSelectedDocumentId(document.id)}
+            onClick={() => setSelectedDocumentId((current) =>
+              current === document.id ? "" : document.id
+            )}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                setSelectedDocumentId(document.id);
+                setSelectedDocumentId((current) =>
+                  current === document.id ? "" : document.id
+                );
               }
             }}
           >
@@ -680,9 +766,13 @@ function StatusTracker() {
         ))}
       </div>
 
-      <aside className="detail-drawer">
-        <h2>Audit Trail</h2>
+      {selectedDocument && <aside className="detail-drawer audit-trail-panel">
+        <header>
+          <h2>Audit Trail</h2>
+          {selectedDocument && <small>{selectedDocument.tracking_number}</small>}
+        </header>
 
+        <div className="audit-trail-list">
         {!selectedDocument ? (
           <p className="notification-state">
             Select a document to view its audit trail.
@@ -713,17 +803,20 @@ function StatusTracker() {
             </small>
           </div>
         ))}
+        </div>
 
-        <button
-          className="primary wide-inline"
-          type="button"
-          disabled={!selectedDocument || auditEvents.length === 0}
-          onClick={exportAuditLog}
-        >
-          <Download size={18} />
-          Generate Export Log
-        </button>
-      </aside>
+        <footer>
+          <button
+            className="primary"
+            type="button"
+            disabled={!selectedDocument || auditEvents.length === 0}
+            onClick={exportAuditLog}
+          >
+            <Download size={17} />
+            Generate Export Log
+          </button>
+        </footer>
+      </aside>}
     </section>
   );
 }

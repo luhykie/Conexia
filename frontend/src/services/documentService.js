@@ -498,6 +498,11 @@ export async function getIroStaffDocuments() {
   return result.data ?? result;
 }
 
+export async function getIroStaffExpiryDocuments() {
+  const result = await apiRequest("/iro-staff/expiry");
+  return result.data ?? result;
+}
+
 export async function getSubmissionById(submissionId) {
   const result = await apiRequest(`/documents/${submissionId}`);
   return result.data ?? result;

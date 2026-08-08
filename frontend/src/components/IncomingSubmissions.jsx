@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Inbox } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { DashboardStats } from "./DashboardStats";
@@ -21,21 +22,6 @@ function departmentName(document) {
     document.department_name ||
     "Department unavailable"
   );
-}
-
-function daysWaiting(document) {
-  if (!document.submitted_at) return null;
-  const submittedAt = new Date(document.submitted_at);
-  if (Number.isNaN(submittedAt.getTime())) return null;
-
-  return Math.max(
-    0,
-    Math.floor((Date.now() - submittedAt.getTime()) / 86400000)
-  );
-}
-
-function csvCell(value) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
 export function IncomingSubmissions({ roleKey = "staff" }) {
@@ -184,50 +170,10 @@ export function IncomingSubmissions({ roleKey = "staff" }) {
     }
   }
 
-  function handleExport() {
-    const header = [
-      "Tracking Number",
-      "Department",
-      "Partner",
-      "Type",
-      "Date Submitted",
-      "Days Waiting",
-      "Status",
-    ];
-    const rows = filteredDocuments.map((document) => {
-      const waiting = daysWaiting(document);
-      return [
-        document.tracking_number,
-        departmentName(document),
-        document.partner_institution,
-        document.document_type,
-        document.submitted_at
-          ? new Date(document.submitted_at).toLocaleDateString()
-          : "Not available",
-        waiting === null ? "Not available" : waiting,
-        document.status,
-      ];
-    });
-    const csv = [header, ...rows]
-      .map((row) => row.map(csvCell).join(","))
-      .join("\r\n");
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" })
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "incoming-submissions.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <section className="page iro-staff-page incoming-page">
       <IncomingHeader
         roleKey={roleKey}
-        onAdvancedFilters={() =>
-          document.getElementById("incoming-search")?.focus()
-        }
       />
 
       <DashboardStats
@@ -260,8 +206,6 @@ export function IncomingSubmissions({ roleKey = "staff" }) {
         documentTypes={documentTypes}
         onRefresh={loadDocuments}
         refreshing={loading}
-        onExport={handleExport}
-        canExport={!loading && totalRecords > 0}
       />
 
       <div className="panel">
@@ -287,9 +231,11 @@ export function IncomingSubmissions({ roleKey = "staff" }) {
         {!loading &&
           !errorMessage &&
           totalRecords === 0 && (
-            <p className="empty-state">
-              No submitted documents match the selected filters.
-            </p>
+            <div className="incoming-empty-state">
+              <span><Inbox size={22} aria-hidden="true" /></span>
+              <h3>No incoming submissions found</h3>
+              <p>No submitted documents match the selected filters.</p>
+            </div>
           )}
 
         {!loading && !errorMessage && totalRecords > 0 && (
