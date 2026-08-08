@@ -457,6 +457,20 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   letter-spacing: 0;
 }
 
+.welcome-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.welcome-brand img {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .welcome-nav nav {
   display: flex;
   gap: 24px;
@@ -831,6 +845,14 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   gap: 8px;
 }
 
+.welcome-footer h3 img {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .welcome-footer p {
   margin: 0 0 22px;
   max-width: 250px;
@@ -904,6 +926,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .auth-screen { min-height: 100vh; background: linear-gradient(rgba(0,76,45,.9), rgba(0,76,45,.9)), radial-gradient(circle at center, #6b816f, #164b34); display: grid; place-items: center; position: relative; padding-bottom: 80px; }
 /* Modified: authentication card uses shared card, form, spacing, and large-button variants. */
 .auth-card { width: 520px; padding: var(--space-12); display: grid; gap: var(--space-5); }
+.auth-logo { display: block; width: 112px; height: 112px; margin: 0 auto 2px; border-radius: 50%; object-fit: cover; }
 .auth-card h1 { text-align: center; margin: 0; color: var(--green-900); font-size: 40px; }
 .auth-card p { text-align: center; margin: 0 0 32px; letter-spacing: .12em; font-weight: 800; color: #5c6262; }
 .auth-card a { text-align: right; color: var(--green-700); font-weight: 800; }

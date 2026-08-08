@@ -6,7 +6,6 @@ import {
   BarChart3,
   ChevronRight,
   Globe2,
-  Network,
   Shield,
   ShieldCheck,
   Sparkles,
@@ -28,6 +27,7 @@ import "./styles/tokens.css";
 import "./styles/reset.css";
 import "./styles/globals.css";
 import { AppLayout } from "./layouts/AppLayout/AppLayout";
+import conexiaLogo from "./assets/conexia-logo.png";
 // Main controller for the public welcome page, development login, and RBAC page dispatch.
 const AUTH_STORAGE_KEY = "conexia-account";
 const DepartmentStaff = React.lazy(() =>
@@ -249,7 +249,10 @@ function WelcomePage({ onLogin }) {
   return (
     <main className="welcome-page">
       <header className="welcome-nav">
-        <strong>CONEXIA</strong>
+        <strong className="welcome-brand">
+          <img src={conexiaLogo} alt="CONEXIA" />
+          CONEXIA
+        </strong>
         <nav>
           <a className="active-link" href="#product">Product</a>
           <a href="#solutions">Solutions</a>
@@ -312,7 +315,7 @@ function WelcomePage({ onLogin }) {
 
       <footer className="welcome-footer">
         <div>
-          <h3><Network size={22} /> CONEXIA</h3>
+          <h3><img src={conexiaLogo} alt="" /> CONEXIA</h3>
           <p>Secure and compliant document management for the global higher education ecosystem.</p>
           <div className="footer-icons"><Globe2 /><AtSign /></div>
         </div>
@@ -415,6 +418,11 @@ function LoginScreen({ onBack, onLogin }) {
         className="auth-card"
         onSubmit={handleSubmit}
       >
+        <img
+          className="auth-logo"
+          src={conexiaLogo}
+          alt="CONEXIA"
+        />
         <h1>CONEXIA</h1>
         <p>INTELLIGENT DOCUMENT SYSTEMS</p>
 

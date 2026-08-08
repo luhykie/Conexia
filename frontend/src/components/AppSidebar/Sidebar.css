@@ -11,27 +11,19 @@
   padding: 28px 18px 20px;
 
   color: #ffffff;
-  background:
-    radial-gradient(
-      circle at 46% 12%,
-      rgba(255, 194, 14, 0.12),
-      transparent 13%
-    ),
-    linear-gradient(
-      90deg,
-      rgba(255, 194, 14, 0.12) 0 1px,
-      transparent 1px 100%
-    ),
+
+  /* Official CONEXIA sidebar image + readable green overlay */
+  background-image:
     linear-gradient(
       180deg,
-      rgba(0, 56, 32, 0.98),
-      rgba(0, 56, 32, 0.92)
+      rgba(0, 56, 32, 0.35),
+      rgba(0, 56, 32, 0.55)
     ),
-    repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.06) 0 2px,
-      transparent 2px 54px
-    );
+    url("../../assets/sidebar-background.png");
+
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .cx-sidebar__brand {
@@ -44,23 +36,31 @@
 
 .cx-sidebar__brand-mark {
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 110px;
+  height: 110px;
   place-items: center;
 
-  border: 3px solid #f4d98d;
+  overflow: hidden;
+  border: 0;
   border-radius: 50%;
-  color: var(--cx-color-primary-900);
-  background: #ffffff;
+  background: transparent;
 
-  font-weight: 800;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.22));
 }
+
+.cx-sidebar__brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 
 .cx-sidebar__brand strong {
   display: block;
   color: var(--cx-color-accent-gold);
-  font-size: 28px;
-  letter-spacing: 0.03em;
+  font-size: 22px;
+  letter-spacing: 0.05em;
   line-height: 1;
 }
 

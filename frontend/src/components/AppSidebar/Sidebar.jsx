@@ -19,6 +19,7 @@ import {
 
 import { getAllowedNavItems } from "../../auth/rbac";
 import { roles } from "../../data/roles";
+import conexiaLogo from "../../assets/conexia-logo.png";
 import "./Sidebar.css";
 
 export function Sidebar({
@@ -48,7 +49,7 @@ export function Sidebar({
     <aside className="cx-sidebar">
       <div className="cx-sidebar__brand">
         <div className="cx-sidebar__brand-mark">
-          C
+          <img src={conexiaLogo} alt="CONEXIA" />
         </div>
 
         <div>
