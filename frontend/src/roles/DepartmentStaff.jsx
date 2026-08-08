@@ -481,7 +481,7 @@ function MySubmissionsPage({ account }) {
                       <th>Partner</th>
                       <th>Type</th>
                       <th>Status</th>
-                      <th>Revision Action</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -501,6 +501,8 @@ function MySubmissionsPage({ account }) {
                         <td>
                           {document.status === "Sent to Department for Revision" ? (
                             <button type="button" className="btn primary" onClick={() => navigate(`/app/revision-detail?document=${document.id}`)}>View Revision Request</button>
+                          ) : ["Distribution Complete", "Archived"].includes(document.status) ? (
+                            <button type="button" className="btn outline" onClick={() => navigate(`/app/revision-detail?document=${document.id}`)}>View Document</button>
                           ) : (
                             <span className="muted-text">No action required</span>
                           )}
@@ -539,11 +541,9 @@ function RevisionDetailPage({ account }) {
     getDocumentById(documentId)
       .then((data) => {
         setRecord(data);
-        if (data.status !== "Sent to Department for Revision") {
-          setMessage("This document is not currently awaiting a department revision.");
-        }
+        setMessage("");
       })
-      .catch((error) => setMessage(error.message || "Unable to load the revision request."))
+      .catch((error) => setMessage(error.message || "Unable to load the document."))
       .finally(() => setLoading(false));
   }, [documentId, account?.departmentId]);
 
@@ -565,27 +565,32 @@ function RevisionDetailPage({ account }) {
     }
   }
 
-  if (loading) return <section className="page department-page"><p>Loading revision request...</p></section>;
+  if (loading) return <section className="page department-page"><p>Loading document...</p></section>;
 
-  if (!record) return <section className="page department-page"><PageTitle title="Revision Request" subtitle="The selected document could not be opened." /><p className="error-message">{message}</p><button className="btn outline" type="button" onClick={() => navigate("/app/submissions")}>Back to My Submissions</button></section>;
+  if (!record) return <section className="page department-page"><PageTitle title="Document" subtitle="The selected document could not be opened." /><p className="error-message">{message}</p><button className="btn outline" type="button" onClick={() => navigate("/app/submissions")}>Back to My Submissions</button></section>;
 
   const canResubmit = record.status === "Sent to Department for Revision";
 
   return (
     <section className="page department-page revision-detail-page">
-      <PageTitle title="Revision Request" subtitle="Review the document and Legal Counsel’s comments before uploading the corrected version." />
+      <PageTitle
+        title={canResubmit ? "Revision Request" : "Approved Document"}
+        subtitle={canResubmit
+          ? "Review the document and Legal Counsel's comments before uploading the corrected version."
+          : "View or download the final document delivered to your department."}
+      />
       <button className="btn outline" type="button" onClick={() => navigate("/app/submissions")}>Back to My Submissions</button>
       <div className="revision-detail-layout">
         <DocumentPreview document={record} canViewContent />
         <aside className="revision-detail-panel">
-          <h2>Required Revision</h2>
+          <h2>{canResubmit ? "Required Revision" : "Document Details"}</h2>
           <dl>
             <div><dt>Tracking Number</dt><dd>{record.tracking_number}</dd></div>
             <div><dt>Status</dt><dd>{record.status}</dd></div>
             <div><dt>Designated Department</dt><dd>{record.department?.name || record.departments?.name || "Department unavailable"}</dd></div>
           </dl>
-          <label>Legal Counsel Comments<textarea value={record.legal_notes || "No comments provided."} readOnly /></label>
-          <label>IRO Staff Forwarding Note<textarea value={record.staff_forwarding_note || "No additional note provided."} readOnly /></label>
+          {canResubmit && <label>Legal Counsel Comments<textarea value={record.legal_notes || "No comments provided."} readOnly /></label>}
+          {canResubmit && <label>IRO Staff Forwarding Note<textarea value={record.staff_forwarding_note || "No additional note provided."} readOnly /></label>}
           {canResubmit && <label className="revision-file-label">Upload Revised Document<input type="file" accept=".pdf,.doc,.docx,.odt" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>}
           {canResubmit && <label>Revision Note <span className="optional-label">Optional</span><textarea value={revisionNote} onChange={(event) => setRevisionNote(event.target.value)} placeholder="Summarize the corrections made..." /></label>}
           {canResubmit && <button className="btn primary large" type="button" disabled={!file || submitting} onClick={handleResubmit}>{submitting ? "Resubmitting..." : "Resubmit Revised Document"}</button>}

@@ -16,6 +16,7 @@ import { QueuePreview } from "../components/QueuePreview";
 import { WorkflowActivity } from "../components/WorkflowActivity";
 import IncomingSubmissions from "../components/IncomingSubmissions";
 import LogReviewPage from "../components/LogReviewPage";
+import DistributionTasks from "../components/DistributionTasks";
 
 import {
   getIroStaffDocuments,
@@ -24,6 +25,9 @@ import {
 } from "../services/documentService";
 // Routes all IRO Staff pages through one role-owned component.
 export function IroStaff({ page, account }) {
+  if (page === "distribution-tasks") {
+    return <DistributionTasks />;
+  }
   if (page === "incoming") {
     return <IncomingSubmissions roleKey="staff" />;
   }
@@ -61,6 +65,20 @@ function IroStaffDashboard({ account }) {
 
   useEffect(() => {
     loadDashboardDocuments();
+    const refresh = () => loadDashboardDocuments();
+    const handleStorage = (event) => {
+      if (event.key === "conexia-workflow-changed-at") refresh();
+    };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("conexia:workflow-changed", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("conexia:workflow-changed", refresh);
+    };
   }, []);
 
   async function loadDashboardDocuments() {
@@ -193,15 +211,19 @@ function IroStaffDashboard({ account }) {
                               className="outline"
                               type="button"
                               onClick={() => navigate(
-                                canContinue
-                                  ? `/app/log-review?document=${document.id}`
-                                  : "/app/status",
+                                document.status === "Assigned for Distribution"
+                                  ? "/app/distribution-tasks"
+                                  : canContinue
+                                    ? `/app/log-review?document=${document.id}`
+                                    : "/app/status",
                                 canContinue ? undefined : {
                                   state: { documentId: document.id },
                                 }
                               )}
                             >
-                              {canContinue ? "Continue Work" : "View Status"}
+                              {document.status === "Assigned for Distribution"
+                                ? "Distribute"
+                                : canContinue ? "Continue Work" : "View Status"}
                             </button>
                           </td>
                         </tr>

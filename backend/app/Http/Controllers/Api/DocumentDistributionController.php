@@ -7,17 +7,26 @@ use App\Models\DistributionRecipient;
 use App\Models\Document;
 use App\Models\DocumentDistribution;
 use App\Models\WorkflowEvent;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DocumentDistributionController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $profile = $request->attributes->get('auth_profile');
         $documents = Document::query()
-            ->with(['distributions' => fn ($query) => $query->orderBy('recipient_name')])
-            ->whereIn('status', ['Notarized', 'Ready for Distribution', 'Distribution Complete'])
+            ->with([
+                'department:id,name',
+                'distributions' => fn ($query) => $query->orderBy('recipient_name'),
+            ])
+            ->whereIn('status', ['Assigned for Distribution', 'Notarized', 'Ready for Distribution', 'Distribution Complete'])
+            ->when($profile->role === 'iro_staff', fn ($query) =>
+                $query->where('assigned_iro_staff', $profile->id)
+            )
             ->orderByDesc('updated_at')
             ->get();
 
@@ -26,24 +35,58 @@ class DocumentDistributionController extends Controller
 
     public function prepare(Request $request, Document $document): JsonResponse
     {
-        if ($document->status !== 'Notarized') {
+        $this->ensureCanDistribute($request, $document);
+        if (! in_array($document->status, ['Assigned for Distribution', 'Notarized'], true)) {
             return response()->json([
-                'message' => 'Only notarized documents can be prepared for distribution.',
+                'message' => 'Only assigned approved or notarized documents can be prepared for distribution.',
             ], 422);
         }
 
-        $recipients = DistributionRecipient::query()
-            ->where('document_type', $document->document_type)
-            ->where('is_active', true)
-            ->get();
+        $engagementRecipients = Schema::hasTable('engagements') && $document->engagement
+            ? $document->engagement->distributionRecipients()
+                ->where('is_active', true)
+                ->get()
+            : collect();
+        $recipients = $engagementRecipients->isNotEmpty()
+            ? $engagementRecipients
+            : DistributionRecipient::query()
+                ->where('document_type', $document->document_type)
+                ->where('is_active', true)
+                ->get();
 
         if ($recipients->isEmpty()) {
-            return response()->json([
-                'message' => "Add at least one active {$document->document_type} recipient before distribution.",
-            ], 422);
+            $profile = $request->attributes->get('auth_profile');
+            $department = $document->department;
+
+            if (! $department) {
+                return response()->json([
+                    'message' => 'The document has no originating department available for distribution.',
+                ], 422);
+            }
+
+            $departmentEmail = $department->email
+                ?: "department+{$department->id}@conexia.local";
+            $recipient = DistributionRecipient::query()->updateOrCreate(
+                [
+                    'document_type' => $document->document_type,
+                    'recipient_email' => strtolower($departmentEmail),
+                ],
+                [
+                    'recipient_name' => $department->name,
+                    'organization' => 'CONEXIA',
+                    'role_scope' => 'Originating Department',
+                    'access_level' => 'Approved Copy',
+                    'is_required' => true,
+                    'is_active' => true,
+                    'created_by' => $profile->id,
+                    'updated_by' => $profile->id,
+                ]
+            );
+            $recipients = collect([$recipient]);
         }
 
         DB::transaction(function () use ($request, $document, $recipients): void {
+            $previousStatus = $document->status;
             foreach ($recipients as $recipient) {
                 DocumentDistribution::firstOrCreate(
                     [
@@ -70,7 +113,7 @@ class DocumentDistributionController extends Controller
                 $request,
                 $document,
                 'distribution_prepared',
-                'Notarized',
+                $previousStatus,
                 'Ready for Distribution',
                 "{$recipients->count()} recipient(s) added to the distribution record."
             );
@@ -87,6 +130,7 @@ class DocumentDistributionController extends Controller
         Document $document,
         DocumentDistribution $documentDistribution
     ): JsonResponse {
+        $this->ensureCanDistribute($request, $document);
         if ($documentDistribution->document_id !== $document->id) {
             abort(404);
         }
@@ -107,6 +151,10 @@ class DocumentDistributionController extends Controller
             'distributed_at' => now(),
             'distributed_by' => $profile->id,
         ]);
+        app(NotificationService::class)->distributionDeliveredToDepartment(
+            $document,
+            $documentDistribution->fresh()
+        );
 
         return response()->json([
             'message' => 'Recipient delivery recorded.',
@@ -116,6 +164,7 @@ class DocumentDistributionController extends Controller
 
     public function complete(Request $request, Document $document): JsonResponse
     {
+        $this->ensureCanDistribute($request, $document);
         if ($document->status !== 'Ready for Distribution') {
             return response()->json([
                 'message' => 'Only documents ready for distribution can be completed.',
@@ -152,6 +201,8 @@ class DocumentDistributionController extends Controller
             );
         });
 
+        app(NotificationService::class)->distributionCompleted($document->fresh());
+
         return response()->json([
             'message' => 'Distribution completed. This record can now be archived.',
             'data' => $document->fresh()->load('distributions'),
@@ -177,5 +228,13 @@ class DocumentDistributionController extends Controller
             'notes' => $notes,
             'created_at' => now(),
         ]);
+    }
+
+    private function ensureCanDistribute(Request $request, Document $document): void
+    {
+        $profile = $request->attributes->get('auth_profile');
+        if ($profile->role === 'iro_staff' && $document->assigned_iro_staff !== $profile->id) {
+            abort(404);
+        }
     }
 }

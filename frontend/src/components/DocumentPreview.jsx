@@ -8,9 +8,11 @@ export function DocumentPreview({ document, canViewContent = true }) {
   const [loadingFile, setLoadingFile] = useState(false);
   const attachment = useMemo(
     () =>
-      document?.files?.find(
-        (file) => file.file_category === "original_draft"
-      ) || document?.files?.[0] || null,
+      ["notarized_copy", "reviewed_version", "original_draft"]
+        .map((category) => document?.files?.find(
+          (file) => file.file_category === category
+        ))
+        .find(Boolean) || document?.files?.[0] || null,
     [document]
   );
 

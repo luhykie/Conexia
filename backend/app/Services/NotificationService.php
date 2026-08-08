@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Document;
 use App\Models\Notification;
 use App\Models\Profile;
+use App\Models\DocumentDistribution;
 use Illuminate\Support\Collection;
 
 class NotificationService
@@ -136,8 +137,52 @@ class NotificationService
             $document,
             'legal_approved',
             'Document Approved by Legal Counsel',
-            "{$document->tracking_number} was approved by Legal Counsel and is ready for notarization.",
+            "{$document->tracking_number} was approved by Legal Counsel and is ready for IRO Staff distribution assignment.",
             "legal-approved-{$sequence}"
+        );
+    }
+
+    public function distributionAssignedToStaff(Document $document, Profile $staff): void
+    {
+        $this->notify(
+            collect([$staff]),
+            $document,
+            'distribution_assigned_to_iro_staff',
+            'Approved Document Assigned for Distribution',
+            "{$document->tracking_number} was assigned to you for distribution to its designated departments.",
+            'distribution-assigned-to-staff'
+        );
+    }
+
+    public function distributionDeliveredToDepartment(
+        Document $document,
+        DocumentDistribution $distribution
+    ): void {
+        $recipients = Profile::query()
+            ->where('role', 'department_staff')
+            ->where('department_id', $document->department_id)
+            ->where('is_active', true)
+            ->get();
+
+        $this->notify(
+            $recipients,
+            $document,
+            'document_delivered_to_department',
+            'Approved Document Delivered',
+            "{$document->tracking_number} was delivered to {$distribution->recipient_name} and is now available to the originating department.",
+            "distribution-{$distribution->id}-delivered"
+        );
+    }
+
+    public function distributionCompleted(Document $document): void
+    {
+        $this->notify(
+            $this->activeProfiles(['iro_admin']),
+            $document,
+            'distribution_completed',
+            'Distribution Completed',
+            "Distribution of {$document->tracking_number} is complete. Review the final document and archive the record.",
+            'distribution-completed'
         );
     }
 

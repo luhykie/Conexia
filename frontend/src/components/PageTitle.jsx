@@ -8,6 +8,7 @@ export function PageTitle({
   action,
   onAction,
   actionDisabled = false,
+  actionIcon: ActionIcon = Plus,
 }) {
   return (
     <div className="page-title">
@@ -22,7 +23,7 @@ export function PageTitle({
           type="button"
           disabled={actionDisabled}
         >
-          <Plus size={20} /> {action}
+          <ActionIcon size={20} aria-hidden="true" /> {action}
         </button>
       )}
     </div>

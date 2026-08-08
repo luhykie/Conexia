@@ -116,3 +116,5 @@ $$;
 
 revoke all on function get_review_turnaround_report(timestamptz, timestamptz) from public;
 grant execute on function get_review_turnaround_report(timestamptz, timestamptz) to authenticated;
+
+notify pgrst, 'reload schema';

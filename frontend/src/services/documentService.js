@@ -6,12 +6,12 @@ const API_BASE_URL =
 
 const API_TIMEOUT_MS = 15000;
 
-function withTimeout(promise, message) {
+function withTimeout(promise, message, timeoutMs = API_TIMEOUT_MS) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = window.setTimeout(
       () => reject(new Error(message)),
-      API_TIMEOUT_MS
+      timeoutMs
     );
   });
 
@@ -20,8 +20,8 @@ function withTimeout(promise, message) {
   });
 }
 
-function createRequestSignal(externalSignal) {
-  const timeoutSignal = AbortSignal.timeout(API_TIMEOUT_MS);
+function createRequestSignal(externalSignal, timeoutMs = API_TIMEOUT_MS) {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
 
   return externalSignal
     ? AbortSignal.any([externalSignal, timeoutSignal])
@@ -40,40 +40,70 @@ function connectionError(error) {
   );
 }
 
+let cachedAccessToken = "";
+let cachedAccessTokenExpiresAt = 0;
+
 async function getAccessToken(forceRefresh = false) {
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+
+  if (
+    !forceRefresh &&
+    cachedAccessToken &&
+    cachedAccessTokenExpiresAt > nowInSeconds + 30
+  ) {
+    return cachedAccessToken;
+  }
+
   const sessionRequest = forceRefresh
     ? supabase.auth.refreshSession()
     : supabase.auth.getSession();
+
   const result = await withTimeout(
     sessionRequest,
-    "Authentication took too long. Please sign out and sign in again."
+    "Authentication took too long. Please sign in again."
   );
 
   if (result.error) {
     if (forceRefresh) {
-      window.dispatchEvent(new CustomEvent("conexia:auth-expired"));
+      cachedAccessToken = "";
+      cachedAccessTokenExpiresAt = 0;
+
+      window.dispatchEvent(
+        new CustomEvent("conexia:auth-expired")
+      );
     }
+
     throw result.error;
   }
 
-  if (!result.data.session?.access_token) {
-    window.dispatchEvent(new CustomEvent("conexia:auth-expired"));
-    throw new Error(
-      "Your authenticated session is missing or expired. Please sign in again."
+  const session = result.data.session;
+
+  if (!session?.access_token) {
+    cachedAccessToken = "";
+    cachedAccessTokenExpiresAt = 0;
+
+    window.dispatchEvent(
+      new CustomEvent("conexia:auth-expired")
     );
+
+    throw new Error("Your session has expired.");
   }
 
-  return result.data.session.access_token;
+  cachedAccessToken = session.access_token;
+  cachedAccessTokenExpiresAt = session.expires_at || 0;
+
+  return cachedAccessToken;
 }
 
 async function sendRequest(path, options, accessToken) {
   const isFormData = options.body instanceof FormData;
+  const { requestTimeoutMs = API_TIMEOUT_MS, ...fetchOptions } = options;
   let response;
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      signal: createRequestSignal(options.signal),
+      ...fetchOptions,
+      signal: createRequestSignal(options.signal, requestTimeoutMs),
       headers: {
         Accept: "application/json",
         ...(!isFormData && { "Content-Type": "application/json" }),
@@ -91,6 +121,21 @@ async function sendRequest(path, options, accessToken) {
 }
 
 const pendingGetRequests = new Map();
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
+    cachedAccessToken = session?.access_token || "";
+    cachedAccessTokenExpiresAt = session?.expires_at || 0;
+  }
+
+  if (event === "SIGNED_OUT" || !session) {
+    cachedAccessToken = "";
+    cachedAccessTokenExpiresAt = 0;
+  }
+
+  // Never reuse an in-flight GET started under a different authenticated user.
+  pendingGetRequests.clear();
+});
 
 export function apiRequest(path, options = {}) {
   const method = (options.method || "GET").toUpperCase();
@@ -124,7 +169,7 @@ export function apiRequest(path, options = {}) {
     }
 
     return result;
-  })(), "The request took too long. Please try again.");
+  })(), "The request took too long. Please try again.", options.requestTimeoutMs);
 
   if (method !== "GET") {
     return request;
@@ -142,6 +187,7 @@ export function apiRequest(path, options = {}) {
 
 function announceWorkflowChange() {
   window.dispatchEvent(new CustomEvent("conexia:workflow-changed"));
+  localStorage.setItem("conexia-workflow-changed-at", String(Date.now()));
 }
 
 /* ===========================================================
@@ -205,14 +251,14 @@ export async function getDocumentFileBlob(documentId, fileId) {
 
 export async function getReviewForm(documentId) {
   const result = await apiRequest(
-    `/submissions/${documentId}/review-form`
+    `/documents/${documentId}/review-form`
   );
   return result.data ?? null;
 }
 
 export async function saveReviewForm(documentId, form) {
   const result = await apiRequest(
-    `/submissions/${documentId}/review-form`,
+    `/documents/${documentId}/review-form`,
     {
       method: "PUT",
       body: JSON.stringify(form),
@@ -224,7 +270,7 @@ export async function saveReviewForm(documentId, form) {
 
 export async function submitReviewForm(documentId, form) {
   const result = await apiRequest(
-    `/submissions/${documentId}/review-form/submit`,
+    `/documents/${documentId}/review-form/submit`,
     {
       method: "POST",
       body: JSON.stringify(form),
@@ -367,7 +413,7 @@ export async function getDepartmentDocuments(
 
 export async function getIncomingDocuments() {
   const result = await apiRequest(
-    "/iro-staff/submissions?status=submitted"
+    "/iro-staff/incoming"
   );
 
   return result.data ?? result;
@@ -375,7 +421,7 @@ export async function getIncomingDocuments() {
 
 export async function getIroStaffDashboard() {
   const result = await apiRequest(
-    "/iro-staff/submissions/dashboard"
+    "/iro-staff/dashboard"
   );
 
   return result.data ?? result;
@@ -387,7 +433,7 @@ export async function logDocument(documentId) {
   }
 
   const result = await apiRequest(
-    `/submissions/${documentId}/log`,
+    `/documents/${documentId}/log`,
     {
       method: "PATCH",
     }
@@ -448,12 +494,12 @@ export async function getIroAdminOverview() {
 }
 
 export async function getIroStaffDocuments() {
-  const result = await apiRequest("/iro-staff/submissions");
+  const result = await apiRequest("/iro-staff/documents");
   return result.data ?? result;
 }
 
 export async function getSubmissionById(submissionId) {
-  const result = await apiRequest(`/submissions/${submissionId}`);
+  const result = await apiRequest(`/documents/${submissionId}`);
   return result.data ?? result;
 }
 
@@ -461,7 +507,7 @@ let reportsRequest = null;
 
 export async function getIroAdminReports() {
   if (!reportsRequest) {
-    reportsRequest = apiRequest("/iro-admin/reports/review-turnaround")
+    reportsRequest = apiRequest("/iro-admin/reports")
       .then((result) => result.data ?? result)
       .finally(() => {
         reportsRequest = null;
@@ -591,6 +637,18 @@ export async function assignRevisionToIroStaff(documentId, instructions = "") {
   return result.data ?? result;
 }
 
+export async function assignDistributionToIroStaff(documentId, instructions = "") {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/assign-distribution`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ instructions: instructions.trim() || null }),
+    }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
 export async function saveRevisionForwardingDraft(documentId, forwardingNote = "") {
   const result = await apiRequest(
     `/iro-staff/documents/${documentId}/revision-forwarding-draft`,
@@ -647,7 +705,7 @@ export async function routeToLegal(
   }
 
   const result = await apiRequest(
-    `/submissions/${documentId}/route-to-legal`,
+    `/documents/${documentId}/route-to-legal`,
     {
       method: "PATCH",
       body: JSON.stringify({

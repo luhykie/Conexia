@@ -49,6 +49,11 @@ Route::middleware('supabase.auth')->group(function (): void {
         [IroAdminController::class, 'assignRevision']
     )->middleware('role:iro_admin');
 
+    Route::patch(
+        '/iro-admin/documents/{document}/assign-distribution',
+        [IroAdminController::class, 'assignDistribution']
+    )->middleware('role:iro_admin');
+
     Route::put(
         '/iro-staff/documents/{document}/revision-forwarding-draft',
         [DocumentController::class, 'saveRevisionForwardingDraft']
@@ -82,22 +87,22 @@ Route::middleware('supabase.auth')->group(function (): void {
     Route::get(
         '/iro-admin/document-distributions',
         [DocumentDistributionController::class, 'index']
-    )->middleware('role:iro_admin');
+    )->middleware('role:iro_admin,iro_staff');
 
     Route::post(
         '/iro-admin/documents/{document}/distribution/prepare',
         [DocumentDistributionController::class, 'prepare']
-    )->middleware('role:iro_admin');
+    )->middleware('role:iro_admin,iro_staff');
 
     Route::patch(
         '/iro-admin/documents/{document}/distribution/{documentDistribution}/delivered',
         [DocumentDistributionController::class, 'markDelivered']
-    )->middleware('role:iro_admin');
+    )->middleware('role:iro_admin,iro_staff');
 
     Route::patch(
         '/iro-admin/documents/{document}/distribution/complete',
         [DocumentDistributionController::class, 'complete']
-    )->middleware('role:iro_admin');
+    )->middleware('role:iro_admin,iro_staff');
 
     Route::get('/documents', [DocumentController::class, 'index'])
         ->middleware('role:iro_staff,iro_admin,super_admin');

@@ -1,4 +1,9 @@
 import React from "react";
+import {
+  canAccessPage,
+  getDefaultPage,
+} from "./auth/rbac";
+
 import { createRoot } from "react-dom/client";
 import {
   Archive,
@@ -24,17 +29,45 @@ import {
 import "./styles.css";
 
 import {
+  loadAccountForUser,
   signInWithSupabase,
   signOutFromSupabase,
 } from "./services/authService";
 
-import { canAccessPage, getDefaultPage } from "./auth/rbac";
 import { Shell } from "./components/Shell";
-import { DepartmentStaff } from "./roles/DepartmentStaff";
-import { IroAdmin } from "./roles/IroAdmin";
-import { IroStaff } from "./roles/IroStaff";
-import { LegalCounsel } from "./roles/LegalCounsel";
-import { SuperAdmin } from "./roles/SuperAdmin";
+
+const DepartmentStaff = React.lazy(() =>
+  import("./roles/DepartmentStaff").then((module) => ({
+    default: module.DepartmentStaff,
+  }))
+);
+
+const IroAdmin = React.lazy(() =>
+  import("./roles/IroAdmin").then((module) => ( {
+    default: module.IroAdmin,
+  }))
+);
+
+const IroStaff = React.lazy(() =>
+  import("./roles/IroStaff").then((module) => ( {
+    default: module.IroStaff,
+  }))
+);
+
+
+const LegalCounsel = React.lazy(() =>
+  import("./roles/LegalCounsel").then((module) => ( {
+    default: module.LegalCounsel,
+  }))
+);
+
+const SuperAdmin = React.lazy(() =>
+  import("./roles/SuperAdmin").then((module) => ( {
+    default: module.SuperAdmin,
+  }))
+);
+
+
 import { supabase } from "./supabaseConfig";
 
 const AUTH_STORAGE_KEY = "conexia-account";
@@ -58,22 +91,53 @@ function App() {
   React.useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
+    supabase.auth.getSession()
+    .then(async ({ data, error }) => {
+      if(!active) return;
 
-      if (error || !data.session) {
+      if(error || !data.session) {
         localStorage.removeItem(AUTH_STORAGE_KEY);
         setAccount(null);
+        return;
       }
 
+      const sessionAccount = await loadAccountForUser(data.session.user);
+      if (!active) return;
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionAccount));
+      setAccount(sessionAccount);
+    })
+  .catch((error) => {
+      if (!active) return;
+
+      console.error("Unable to restore session:", error);
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setAccount(null);
+    })
+     .finally(() => {
+      if (!active) return;
       setAuthReady(true);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event) => {
+      (event, session) => {
         if (event === "SIGNED_OUT") {
           localStorage.removeItem(AUTH_STORAGE_KEY);
           setAccount(null);
+          return;
+        }
+
+        if (event === "SIGNED_IN" && session?.user) {
+          window.setTimeout(async () => {
+            try {
+              const sessionAccount = await loadAccountForUser(session.user);
+              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionAccount));
+              setAccount(sessionAccount);
+            } catch (error) {
+              console.error("Unable to synchronize signed-in account:", error);
+              localStorage.removeItem(AUTH_STORAGE_KEY);
+              setAccount(null);
+            }
+          }, 0);
         }
       }
     );
@@ -112,7 +176,7 @@ function App() {
     }
   }
 
-  if (!authReady) {
+  if (!authReady && account) {
     return (
       <main className="auth-screen">
         <p>Restoring secure session...</p>
@@ -241,11 +305,17 @@ function WorkspaceRoute({ account, onLogout }) {
       account={account}
       onLogout={handleWorkspaceLogout}
     >
-      <RolePage
-        roleKey={account.roleKey}
-        page={safePage}
-        account={account}
-      />
+      <React.Suspense fallback={
+        <main className="page">
+          <p>Loading page...</p>
+        </main>
+      }>
+        <RolePage
+          roleKey={account.roleKey}
+          page={safePage}
+          account={account}
+        />
+      </React.Suspense>
     </Shell>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { RefreshCw, Search } from "lucide-react";
 
 import DocumentPreview from "./DocumentPreview";
 import { PageTitle } from "./PageTitle";
@@ -7,6 +8,7 @@ import { Panel } from "./Panel";
 
 import {
   assignRevisionToIroStaff,
+  assignDistributionToIroStaff,
   getDocumentById,
   getDocumentFileBlob,
   getIroStaffProfiles,
@@ -104,6 +106,7 @@ export function ManageSubmissions({
   const [counselError, setCounselError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
 
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] =
     useState("All");
@@ -121,13 +124,10 @@ export function ManageSubmissions({
   const [adminRemarks, setAdminRemarks] = useState("");
   const [sentBackReason, setSentBackReason] = useState("");
   const [revisionInstructions, setRevisionInstructions] = useState("");
+  const [distributionInstructions, setDistributionInstructions] = useState("");
 
   useEffect(() => {
     loadDocuments();
-    loadLegalCounsels();
-    getIroStaffProfiles()
-      .then((items) => setIroStaff(Array.isArray(items) ? items : []))
-      .catch((error) => console.error("Unable to load IRO Staff profiles:", error));
   }, []);
 
   useEffect(() => {
@@ -145,8 +145,10 @@ export function ManageSubmissions({
 
     try {
       const data = await getLoggedDocuments();
-
-      setDocuments(Array.isArray(data) ? data : []);
+      setDocuments(Array.isArray(data?.documents) ? data.documents : []);
+      setIroStaff(Array.isArray(data?.iroStaff) ? data.iroStaff : []);
+      setLegalCounsels(Array.isArray(data?.legalCounsels) ? data.legalCounsels : []);
+      setLoadingCounsels(false);
     } catch (error) {
       console.error(
         "Unable to load managed submissions:",
@@ -213,6 +215,7 @@ export function ManageSubmissions({
       setSentBackReason(document.review_form?.sent_back_reason || "");
       setReassignReason("");
       setRevisionInstructions(document.admin_revision_instructions || "");
+      setDistributionInstructions(document.admin_distribution_instructions || "");
     } catch (error) {
       console.error(
         "Unable to load selected document:",
@@ -530,6 +533,31 @@ export function ManageSubmissions({
     dateFilter,
   ]);
 
+  function clearFilters() {
+    setSearchInput("");
+    setSearchTerm("");
+    setStatusFilter("All");
+    setTypeFilter("All");
+    setDepartmentFilter("All");
+    setStaffFilter("All");
+    setDateFilter("");
+  }
+
+  async function handleAssignDistribution() {
+    setSubmitting(true);
+    setStatusMessage("");
+    try {
+      await assignDistributionToIroStaff(selectedDocument.id, distributionInstructions);
+      await refreshSelectedDocument();
+      await loadDocuments();
+      setStatusMessage("Approved document assigned to IRO Staff for distribution.");
+    } catch (error) {
+      setStatusMessage(error.message || "Unable to assign distribution.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (selectedDocument) {
     const hasReviewForm = Boolean(selectedDocument.review_form);
     const reviewFormStatus =
@@ -608,7 +636,22 @@ export function ManageSubmissions({
           </div>
 
           <aside className="review-sidebar admin-review">
-            {selectedDocument.status === "Corrections Needed" ? (
+            {selectedDocument.status === "Approved" ? (
+              <>
+                <header className="admin-review-intro">
+                  <h2>Legal Approval Result</h2>
+                  <p>Assign the approved document for distribution to its designated departments.</p>
+                </header>
+                <div className="card-block distribution-handoff-card">
+                  <p className="revision-status"><span>Status</span><strong>Approved</strong></p>
+                  <label>Designated Department<input value={getDepartmentName(selectedDocument)} readOnly /></label>
+                  <label>Instructions to IRO Staff <span className="optional-label">Optional</span><textarea value={distributionInstructions} disabled={submitting} onChange={(event) => setDistributionInstructions(event.target.value)} placeholder="Add distribution instructions..." /></label>
+                  <button className="btn primary large" type="button" disabled={submitting || iroStaff.length !== 1} onClick={handleAssignDistribution}>{submitting ? "Assigning..." : "Assign Distribution to IRO Staff"}</button>
+                  {iroStaff.length !== 1 && <p className="assignment-unavailable">The action requires exactly one active IRO Staff account.</p>}
+                  {statusMessage && <p className="review-status" role="alert">{statusMessage}</p>}
+                </div>
+              </>
+            ) : selectedDocument.status === "Corrections Needed" ? (
               <>
                 <header className="admin-review-intro">
                   <h2>Legal Review Result</h2>
@@ -848,76 +891,83 @@ export function ManageSubmissions({
       <PageTitle
         title="Manage Submissions"
         subtitle="Submitted documents requiring administrative action."
-        action="Refresh Submissions"
-        onAction={loadDocuments}
-        actionDisabled={loading}
       />
 
-      <div className="manage-submission-filters">
-        <input
-          type="search"
-          placeholder="Search tracking, department, partner, type, staff, or status..."
-          value={searchTerm}
-          onChange={(event) =>
-            setSearchTerm(event.target.value)
-          }
-        />
+      <form
+        className="manage-filter-toolbar"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setSearchTerm(searchInput);
+        }}
+      >
+        <div className="manage-search-control">
+          <label className="sr-only" htmlFor="manage-search">Search documents</label>
+          <Search size={18} aria-hidden="true" />
+          <input
+            id="manage-search"
+            type="search"
+            placeholder="Search documents..."
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
+        </div>
+        <button className="manage-search-button" type="submit">Search</button>
 
-        <select
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value)
-          }
-        >
-          <option value="All">All Statuses</option>
-          <option value="Submitted">Submitted</option>
-          <option value="Logged">Logged by IRO Staff</option>
-          <option value="Review Form Submitted">
-            Awaiting Validation
-          </option>
-          <option value="Admin Validated">
-            Validated
-          </option>
-        </select>
-
-        <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-          <option value="All">All Document Types</option>
-          <option value="MOA">MOA</option>
-          <option value="MOU">MOU</option>
-          <option value="MOF">MOF</option>
-        </select>
-
-        <select
-          value={departmentFilter}
-          onChange={(event) =>
-            setDepartmentFilter(event.target.value)
-          }
-        >
-          {departments.map((department) => (
-            <option
-              key={department}
-              value={department}
-            >
-              {department === "All"
-                ? "All Departments"
-                : department}
-            </option>
-          ))}
-        </select>
-
-        <select value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
-          <option value="All">All IRO Staff</option>
-          <option value="Unassigned">Unassigned</option>
-          {iroStaff.map((staff) => (
-            <option key={staff.id} value={staff.id}>{staff.full_name || staff.email}</option>
-          ))}
-        </select>
-
-        <label className="manage-date-filter">
-          <span>Date submitted</span>
-          <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+        <label className="manage-filter-field" htmlFor="manage-status">
+          <span>Status</span>
+          <select id="manage-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="All">All Statuses</option>
+            <option value="Submitted">Submitted</option>
+            <option value="Logged">Logged by IRO Staff</option>
+            <option value="Review Form Submitted">Awaiting Validation</option>
+            <option value="Admin Validated">Validated</option>
+          </select>
         </label>
-      </div>
+
+        <label className="manage-filter-field manage-type-filter" htmlFor="manage-type">
+          <span>Document Type</span>
+          <select id="manage-type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            <option value="All">All Types</option>
+            <option value="MOA">MOA</option>
+            <option value="MOU">MOU</option>
+            <option value="MOF">MOF</option>
+          </select>
+        </label>
+
+        <label className="manage-filter-field manage-department-filter" htmlFor="manage-department">
+          <span>Department</span>
+          <select id="manage-department" value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+            {departments.map((department) => (
+              <option key={department} value={department}>
+                {department === "All" ? "All Departments" : department}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="manage-filter-field manage-staff-filter" htmlFor="manage-staff">
+          <span>Assigned IRO Staff</span>
+          <select id="manage-staff" value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
+            <option value="All">All IRO Staff</option>
+            <option value="Unassigned">Unassigned</option>
+            {iroStaff.map((staff) => (
+              <option key={staff.id} value={staff.id}>{staff.full_name || staff.email}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="manage-filter-field manage-date-filter" htmlFor="manage-date">
+          <span>Date Submitted</span>
+          <input id="manage-date" type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+        </label>
+
+        <button className="manage-clear-button" type="button" onClick={clearFilters}>Clear Filters</button>
+        <button className="manage-refresh-button" type="button" onClick={loadDocuments} disabled={loading}>
+          <RefreshCw size={16} aria-hidden="true" className={loading ? "spin" : ""} />
+          {loading ? "Refreshing" : "Refresh"}
+        </button>
+      </form>
 
       <Panel title="Submissions Awaiting Admin Action">
         {loading && <p>Loading submissions...</p>}

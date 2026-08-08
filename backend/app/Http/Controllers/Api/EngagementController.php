@@ -53,6 +53,7 @@ class EngagementController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'client_submission_id' => ['required', 'uuid'],
             'agreement_type' => ['required', Rule::in(['MOA', 'MOU', 'MOF'])],
             'engagement_type' => ['required', Rule::in(['New Partnership', 'Renewal of Existing Partnership'])],
             'partner_classification' => ['required', Rule::in(['Local', 'International'])],
@@ -74,6 +75,23 @@ class EngagementController extends Controller
         ]);
 
         $profile = $request->attributes->get('auth_profile');
+        $existing = Engagement::query()
+            ->where('client_submission_id', $validated['client_submission_id'])
+            ->where('created_by', $profile->id)
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'This engagement was already submitted.',
+                'data' => $existing->load([
+                    'departments',
+                    'distributionRecipients',
+                    'document.files',
+                    'document.workflowEvents',
+                ]),
+            ]);
+        }
+
         $storedPaths = [];
 
         try {
@@ -87,7 +105,9 @@ class EngagementController extends Controller
                     'description' => $validated['agreement_summary'] ?? null,
                     'department_id' => $validated['department_ids'][0],
                     'submitted_by' => $profile->id,
-                    'status' => 'Submitted',
+                    // IRO Admin is authorized to perform the logging step, so
+                    // Admin-created engagements bypass the Staff incoming queue.
+                    'status' => 'Logged',
                     'submitted_at' => now(),
                     'updated_at' => now(),
                     'effective_date' => $validated['effective_date'] ?? null,
@@ -95,6 +115,7 @@ class EngagementController extends Controller
                 ]);
 
                 $engagement = Engagement::create([
+                    'client_submission_id' => $validated['client_submission_id'],
                     'document_id' => $document->id,
                     'engagement_type' => $validated['engagement_type'],
                     'partner_classification' => $validated['partner_classification'],
@@ -137,13 +158,13 @@ class EngagementController extends Controller
                     'document_id' => $document->id,
                     'actor_id' => $profile->id,
                     'actor_role' => $profile->role,
-                    'event_type' => 'engagement_submitted',
+                    'event_type' => 'engagement_created_by_iro_admin',
                     'from_status' => null,
-                    'to_status' => 'Submitted',
-                    'notes' => "{$validated['engagement_type']} created for {$validated['partner_name']}.",
+                    'to_status' => 'Logged',
+                    'notes' => "{$validated['engagement_type']} created and logged by IRO Admin for {$validated['partner_name']}.",
                     'created_at' => now(),
                 ]);
-                $this->notifications->documentSubmitted($document);
+                $this->notifications->documentLogged($document, $profile);
 
                 return $engagement;
             });

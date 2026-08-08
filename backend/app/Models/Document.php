@@ -34,6 +34,7 @@ class Document extends Model
         'status',
         'legal_notes',
         'admin_revision_instructions',
+        'admin_distribution_instructions',
         'staff_forwarding_note',
         'submitted_at',
         'updated_at',

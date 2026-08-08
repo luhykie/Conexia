@@ -31,10 +31,12 @@ class IroAdminController extends Controller
                 'reviewForm:id,document_id,review_form_status,validated_at',
             ])
             ->orderByDesc('updated_at')
+            ->limit(200)
             ->get();
         $events = WorkflowEvent::query()
             ->with('document:id,tracking_number,partner_institution,document_type')
             ->orderBy('created_at')
+            ->limit(100)
             ->get();
 
         return response()->json([
@@ -275,6 +277,59 @@ class IroAdminController extends Controller
 
         return response()->json([
             'message' => 'Revision handling assigned to IRO Staff.',
+            'data' => $document->fresh('assignedIroStaffProfile:id,full_name,email,role'),
+        ]);
+    }
+
+    public function assignDistribution(Request $request, Document $document): JsonResponse
+    {
+        $validated = $request->validate([
+            'instructions' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        if ($document->status !== 'Approved') {
+            return response()->json([
+                'message' => 'Only documents approved by Legal Counsel can be assigned for distribution.',
+            ], 422);
+        }
+
+        $staff = Profile::query()
+            ->where('role', 'iro_staff')
+            ->where('is_active', true)
+            ->get();
+
+        if ($staff->count() !== 1) {
+            return response()->json([
+                'message' => 'The system requires exactly one active IRO Staff account.',
+            ], 422);
+        }
+
+        $iroStaff = $staff->first();
+
+        DB::transaction(function () use ($request, $document, $validated, $iroStaff): void {
+            $document->update([
+                'assigned_iro_staff' => $iroStaff->id,
+                'admin_distribution_instructions' => $validated['instructions'] ?? null,
+                'status' => 'Assigned for Distribution',
+                'updated_at' => now(),
+            ]);
+
+            WorkflowEvent::create([
+                'document_id' => $document->id,
+                'actor_id' => $request->attributes->get('auth_profile')->id,
+                'actor_role' => 'iro_admin',
+                'event_type' => 'distribution_assigned_to_iro_staff',
+                'from_status' => 'Approved',
+                'to_status' => 'Assigned for Distribution',
+                'notes' => $validated['instructions'] ?: 'Approved-document distribution assigned to IRO Staff.',
+                'created_at' => now(),
+            ]);
+
+            $this->notifications->distributionAssignedToStaff($document, $iroStaff);
+        });
+
+        return response()->json([
+            'message' => 'Approved document assigned to IRO Staff for distribution.',
             'data' => $document->fresh('assignedIroStaffProfile:id,full_name,email,role'),
         ]);
     }

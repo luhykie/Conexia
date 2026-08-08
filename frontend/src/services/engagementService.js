@@ -12,6 +12,7 @@ export async function getEngagementOptions() {
 
 export async function createEngagement(values) {
   const body = new FormData();
+  body.append("client_submission_id", values.client_submission_id);
   const scalarFields = [
     "agreement_type", "engagement_type", "partner_classification",
     "partner_name", "partner_email", "partner_contact", "partner_address",
@@ -32,6 +33,7 @@ export async function createEngagement(values) {
   const result = await apiRequest("/iro-admin/engagements", {
     method: "POST",
     body,
+    requestTimeoutMs: 120000,
   });
   window.dispatchEvent(new CustomEvent("conexia:workflow-changed"));
   return result.data ?? result;

@@ -22,29 +22,80 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction }) {
         <Panel title="Recent Activity">
           <DataTable headers={["Submission ID", "Entity Name", "Type", "Timestamp", "Status"]} rows={recentActivity} />
         </Panel>
-        <NotificationCenter />
+        <NotificationCenter roleKey={roleKey} />
       </div>
     </section>
   );
 }
 
 // Shared notification cards for dashboards.
-export function NotificationCenter() {
-  const items = [
-    ["Validation Required", "Batch #402-A requires urgent validation before the daily cycle cutoff.", "new"],
-    ["Task Reassigned", "Submission #IRO-84192 reassigned to Office B.", "info"],
-    ["Expiry Alert", "12 files are approaching the 30-day archival threshold.", "warn"],
-    ["Report Ready", "Q3 Performance Report is now available.", "ok"],
-  ];
+export function NotificationCenter({ roleKey }) {
+  const navigate = useNavigate();
+  const [items, setItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+
+  const load = React.useCallback(async () => {
+    setError("");
+    try {
+      const result = await getNotifications();
+      setItems((result.data ?? []).slice(0, 5));
+    } catch (loadError) {
+      setError(loadError.message || "Unable to load notifications.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    load();
+    const timer = window.setInterval(load, 30000);
+    window.addEventListener("conexia:workflow-changed", load);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("conexia:workflow-changed", load);
+    };
+  }, [load]);
+
+  async function open(item) {
+    if (!item.is_read) {
+      await markNotificationRead(item.id);
+      window.dispatchEvent(new CustomEvent("conexia:notifications-changed"));
+    }
+    const destination = getNotificationDestination(roleKey, item.type);
+    navigate(
+      item.document_id
+        ? `/app/${destination}?document=${item.document_id}`
+        : `/app/${destination}`
+    );
+  }
 
   return (
     <Panel title="Notification Center">
-      {items.map(([title, detail, tone]) => (
-        <div className={`notice ${tone}`} key={title}>
-          <b>{title}</b>
-          <p>{detail}</p>
-          <small>Oct 26, 2023 11:02 AM</small>
-        </div>
+      {loading && <p className="notification-state">Loading notifications...</p>}
+      {!loading && error && <p className="notification-state error">{error}</p>}
+      {!loading && !error && items.length === 0 && (
+        <p className="notification-state">You have no notifications.</p>
+      )}
+      {!loading && !error && items.map((item) => (
+        <button
+          type="button"
+          className={`dashboard-notification ${item.is_read ? "read" : "unread"}`}
+          key={item.id}
+          onClick={() => open(item)}
+        >
+          <span>
+            <strong>{item.title}</strong>
+            <small>{item.message}</small>
+          </span>
+          <time dateTime={item.created_at}>
+            {new Intl.DateTimeFormat(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }).format(new Date(item.created_at))}
+          </time>
+          <ChevronRight size={18} aria-hidden="true" />
+        </button>
       ))}
     </Panel>
   );
@@ -213,15 +264,20 @@ export function NotificationsView({ roleKey }) {
 function getNotificationDestination(roleKey, type = "") {
   if (roleKey === "department") {
     if (type === "revision_sent_to_department") return "revision-detail";
+    if (type === "document_delivered_to_department") return "submissions";
     return "submissions";
   }
   if (roleKey === "legal") return "review";
   if (roleKey === "admin") {
+    if (type === "distribution_completed") return "archive";
     if (type === "document_notarized") return "distribution-lists";
     if (type === "document_submitted") return "dashboard";
     return "manage-submissions";
   }
   if (roleKey === "staff") {
+    if (type === "distribution_assigned_to_iro_staff") {
+      return "distribution-tasks";
+    }
     if (
       ["document_routed_to_legal", "revision_routed_to_legal"].includes(type)
     ) {

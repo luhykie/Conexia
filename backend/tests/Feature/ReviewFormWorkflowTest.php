@@ -50,6 +50,7 @@ class ReviewFormWorkflowTest extends TestCase
             $table->uuid('assigned_legal_counsel')->nullable();
             $table->string('status');
             $table->text('legal_notes')->nullable();
+            $table->text('admin_distribution_instructions')->nullable();
             $table->string('notarial_reference_number')->nullable();
             $table->date('notarization_date')->nullable();
             $table->string('notary_signature_code')->nullable();
@@ -188,6 +189,12 @@ class ReviewFormWorkflowTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('Under Legal Review', $document->fresh()->status);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $legalId,
+            'document_id' => $document->id,
+            'type' => 'document_routed_to_legal',
+            'title' => 'Document Routed to Legal',
+        ]);
 
         $legalQueue = $documentController->legalReviewQueue(
             $this->request([], $legalId, 'legal_counsel')
@@ -222,6 +229,21 @@ class ReviewFormWorkflowTest extends TestCase
             'document_id' => $document->id,
             'type' => 'legal_approved',
             'title' => 'Document Approved by Legal Counsel',
+        ]);
+
+        $assignment = app(IroAdminController::class)->assignDistribution(
+            $this->request([
+                'instructions' => 'Deliver the approved agreement to the designated departments.',
+            ], $adminId, 'iro_admin'),
+            $document->fresh()
+        );
+        $this->assertSame(200, $assignment->getStatusCode());
+        $this->assertSame('Assigned for Distribution', $document->fresh()->status);
+        $this->assertSame($staffId, $document->fresh()->assigned_iro_staff);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $staffId,
+            'document_id' => $document->id,
+            'type' => 'distribution_assigned_to_iro_staff',
         ]);
     }
 

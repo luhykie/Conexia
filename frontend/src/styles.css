@@ -117,6 +117,28 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .stat-card.dark strong, .stat-card.dark p, .stat-card.dark span { color: white; }
 
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); }
+.dashboard-notification {
+  width: 100%;
+  height: auto;
+  min-height: 72px;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: white;
+  color: var(--ink);
+  text-align: left;
+}
+.dashboard-notification:last-child { border-bottom: 0; }
+.dashboard-notification:hover { background: #f3faf6; filter: none; }
+.dashboard-notification.unread { box-shadow: inset 4px 0 0 var(--gold); }
+.dashboard-notification > span { min-width: 0; display: grid; gap: 4px; }
+.dashboard-notification strong { color: var(--green-950); font-size: 14px; }
+.dashboard-notification small { color: #5f6866; font-size: 12px; line-height: 1.35; }
+.dashboard-notification time { flex: 0 0 auto; color: #75807c; font-size: 10px; white-space: nowrap; }
+.dashboard-notification > svg { flex: 0 0 auto; color: var(--green-700); }
+.distribution-document-heading .distribution-department { margin-top: 7px; color: #40534b; font-size: 14px; }
+.distribution-document-heading .distribution-department b { color: var(--green-950); }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); align-items: start; }
 .split-page { display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 0; padding-right: 0; }
 
@@ -1497,12 +1519,83 @@ textarea { padding-top: var(--space-3); resize: vertical; }
    Validation, reassignment, performance reports, archive, and engagements.
    ========================================================================== */
 .iro-admin-page .selected-record { border: 1px solid var(--line); border-radius: var(--radius-card); background: #eef4ff; padding: var(--space-4); color: var(--green-950); font-weight: 900; }
-.manage-submission-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
-.manage-submission-filters input { flex: 1 1 360px; min-width: 240px; }
-.manage-submission-filters select { min-width: 180px; }
-.manage-date-filter { min-width: 190px; text-transform: none; letter-spacing: 0; }
-.manage-date-filter span { color: #66716d; font-size: 11px; }
-.manage-date-filter input { height: 40px; min-height: 40px; }
+.iro-admin-page > .page-title { margin-bottom: 18px; }
+.manage-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 2px 5px rgba(0, 56, 32, .05);
+}
+.manage-search-control {
+  position: relative;
+  flex: 0 1 380px;
+  width: min(380px, 100%);
+  min-width: 280px;
+}
+.manage-search-control svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  z-index: 1;
+  color: #66716d;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.manage-search-control input {
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px 0 38px;
+  border-radius: 8px;
+}
+.manage-filter-field {
+  display: grid;
+  flex: 0 1 165px;
+  min-width: 140px;
+  gap: 4px;
+  color: #53615c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .025em;
+  text-transform: none;
+}
+.manage-filter-field select,
+.manage-filter-field input {
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+.manage-type-filter { flex-basis: 145px; }
+.manage-department-filter { flex-basis: 190px; }
+.manage-staff-filter { flex-basis: 185px; }
+.manage-date-filter { flex-basis: 165px; }
+.manage-search-button,
+.manage-clear-button,
+.manage-refresh-button {
+  width: auto;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.manage-search-button { background: var(--green-950); color: white; }
+.manage-clear-button { border: 1px solid #aebdb6; background: white; color: var(--green-800); }
+.manage-refresh-button { border: 1px solid var(--green-700); background: #f4faf7; color: var(--green-800); }
+.manage-refresh-button:disabled { cursor: wait; opacity: .65; }
+.manage-refresh-button .spin { animation: manage-filter-spin .8s linear infinite; }
+@keyframes manage-filter-spin { to { transform: rotate(360deg); } }
 .clickable-submission-row { cursor: pointer; transition: background .15s ease; }
 .clickable-submission-row:hover, .clickable-submission-row:focus-within { background: #f0f8f4; }
 .clickable-submission-row:focus-visible { outline: 3px solid rgba(0, 122, 82, .24); outline-offset: -3px; }
@@ -1651,18 +1744,42 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .action-modal > footer .btn { width: 100%; }
 }
 .table-responsive { width: 100%; max-width: 100%; overflow-x: auto; }
-.manage-submissions-table { width: 100%; min-width: 1260px; border-collapse: collapse; table-layout: auto; }
+.manage-submissions-table { width: 100%; min-width: 1120px; border-collapse: collapse; table-layout: fixed; }
 .manage-submissions-table th,
-.manage-submissions-table td { padding: 14px 16px; vertical-align: middle; border-bottom: 1px solid var(--line); text-align: left; word-break: normal; overflow-wrap: normal; }
+.manage-submissions-table td { padding: 12px 14px; vertical-align: middle; border-bottom: 1px solid var(--line); text-align: left; word-break: normal; overflow-wrap: normal; line-height: 1.4; }
 .manage-submissions-table th { background: #f6f8fa; color: #66716d; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; }
-.manage-submissions-table .manage-tracking-cell { min-width: 180px; white-space: nowrap; overflow-wrap: normal; }
-.manage-submissions-table .manage-department-cell { min-width: 190px; max-width: 260px; overflow-wrap: break-word; }
-.manage-submissions-table .manage-partner-cell { min-width: 170px; max-width: 250px; overflow-wrap: break-word; }
-.manage-submissions-table .manage-type-cell { min-width: 80px; text-align: center; }
-.manage-submissions-table .manage-staff-cell { min-width: 170px; max-width: 230px; overflow-wrap: break-word; }
-.manage-submissions-table .manage-status-cell { min-width: 150px; white-space: nowrap; }
-.manage-submissions-table .manage-date-cell { min-width: 185px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.manage-submissions-table .manage-action-cell { min-width: 110px; padding-right: 22px; white-space: nowrap; }
+.manage-submissions-table th:nth-child(1) { width: 15%; }
+.manage-submissions-table th:nth-child(2) { width: 17%; }
+.manage-submissions-table th:nth-child(3) { width: 14%; }
+.manage-submissions-table th:nth-child(4) { width: 7%; }
+.manage-submissions-table th:nth-child(5) { width: 12%; }
+.manage-submissions-table th:nth-child(6) { width: 14%; }
+.manage-submissions-table th:nth-child(7) { width: 13%; }
+.manage-submissions-table th:nth-child(8) { width: 140px; }
+.manage-submissions-table .manage-tracking-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manage-submissions-table .manage-department-cell,
+.manage-submissions-table .manage-partner-cell,
+.manage-submissions-table .manage-staff-cell { overflow-wrap: break-word; }
+.manage-submissions-table .manage-type-cell { text-align: center; }
+.manage-submissions-table .manage-status-cell,
+.manage-submissions-table .manage-date-cell,
+.manage-submissions-table .manage-action-cell { white-space: nowrap; }
+.manage-submissions-table .manage-date-cell { font-variant-numeric: tabular-nums; }
+.manage-submissions-table .manage-action-cell { padding-right: 14px; }
+.manage-submissions-table tbody tr { transition: background-color .15s ease, box-shadow .15s ease; }
+.manage-submissions-table tbody tr:hover { background: #f3faf6; }
+.manage-submissions-table .manage-action-cell .btn.small { width: auto; min-height: 38px; height: 38px; padding: 0 13px; font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .manage-search-control { flex-basis: 340px; }
+  .manage-filter-field { flex-grow: 1; }
+}
+
+@media (max-width: 760px) {
+  .manage-filter-toolbar { align-items: stretch; }
+  .manage-search-control { flex: 1 1 100%; width: 100%; }
+  .manage-filter-field { flex: 1 1 180px; }
+}
 
 @media (max-width: 700px) {
   .submission-information-grid { grid-template-columns: 1fr; }

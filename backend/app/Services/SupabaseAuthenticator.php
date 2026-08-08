@@ -22,7 +22,7 @@ class SupabaseAuthenticator
         // A short TTL avoids repeating the remote Supabase user lookup for every
         // API request while keeping profile/authorization changes responsive.
         $profile = Cache::remember(
-            'supabase-auth:v4:'.hash('sha256', $token),
+            'supabase-auth:v5:'.hash('sha256', $token),
             now()->addSeconds($ttl),
             fn (): array => (array) $this->authenticateRemotely($token),
         );

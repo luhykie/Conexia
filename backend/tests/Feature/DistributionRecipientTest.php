@@ -79,6 +79,18 @@ class DistributionRecipientTest extends TestCase
             $table->text('notes')->nullable();
             $table->timestamp('created_at');
         });
+        Schema::create('notifications', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('user_id');
+            $table->uuid('document_id')->nullable();
+            $table->string('type');
+            $table->string('title');
+            $table->text('message');
+            $table->string('dedupe_key')->unique();
+            $table->boolean('is_read')->default(false);
+            $table->timestamp('created_at');
+            $table->timestamp('read_at')->nullable();
+        });
     }
 
     public function test_admin_can_create_filter_and_update_distribution_recipients(): void
@@ -239,6 +251,12 @@ class DistributionRecipientTest extends TestCase
         );
         $this->assertSame(200, $completed->getStatusCode());
         $this->assertSame('Distribution Complete', $document->fresh()->status);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $adminId,
+            'document_id' => $document->id,
+            'type' => 'distribution_completed',
+            'is_read' => false,
+        ]);
         $this->assertDatabaseHas('document_distributions', [
             'distribution_recipient_id' => $optionalRecipient->id,
             'delivery_status' => 'Pending',

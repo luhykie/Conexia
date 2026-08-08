@@ -52,73 +52,72 @@ class DocumentController extends Controller
     public function iroStaffDashboard(Request $request): JsonResponse
     {
         $profile = $this->profile($request);
-
-        $queue = Document::query()
-            ->with('departments:id,name')
-            ->where('status', 'Submitted')
-            ->orderBy('submitted_at')
-            ->limit(5)
-            ->get();
-
-        $assignedQueue = Document::query()
-            ->where('assigned_iro_staff', $profile->id)
-            ->whereNotIn('status', [
-                'Approved',
-                'Notarized',
-                'Ready for Distribution',
-                'Distribution Complete',
-                'Archived',
-            ])
-            ->orderByDesc('updated_at')
-            ->get();
-
-        $activities = WorkflowEvent::query()
-            ->with('document:id,tracking_number,partner_institution')
-            ->whereHas('document', function ($query) use ($profile): void {
-                $query->where('status', 'Submitted')
-                    ->orWhere('assigned_iro_staff', $profile->id);
+        $rows = DB::table('documents')
+            ->leftJoin('departments', 'departments.id', '=', 'documents.department_id')
+            ->leftJoin('workflow_events', 'workflow_events.document_id', '=', 'documents.id')
+            ->where(function ($query) use ($profile): void {
+                $query->where('documents.status', 'Submitted')
+                    ->orWhere('documents.assigned_iro_staff', $profile->id);
             })
-            ->orderByDesc('created_at')
-            ->limit(6)
+            ->select([
+                'documents.*',
+                'departments.name as dashboard_department_name',
+                'workflow_events.id as dashboard_event_id',
+                'workflow_events.actor_id as dashboard_event_actor_id',
+                'workflow_events.actor_role as dashboard_event_actor_role',
+                'workflow_events.event_type as dashboard_event_type',
+                'workflow_events.from_status as dashboard_event_from_status',
+                'workflow_events.to_status as dashboard_event_to_status',
+                'workflow_events.notes as dashboard_event_notes',
+                'workflow_events.created_at as dashboard_event_created_at',
+            ])
             ->get();
 
-        $today = now()->startOfDay();
-        $staffScoped = $profile->role === 'iro_staff';
-        $assignmentClause = $staffScoped
-            ? ' AND assigned_iro_staff = ?'
-            : '';
-        $documentStats = Document::query()
-            ->selectRaw(
-                'SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS incoming',
-                ['Submitted']
-            )
-            ->selectRaw(
-                "SUM(CASE WHEN status = ?{$assignmentClause} THEN 1 ELSE 0 END) AS awaiting_check",
-                $staffScoped ? ['Logged', $profile->id] : ['Logged']
-            )
-            ->selectRaw(
-                "SUM(CASE WHEN status = ?{$assignmentClause} THEN 1 ELSE 0 END) AS routed_to_legal",
-                $staffScoped
-                    ? ['Under Legal Review', $profile->id]
-                    : ['Under Legal Review']
-            )
-            ->first();
-        $loggedToday = WorkflowEvent::query()
-            ->where('event_type', 'document_logged')
-            ->where('created_at', '>=', $today)
-            ->when(
-                $staffScoped,
-                fn ($query) => $query->where('actor_id', $profile->id)
-            )
-            ->count();
+        $documents = $rows->unique('id')->map(function (object $row): array {
+            $document = (array) $row;
+            foreach (array_keys($document) as $key) {
+                if (str_starts_with($key, 'dashboard_event_')) unset($document[$key]);
+            }
+            $document['departments'] = ['name' => $row->dashboard_department_name];
+            unset($document['dashboard_department_name']);
+            return $document;
+        })->values();
+        $activities = $rows->whereNotNull('dashboard_event_id')
+            ->unique('dashboard_event_id')
+            ->sortByDesc('dashboard_event_created_at')
+            ->take(6)
+            ->map(fn (object $row): array => [
+                'id' => $row->dashboard_event_id,
+                'actor_id' => $row->dashboard_event_actor_id,
+                'actor_role' => $row->dashboard_event_actor_role,
+                'event_type' => $row->dashboard_event_type,
+                'from_status' => $row->dashboard_event_from_status,
+                'to_status' => $row->dashboard_event_to_status,
+                'notes' => $row->dashboard_event_notes,
+                'created_at' => $row->dashboard_event_created_at,
+                'document' => [
+                    'id' => $row->id,
+                    'tracking_number' => $row->tracking_number,
+                    'partner_institution' => $row->partner_institution,
+                ],
+            ])->values();
+        $queue = $documents->where('status', 'Submitted')->sortBy('submitted_at')->take(5)->values();
+        $completedStatuses = ['Approved', 'Notarized', 'Ready for Distribution', 'Distribution Complete', 'Archived'];
+        $assignedQueue = $documents->where('assigned_iro_staff', $profile->id)
+            ->reject(fn (array $document): bool => in_array($document['status'], $completedStatuses, true))
+            ->sortByDesc('updated_at')->values();
+        $loggedToday = $rows->where('dashboard_event_type', 'document_logged')
+            ->where('dashboard_event_actor_id', $profile->id)
+            ->filter(fn (object $row): bool => $row->dashboard_event_created_at && now()->isSameDay($row->dashboard_event_created_at))
+            ->unique('dashboard_event_id')->count();
 
         return response()->json([
             'data' => [
                 'stats' => [
-                    'incoming' => (int) $documentStats->incoming,
+                    'incoming' => $documents->where('status', 'Submitted')->count(),
                     'loggedToday' => $loggedToday,
-                    'awaitingCheck' => (int) $documentStats->awaiting_check,
-                    'routedToLegal' => (int) $documentStats->routed_to_legal,
+                    'awaitingCheck' => $documents->where('status', 'Logged')->where('assigned_iro_staff', $profile->id)->count(),
+                    'routedToLegal' => $documents->where('status', 'Under Legal Review')->where('assigned_iro_staff', $profile->id)->count(),
                 ],
                 'queue' => $queue,
                 'assignedQueue' => $assignedQueue,
@@ -244,10 +243,19 @@ class DocumentController extends Controller
     public function incoming(): JsonResponse
     {
         $documents = Document::query()
-            ->with('department:id,name')
+            ->leftJoin('departments', 'departments.id', '=', 'documents.department_id')
+            ->select('documents.*')
+            ->addSelect('departments.name as incoming_department_name')
             ->where('status', 'Submitted')
-            ->orderByDesc('submitted_at')
-            ->get();
+            ->orderByDesc('documents.submitted_at')
+            ->get()
+            ->each(function (Document $document): void {
+                $document->setAttribute('department', [
+                    'id' => $document->department_id,
+                    'name' => $document->incoming_department_name,
+                ]);
+                $document->makeHidden('incoming_department_name');
+            });
 
         return response()->json([
             'data' => $documents,
@@ -428,7 +436,14 @@ class DocumentController extends Controller
     public function logged(): JsonResponse
     {
         $documents = Document::query()
-            ->with($this->documentRelationships())
+            ->leftJoin('departments as queue_department', 'queue_department.id', '=', 'documents.department_id')
+            ->leftJoin('profiles as queue_staff', 'queue_staff.id', '=', 'documents.assigned_iro_staff')
+            ->select('documents.*')
+            ->addSelect([
+                'queue_department.name as queue_department_name',
+                'queue_staff.full_name as queue_staff_name',
+                'queue_staff.email as queue_staff_email',
+            ])
             ->where(function ($query): void {
                 $query->where(function ($assigned): void {
                     $assigned->whereNotNull('assigned_iro_staff')
@@ -438,14 +453,34 @@ class DocumentController extends Controller
                             'Admin Validated',
                             'Corrections Needed',
                             'Assigned for Revision Handling',
+                            'Approved',
+                            'Assigned for Distribution',
                         ]);
                 })->orWhereHas('engagement');
             })
-            ->orderByDesc('updated_at')
-            ->get();
+            ->orderByDesc('documents.updated_at')
+            ->get()
+            ->each(function (Document $document): void {
+                $document->setAttribute('department_name', $document->queue_department_name);
+                $document->setAttribute('assigned_iro_staff_profile', $document->assigned_iro_staff ? [
+                    'id' => $document->assigned_iro_staff,
+                    'full_name' => $document->queue_staff_name,
+                    'email' => $document->queue_staff_email,
+                ] : null);
+                $document->makeHidden(['queue_department_name', 'queue_staff_name', 'queue_staff_email']);
+            });
+        $workflowProfiles = \App\Models\Profile::query()
+            ->whereIn('role', ['iro_staff', 'legal_counsel'])
+            ->where('is_active', true)
+            ->orderBy('full_name')
+            ->get(['id', 'full_name', 'email', 'role']);
 
         return response()->json([
-            'data' => $documents,
+            'data' => [
+                'documents' => $documents,
+                'iroStaff' => $workflowProfiles->where('role', 'iro_staff')->values(),
+                'legalCounsels' => $workflowProfiles->where('role', 'legal_counsel')->values(),
+            ],
         ]);
     }
 

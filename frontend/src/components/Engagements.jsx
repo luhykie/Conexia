@@ -1,4 +1,5 @@
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Building2, CalendarClock, ChevronLeft, ChevronRight, FileText,
   Globe2, History, MapPin, Plus, Search, Users, X,
@@ -13,6 +14,7 @@ import {
 } from "../services/engagementService";
 
 const emptyForm = {
+  client_submission_id: "",
   agreement_type: "",
   engagement_type: "",
   partner_classification: "",
@@ -31,6 +33,7 @@ const emptyForm = {
 };
 
 export function Engagements() {
+  const [searchParams] = useSearchParams();
   const [engagements, setEngagements] = React.useState([]);
   const [options, setOptions] = React.useState({ departments: [], distributionRecipients: [] });
   const [loading, setLoading] = React.useState(true);
@@ -40,7 +43,9 @@ export function Engagements() {
   const [classification, setClassification] = React.useState("all");
   const [status, setStatus] = React.useState("all");
   const [selected, setSelected] = React.useState(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState(
+    searchParams.get("new") === "1"
+  );
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -192,7 +197,10 @@ function EngagementDetail({ engagement, onClose }) {
 
 function NewEngagementModal({ options, onClose, onCreated }) {
   const [step, setStep] = React.useState(1);
-  const [form, setForm] = React.useState(emptyForm);
+  const [form, setForm] = React.useState(() => ({
+    ...emptyForm,
+    client_submission_id: crypto.randomUUID(),
+  }));
   const [error, setError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const recipients = (options.distributionRecipients || []).filter(

@@ -1,5 +1,5 @@
 import React from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CalendarClock,
   FileCheck2,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../components/DataTable";
+import DocumentPreview from "../components/DocumentPreview";
 import Engagements from "../components/Engagements";
 import LogReviewPage from "../components/LogReviewPage";
 import ManageSubmissions from "../components/ManageSubmissions";
@@ -21,6 +22,7 @@ import {
   completeDocumentDistribution,
   createDistributionRecipient,
   getDocumentDistributions,
+  getDocumentById,
   getDistributionRecipients,
   getIroAdminOverview,
   getIroAdminReports,
@@ -102,6 +104,7 @@ function DataState({ loading, error, onRetry, children }) {
 }
 
 function IroAdminDashboard() {
+  const navigate = useNavigate();
   const { data, loading, error, refresh } = useAdminOverview();
   const stats = data?.stats;
   const cards = stats
@@ -131,16 +134,15 @@ function IroAdminDashboard() {
       <PageTitle
         title="Office Overview"
         subtitle="Live institutional submission and workflow data."
-        action="Refresh"
-        onAction={refresh}
-        actionDisabled={loading}
+        action="New Engagement"
+        onAction={() => navigate("/app/engagements?new=1")}
       />
       <DataState loading={loading} error={error} onRetry={refresh}>
         <StatGrid stats={cards} />
         <Panel title="Recent Workflow Activity">
           {activityRows.length ? (
             <DataTable
-              headers={["Tracking #", "Partner", "Event", "Timestamp", "Result"]}
+              headers={["Tracking #", "Partner", "Status", "Timestamp", "Result"]}
               rows={activityRows}
             />
           ) : (
@@ -889,6 +891,11 @@ function PerformanceReports() {
 
 function ArchivePage() {
   const { data, loading, error, refresh } = useAdminOverview();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedDocumentId = searchParams.get("document") || "";
+  const [selectedDocument, setSelectedDocument] = React.useState(null);
+  const [previewLoading, setPreviewLoading] = React.useState(false);
+  const [previewError, setPreviewError] = React.useState("");
   const [busyId, setBusyId] = React.useState("");
   const [actionError, setActionError] = React.useState("");
   const rows = (data?.archivedDocuments || []).map((document) => [
@@ -898,6 +905,40 @@ function ArchivePage() {
     formatDateTime(document.archived_at),
     document.status,
   ]);
+
+  React.useEffect(() => {
+    if (!selectedDocumentId) {
+      setSelectedDocument(null);
+      setPreviewError("");
+      return;
+    }
+
+    let active = true;
+    setPreviewLoading(true);
+    setPreviewError("");
+    getDocumentById(selectedDocumentId)
+      .then((document) => {
+        if (active) setSelectedDocument(document);
+      })
+      .catch((loadError) => {
+        if (active) setPreviewError(loadError.message || "Unable to open the document.");
+      })
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDocumentId]);
+
+  function viewDocument(document) {
+    setSearchParams({ document: document.id });
+  }
+
+  function closeDocument() {
+    setSearchParams({});
+  }
 
   async function archive(document) {
     setBusyId(document.id);
@@ -922,19 +963,34 @@ function ArchivePage() {
         actionDisabled={loading}
       />
       <DataState loading={loading} error={error} onRetry={refresh}>
+        {selectedDocumentId && (
+          <Panel title="Completed Document Review">
+            <button className="btn outline" type="button" onClick={closeDocument}>Close Document</button>
+            {previewLoading && <p className="notification-state">Opening document...</p>}
+            {previewError && <p className="workflow-message error" role="alert">{previewError}</p>}
+            {!previewLoading && !previewError && selectedDocument && (
+              <DocumentPreview document={selectedDocument} canViewContent />
+            )}
+          </Panel>
+        )}
         <Panel title="Ready to Archive">
           {actionError && <p className="workflow-message error" role="alert">{actionError}</p>}
           {(data?.readyToArchive || []).length ? (
             <div className="submission-table-wrap">
               <table className="submission-table">
-                <thead><tr><th>Tracking ID</th><th>Partner</th><th>Type</th><th>Action</th></tr></thead>
+                <thead><tr><th>Tracking ID</th><th>Partner</th><th>Type</th><th>Actions</th></tr></thead>
                 <tbody>
                   {data.readyToArchive.map((document) => (
                     <tr key={document.id}>
                       <td>{document.tracking_number}</td>
                       <td>{document.partner_institution}</td>
                       <td>{document.document_type}</td>
-                      <td><button className="primary" type="button" disabled={busyId === document.id} onClick={() => archive(document)}>{busyId === document.id ? "Archiving..." : "Archive Record"}</button></td>
+                      <td>
+                        <div className="table-actions">
+                          <button className="btn outline" type="button" onClick={() => viewDocument(document)}>View Document</button>
+                          <button className="primary" type="button" disabled={busyId === document.id} onClick={() => archive(document)}>{busyId === document.id ? "Archiving..." : "Archive Record"}</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

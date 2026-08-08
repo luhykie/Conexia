@@ -92,6 +92,7 @@ export const navItems = {
     ["incoming", "Incoming Submissions", Folder],
     ["log-review", "Log Submission", FileCheck2],
     ["status", "Status Tracker", Gauge],
+    ["distribution-tasks", "Distribution Tasks", FileText],
     ["expiry", "Expiry", CalendarClock],
     ["notifications", "Notifications", Bell],
   ],

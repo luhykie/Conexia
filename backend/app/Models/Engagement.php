@@ -13,6 +13,7 @@ class Engagement extends Model
     public $incrementing = false;
 
     protected $fillable = [
+        'client_submission_id',
         'document_id', 'engagement_type', 'partner_classification',
         'partner_name', 'partner_email', 'partner_contact', 'partner_address',
         'agreement_title', 'agreement_summary', 'effective_date', 'expiry_date',

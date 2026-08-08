@@ -34,6 +34,10 @@ export async function signInWithSupabase(email, password) {
     );
   }
 
+  return loadAccountForUser(authData.user);
+}
+
+export async function loadAccountForUser(user) {
   let { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(`
@@ -45,7 +49,7 @@ export async function signInWithSupabase(email, password) {
       department,
       status
     `)
-    .eq("id", authData.user.id)
+    .eq("id", user.id)
     .single();
 
   // Keep login working while the shared Supabase project transitions from
@@ -61,7 +65,7 @@ export async function signInWithSupabase(email, password) {
         department_id,
         is_active
       `)
-      .eq("id", authData.user.id)
+      .eq("id", user.id)
       .single());
   }
 
@@ -110,7 +114,7 @@ export async function signInWithSupabase(email, password) {
   return {
     id: profile.id,
     fullName: profile.full_name,
-    email: authData.user.email,
+    email: user.email,
     role: profile.role,
     roleKey,
     departmentId: profile.department_id,
