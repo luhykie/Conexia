@@ -96,18 +96,37 @@ export default function Page() {
   async function submitNewUser(event) {
     event.preventDefault();
 
+    const payload = {
+      ...newUser,
+      full_name: newUser.full_name.trim(),
+      email: newUser.email.trim().toLowerCase(),
+      department_id:
+        newUser.role === "department_staff"
+          ? newUser.department_id
+          : null,
+    };
+
+    if (!payload.full_name) {
+      setError("Full name is required.");
+      return;
+    }
+
+    if (!payload.email) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (payload.role === "department_staff" && !payload.department_id) {
+      setError("Department Staff must be assigned to a department.");
+      return;
+    }
+
     setCreating(true);
     setError("");
     setSuccess("");
 
     try {
-      await createUser({
-        ...newUser,
-        department_id:
-          newUser.role === "department_staff"
-            ? newUser.department_id
-            : null,
-      });
+      await createUser(payload);
 
       setNewUser({
         full_name: "",
@@ -133,7 +152,11 @@ export default function Page() {
     setNewUser((current) => ({
       ...current,
       [name]: type === "checkbox" ? checked : value,
+      ...(name === "role" && value !== "department_staff"
+        ? { department_id: "" }
+        : {}),
     }));
+    setError("");
   }
 
   const departmentCount = departments.length;

@@ -88,9 +88,6 @@ export default function IroAdminValidationPage() {
     >
       {document.status}
     </span>,
-    <button type="button" className="table-action" disabled key={document.id}>
-      Validate in Incoming Queue
-    </button>,
   ]);
 
   return (
@@ -159,7 +156,6 @@ export default function IroAdminValidationPage() {
               "Entity Name",
               "Priority",
               "Status",
-              "Actions",
             ]}
             rows={rows}
             meta={meta}

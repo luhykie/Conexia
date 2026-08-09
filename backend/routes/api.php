@@ -191,6 +191,8 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 .Profile::ROLE_IRO_ADMIN
                 .','
                 .Profile::ROLE_IRO_STAFF
+                .','
+                .Profile::ROLE_DEPARTMENT_STAFF
         )
             ->group(function (): void {
                 Route::get(
@@ -347,8 +349,18 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
 
                 Route::patch(
+                    '/iro/documents/{id}/reassign-legal',
+                    [IroDocumentController::class, 'reassignLegal']
+                );
+
+                Route::patch(
                     '/iro/documents/{id}/archive',
                     [IroDocumentController::class, 'archive']
+                );
+
+                Route::patch(
+                    '/iro/documents/{id}/unarchive',
+                    [IroDocumentController::class, 'unarchive']
                 );
             });
 

@@ -151,11 +151,7 @@ export default function IroAdminReportsPage() {
           ]}
           showDepartment
           unsupported={{
-            document_type: true,
             partnership_scope: true,
-            date_from: true,
-            date_to: true,
-            department: true,
           }}
         />
         {loading && <p>Loading report data...</p>}

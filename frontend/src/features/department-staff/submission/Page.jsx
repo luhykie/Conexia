@@ -51,7 +51,11 @@ export default function Page({ account }) {
       setLoadingDepartments(true);
 
       try {
-        const response = await getDepartments({ per_page: 100 });
+        const response = await getDepartments({
+          per_page: 100,
+          sort: "code",
+          direction: "asc",
+        });
         setDepartments(response.data ?? []);
       } catch (requestError) {
         reportClientError("Unable to load departments:", requestError);
@@ -425,7 +429,7 @@ function formatDepartmentName(department) {
   }
 
   return department.code
-    ? `${department.name} (${department.code})`
+    ? `${department.code} - ${department.name}`
     : department.name;
 }
 

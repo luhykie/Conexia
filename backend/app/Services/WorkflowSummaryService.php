@@ -9,6 +9,7 @@ use App\Models\Profile;
 use App\Repositories\WorkflowSummaryRepository;
 use App\Support\Pagination;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -177,8 +178,19 @@ class WorkflowSummaryService
 
     public function reports(array $options): array
     {
-        $documents = $this->summaries->reportDocuments($options);
-        $allDocuments = $this->summaries->reportDocuments();
+        $documents = $this->summaries->reportDocuments([
+            ...$options,
+            'paginate' => false,
+        ]);
+        $breakdown = collect($this->departmentBreakdown($documents));
+        $page = $options['page'] ?? 1;
+        $perPage = $options['per_page'] ?? Pagination::DEFAULT_PER_PAGE;
+        $pagedBreakdown = new LengthAwarePaginator(
+            $breakdown->forPage($page, $perPage)->values(),
+            $breakdown->count(),
+            $perPage,
+            $page
+        );
 
         $reviewedStatuses = [
             Document::STATUS_CORRECTIONS_NEEDED,
@@ -191,19 +203,19 @@ class WorkflowSummaryService
         return [
             'stats' => [
                 'total_reviewed' =>
-                    $this->countIn($allDocuments, $reviewedStatuses),
+                    $this->countIn($documents, $reviewedStatuses),
                 'total_returned' => $this->countStatus(
-                    $allDocuments,
+                    $documents,
                     Document::STATUS_CORRECTIONS_NEEDED
                 ),
-                'total_notarized' => $this->countIn($allDocuments, [
+                'total_notarized' => $this->countIn($documents, [
                     Document::STATUS_NOTARIZED,
                     Document::STATUS_ARCHIVED,
                 ]),
             ],
             'department_breakdown' =>
-                $this->departmentBreakdown($allDocuments),
-            'meta' => Pagination::meta($documents),
+                $pagedBreakdown->items(),
+            'meta' => Pagination::meta($pagedBreakdown),
         ];
     }
 

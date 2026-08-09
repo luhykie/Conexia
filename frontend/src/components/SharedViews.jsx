@@ -24,7 +24,6 @@ import {
   getIroDashboard,
   getLegalDashboard,
 } from "../services/dashboardService";
-import { getNotifications } from "../services/notificationService";
 import {
   getExpirySummary,
   requestDocumentRenewal,
@@ -518,80 +517,6 @@ const expiryMilestones = [
     value: "expired",
   },
 ];
-
-// Shared notification archive for Department Staff and IRO Admin.
-export function NotificationsView() {
-  const [notifications, setNotifications] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
-  const [page, setPage] = React.useState(1);
-  const [meta, setMeta] = React.useState(null);
-
-  React.useEffect(() => {
-    let active = true;
-
-    async function loadNotifications() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const response = await getNotifications({ page });
-
-        if (active) {
-          setNotifications(
-            response.notifications ?? response.data ?? [],
-          );
-          setMeta(response.meta ?? null);
-        }
-      } catch (requestError) {
-        reportClientError("Unable to load notifications:", requestError);
-
-        if (active) {
-          setError(requestError.message);
-          setNotifications([]);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadNotifications();
-
-    return () => {
-      active = false;
-    };
-  }, [page]);
-
-  const rows = notifications.map((notification) => [
-    notification.notification_type || "-",
-    notification.message || notification.title || "-",
-    formatDateTime(notification.created_at),
-  ]);
-
-  return (
-    <section className="page">
-      <PageTitle title="Notifications Archive" subtitle="Detailed chronological record of all alerts and submission updates." action="Mark All as Read" />
-      <FilterBar labels={["All", "Submissions", "System", "Security", "Oct 01 - Oct 24"]} />
-      <Panel title="Notification Details">
-        {loading && <p>Loading notifications...</p>}
-        {error && <p className="auth-error">{error}</p>}
-        {!loading && !error && rows.length === 0 && (
-          <p>No notifications are available.</p>
-        )}
-        {!loading && !error && rows.length > 0 && (
-          <DataTable
-            headers={["Type", "Notification Details", "Timestamp"]}
-            rows={rows}
-            meta={meta}
-            onPageChange={setPage}
-          />
-        )}
-      </Panel>
-    </section>
-  );
-}
 
 // Shared filter strip used by dense list pages.
 export function FilterBar({ labels }) {

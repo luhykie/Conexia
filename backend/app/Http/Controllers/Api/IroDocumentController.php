@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
+use App\Models\Department;
 use App\Models\Document;
 use App\Models\Profile;
 use App\Support\DocumentPayload;
@@ -129,6 +131,91 @@ class IroDocumentController extends Controller
         );
     }
 
+    public function reassignLegal(
+        Request $request,
+        string $id
+    ): JsonResponse {
+        $profile = $this->ensureIro($request);
+
+        $validated = $request->validate([
+            'destination_type' => [
+                'required',
+                'string',
+                'in:department,partner,legal_counsel',
+            ],
+            'destination_id' => [
+                'nullable',
+                'uuid',
+            ],
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        $document = DB::transaction(function () use (
+            $id,
+            $profile,
+            $validated
+        ) {
+            $document = $this->lockedDocument($id);
+
+            if (
+                in_array($document->status, [
+                    Document::STATUS_ARCHIVED,
+                    Document::STATUS_NOTARIZED,
+                ], true)
+            ) {
+                throw ValidationException::withMessages([
+                    'status' => 'Finalized or archived documents cannot be reassigned.',
+                ]);
+            }
+
+            $destination = $this->findValidDestination(
+                $document,
+                $validated['destination_type'],
+                $validated['destination_id'] ?? null
+            );
+
+            if (!$destination) {
+                throw ValidationException::withMessages([
+                    'destination' => 'Select a valid involved reassignment destination.',
+                ]);
+            }
+
+            $currentAssignment = $this->currentAssignment($document);
+
+            if ($currentAssignment['key'] === $destination['key']) {
+                throw ValidationException::withMessages([
+                    'destination' => 'Select a different reassignment destination.',
+                ]);
+            }
+
+            if ($destination['type'] === 'legal_counsel') {
+                $document->update([
+                    'assigned_legal_counsel' => $destination['id'],
+                    'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+                ]);
+            }
+
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'iro_admin.document.reassigned',
+                'metadata' => [
+                    'tracking_number' => $document->tracking_number,
+                    'previous_destination' => $currentAssignment,
+                    'new_destination' => $destination,
+                    'reason' => trim($validated['reason']),
+                ],
+            ]);
+
+            return $document->refresh();
+        });
+
+        return $this->documentResponse(
+            'Document reassigned successfully.',
+            $document
+        );
+    }
+
     public function archive(
         Request $request,
         string $id
@@ -155,6 +242,45 @@ class IroDocumentController extends Controller
 
         return $this->documentResponse(
             'Document archived successfully.',
+            $document
+        );
+    }
+
+    public function unarchive(
+        Request $request,
+        string $id
+    ): JsonResponse {
+        $profile = $this->ensureIro($request);
+
+        $document = DB::transaction(function () use ($id, $profile) {
+            $document = $this->lockedDocument($id);
+
+            if ($document->status !== Document::STATUS_ARCHIVED) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only archived documents can be unarchived.',
+                ]);
+            }
+
+            $document->update([
+                'status' => Document::STATUS_NOTARIZED,
+                'archived_at' => null,
+                'archived_by' => null,
+            ]);
+
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'iro_admin.document.unarchived',
+                'metadata' => [
+                    'restored_status' => Document::STATUS_NOTARIZED,
+                ],
+            ]);
+
+            return $document->refresh();
+        });
+
+        return $this->documentResponse(
+            'Document unarchived successfully.',
             $document
         );
     }
@@ -249,7 +375,12 @@ class IroDocumentController extends Controller
     private function payloadFor(Profile $profile, Document $document): array
     {
         if ($profile->role !== Profile::ROLE_IRO_STAFF) {
-            return DocumentPayload::make($document);
+            return [
+                ...DocumentPayload::make($document),
+                'current_assignment' => $this->currentAssignment($document),
+                'reassignment_destinations' =>
+                    $this->reassignmentDestinations($document),
+            ];
         }
 
         $document->loadMissing('department');
@@ -285,11 +416,175 @@ class IroDocumentController extends Controller
         string $message,
         Document $document
     ): JsonResponse {
+        $payload = [
+            ...DocumentPayload::make($document),
+            'current_assignment' => $this->currentAssignment($document),
+            'reassignment_destinations' =>
+                $this->reassignmentDestinations($document),
+        ];
+
         return $this->success(
             $message,
-            DocumentPayload::make($document),
-            ['document' => DocumentPayload::make($document)]
+            $payload,
+            ['document' => $payload]
         );
+    }
+
+    private function reassignmentDestinations(Document $document): array
+    {
+        if (
+            in_array($document->status, [
+                Document::STATUS_ARCHIVED,
+                Document::STATUS_NOTARIZED,
+            ], true)
+        ) {
+            return [];
+        }
+
+        $document->loadMissing('department');
+        $destinations = [];
+
+        if ($document->department) {
+            $destinations[] = [
+                'key' => 'department:'.$document->department->id,
+                'type' => 'department',
+                'id' => $document->department->id,
+                'label' => $this->departmentLabel($document->department),
+                'category' => 'Department',
+            ];
+        }
+
+        $partnerDepartment = $this->partnerDepartment($document);
+
+        if (
+            $partnerDepartment &&
+            $partnerDepartment->id !== $document->department_id
+        ) {
+            $destinations[] = [
+                'key' => 'department:'.$partnerDepartment->id,
+                'type' => 'department',
+                'id' => $partnerDepartment->id,
+                'label' => $this->departmentLabel($partnerDepartment),
+                'category' => 'Department',
+            ];
+        } elseif ($document->partner_institution) {
+            $destinations[] = [
+                'key' => 'partner:'.sha1($document->partner_institution),
+                'type' => 'partner',
+                'id' => null,
+                'label' => $document->partner_institution,
+                'category' => $this->partnerCategory($document),
+                'email' => $document->partner_email,
+            ];
+        }
+
+        Profile::query()
+            ->where('role', Profile::ROLE_LEGAL_COUNSEL)
+            ->where('is_active', true)
+            ->orderBy('full_name')
+            ->get()
+            ->each(function (Profile $legalCounsel) use (&$destinations) {
+                $destinations[] = [
+                    'key' => 'legal_counsel:'.$legalCounsel->id,
+                    'type' => 'legal_counsel',
+                    'id' => $legalCounsel->id,
+                    'label' => $legalCounsel->full_name ?: $legalCounsel->email,
+                    'category' => 'Legal Counsel',
+                    'email' => $legalCounsel->email,
+                ];
+            });
+
+        $current = $this->currentAssignment($document);
+
+        return collect($destinations)
+            ->unique('key')
+            ->reject(fn (array $destination): bool =>
+                $destination['key'] === $current['key']
+            )
+            ->values()
+            ->all();
+    }
+
+    private function findValidDestination(
+        Document $document,
+        string $type,
+        ?string $id
+    ): ?array {
+        return collect($this->reassignmentDestinations($document))
+            ->first(fn (array $destination): bool =>
+                $destination['type'] === $type &&
+                ($destination['id'] ?? null) === $id
+            );
+    }
+
+    private function currentAssignment(Document $document): array
+    {
+        $latestReassignment = AuditLog::query()
+            ->where('document_id', $document->id)
+            ->where('action', 'iro_admin.document.reassigned')
+            ->latest('created_at')
+            ->first();
+
+        $destination = $latestReassignment?->metadata['new_destination'] ?? null;
+
+        if (is_array($destination) && isset($destination['key'])) {
+            return $destination;
+        }
+
+        if ($document->assigned_legal_counsel) {
+            $legalCounsel = Profile::query()
+                ->whereKey($document->assigned_legal_counsel)
+                ->first();
+
+            return [
+                'key' => 'legal_counsel:'.$document->assigned_legal_counsel,
+                'type' => 'legal_counsel',
+                'id' => $document->assigned_legal_counsel,
+                'label' => $legalCounsel?->full_name ?: 'Legal Counsel',
+                'category' => 'Legal Counsel',
+                'email' => $legalCounsel?->email,
+            ];
+        }
+
+        return [
+            'key' => 'none',
+            'type' => 'none',
+            'id' => null,
+            'label' => 'Not assigned',
+            'category' => 'Workflow',
+        ];
+    }
+
+    private function partnerDepartment(Document $document): ?Department
+    {
+        if (!$document->partner_institution) {
+            return null;
+        }
+
+        return Department::query()
+            ->get()
+            ->first(function (Department $department) use ($document): bool {
+                $partner = strtolower($document->partner_institution);
+
+                return str_contains($partner, strtolower($department->code)) ||
+                    str_contains($partner, strtolower($department->name));
+            });
+    }
+
+    private function departmentLabel(Department $department): string
+    {
+        return "{$department->code} - {$department->name}";
+    }
+
+    private function partnerCategory(Document $document): string
+    {
+        $email = strtolower((string) $document->partner_email);
+
+        if ($email && !str_ends_with($email, '.ph')) {
+            return 'International Partner';
+        }
+
+        return 'Local Partner';
     }
 
     private function ensureIro(Request $request): Profile

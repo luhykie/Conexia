@@ -73,7 +73,7 @@ class WorkflowSummaryRepository
                 $options['direction'] ?? 'desc'
             );
 
-        if ($options === null) {
+        if ($options === null || ($options['paginate'] ?? true) === false) {
             return $query->get();
         }
 
@@ -100,15 +100,53 @@ class WorkflowSummaryRepository
                     $builder
                         ->where('tracking_number', $operator, "%{$options['search']}%")
                         ->orWhere('title', $operator, "%{$options['search']}%")
-                        ->orWhere('partner_institution', $operator, "%{$options['search']}%");
+                        ->orWhere('partner_institution', $operator, "%{$options['search']}%")
+                        ->orWhereHas(
+                            'department',
+                            fn ($departmentQuery) => $departmentQuery
+                                ->where('code', $operator, "%{$options['search']}%")
+                                ->orWhere('name', $operator, "%{$options['search']}%")
+                        );
                 })
+            )
+            ->when(
+                $options['document_type'] ?? null,
+                fn ($query) => $query->where(
+                    'document_type',
+                    $options['document_type']
+                )
+            )
+            ->when(
+                $options['department'] ?? null,
+                fn ($query) => $query->whereHas(
+                    'department',
+                    fn ($departmentQuery) => $departmentQuery
+                        ->where('code', $options['department'])
+                        ->orWhere('name', $options['department'])
+                )
+            )
+            ->when(
+                $options['date_from'] ?? null,
+                fn ($query) => $query->whereDate(
+                    'archived_at',
+                    '>=',
+                    $options['date_from']
+                )
+            )
+            ->when(
+                $options['date_to'] ?? null,
+                fn ($query) => $query->whereDate(
+                    'archived_at',
+                    '<=',
+                    $options['date_to']
+                )
             )
             ->orderBy(
                 $options['sort'] ?? 'archived_at',
                 $options['direction'] ?? 'desc'
             );
 
-        if ($options === null) {
+        if ($options === null || ($options['paginate'] ?? true) === false) {
             return $query->get();
         }
 
@@ -132,8 +170,46 @@ class WorkflowSummaryRepository
                     $builder
                         ->where('tracking_number', $operator, "%{$options['search']}%")
                         ->orWhere('title', $operator, "%{$options['search']}%")
-                        ->orWhere('partner_institution', $operator, "%{$options['search']}%");
+                        ->orWhere('partner_institution', $operator, "%{$options['search']}%")
+                        ->orWhereHas(
+                            'department',
+                            fn ($departmentQuery) => $departmentQuery
+                                ->where('code', $operator, "%{$options['search']}%")
+                                ->orWhere('name', $operator, "%{$options['search']}%")
+                        );
                 })
+            )
+            ->when(
+                $options['document_type'] ?? null,
+                fn ($query) => $query->where(
+                    'document_type',
+                    $options['document_type']
+                )
+            )
+            ->when(
+                $options['department'] ?? null,
+                fn ($query) => $query->whereHas(
+                    'department',
+                    fn ($departmentQuery) => $departmentQuery
+                        ->where('code', $options['department'])
+                        ->orWhere('name', $options['department'])
+                )
+            )
+            ->when(
+                $options['date_from'] ?? null,
+                fn ($query) => $query->whereDate(
+                    'submitted_at',
+                    '>=',
+                    $options['date_from']
+                )
+            )
+            ->when(
+                $options['date_to'] ?? null,
+                fn ($query) => $query->whereDate(
+                    'submitted_at',
+                    '<=',
+                    $options['date_to']
+                )
             )
             ->when(
                 $options['status'] ?? null,
@@ -144,7 +220,7 @@ class WorkflowSummaryRepository
                 $options['direction'] ?? 'desc'
             );
 
-        if ($options === null) {
+        if ($options === null || ($options['paginate'] ?? true) === false) {
             return $query->get();
         }
 

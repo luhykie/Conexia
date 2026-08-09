@@ -5,7 +5,6 @@ import DashboardPage from "../features/legal-counsel/dashboard/Page";
 import ExpiryPage from "../features/legal-counsel/expiry/Page";
 import HistoryPage from "../features/legal-counsel/history/Page";
 import NotarizationPage from "../features/legal-counsel/notarization/Page";
-import NotificationsPage from "../features/legal-counsel/notifications/Page";
 import ReviewPage from "../features/legal-counsel/review/Page";
 import SettingsPage from "../features/legal-counsel/settings/Page";
 
@@ -15,7 +14,6 @@ const pages = {
   notarization: NotarizationPage,
   expiry: ExpiryPage,
   history: HistoryPage,
-  notifications: NotificationsPage,
   settings: SettingsPage,
 };
 

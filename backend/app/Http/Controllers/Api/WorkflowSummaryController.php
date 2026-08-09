@@ -93,11 +93,28 @@ class WorkflowSummaryController extends Controller
         Request $request,
         array $sortColumns
     ): array {
-        return Pagination::options(
+        $options = Pagination::options(
             $request,
             $sortColumns,
             $sortColumns[0] ?? 'updated_at',
             Document::workflowStatuses()
         );
+
+        $extra = $request->validate([
+            'document_type' => ['nullable', 'string', 'max:100'],
+            'department' => ['nullable', 'string', 'max:100'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'partnership_scope' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return [
+            ...$options,
+            'document_type' => $extra['document_type'] ?? null,
+            'department' => $extra['department'] ?? null,
+            'date_from' => $extra['date_from'] ?? null,
+            'date_to' => $extra['date_to'] ?? null,
+            'partnership_scope' => $extra['partnership_scope'] ?? null,
+        ];
     }
 }

@@ -15,6 +15,7 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
 import { getArchiveSummary } from "../../../services/workflowSummaryService";
+import { unarchiveIroDocument } from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -24,6 +25,8 @@ export default function IroAdminArchivePage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const [processingId, setProcessingId] = React.useState(null);
+  const [success, setSuccess] = React.useState("");
   const {
     filters,
     queryParams,
@@ -36,10 +39,7 @@ export default function IroAdminArchivePage() {
     setPage(1);
   }
 
-  React.useEffect(() => {
-    let active = true;
-
-    async function loadArchive() {
+  const loadArchive = React.useCallback(async (isActive = () => true) => {
       setLoading(true);
       setError("");
 
@@ -49,28 +49,54 @@ export default function IroAdminArchivePage() {
           ...queryParams,
         });
 
-        if (active) {
+        if (isActive()) {
           setSummary(response.data ?? {});
           setMeta(response.meta ?? null);
         }
       } catch (requestError) {
         reportClientError("Unable to load archive records:", requestError);
 
-        if (active) {
+        if (isActive()) {
           setError(requestError.message);
           setSummary(null);
         }
       } finally {
-        if (active) setLoading(false);
+        if (isActive()) setLoading(false);
       }
-    }
+  }, [page, queryParams]);
 
-    loadArchive();
+  React.useEffect(() => {
+    let active = true;
+
+    loadArchive(() => active);
 
     return () => {
       active = false;
     };
-  }, [page, queryParams]);
+  }, [loadArchive]);
+
+  async function unarchiveRecord(record) {
+    if (!record?.id) return;
+
+    if (!window.confirm(`Unarchive ${record.tracking_number || "this record"}?`)) {
+      return;
+    }
+
+    setProcessingId(record.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await unarchiveIroDocument(record.id);
+      setSuccess("Record unarchived successfully.");
+      await loadArchive(() => true);
+    } catch (requestError) {
+      reportClientError("Unable to unarchive record:", requestError);
+      setError(requestError.message || "Unable to unarchive record.");
+    } finally {
+      setProcessingId(null);
+    }
+  }
 
   const stats = summary?.stats ?? {};
   const rows = (summary?.records ?? []).map((record) => [
@@ -82,8 +108,14 @@ export default function IroAdminArchivePage() {
       : "-",
     record.completion || "-",
     record.status || "-",
-    <button type="button" className="table-action" disabled key={record.id}>
-      View unavailable
+    <button
+      type="button"
+      className="table-action"
+      disabled={processingId === record.id}
+      key={record.id}
+      onClick={() => unarchiveRecord(record)}
+    >
+      {processingId === record.id ? "Restoring..." : "Unarchive"}
     </button>,
   ]);
 
@@ -132,15 +164,12 @@ export default function IroAdminArchivePage() {
           statusOptions={["Archived"]}
           showDepartment
           unsupported={{
-            document_type: true,
             partnership_scope: true,
-            date_from: true,
-            date_to: true,
-            department: true,
           }}
         />
         {loading && <p>Loading archive records...</p>}
         {error && <p className="auth-error">{error}</p>}
+        {success && <p className="success-message">{success}</p>}
         {!loading && !error && rows.length === 0 && (
           <p>No archived records are available.</p>
         )}

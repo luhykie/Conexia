@@ -4,7 +4,6 @@ import { canAccessPage } from "../auth/rbac";
 import DashboardPage from "../features/iro-staff/dashboard/Page";
 import ExpiryPage from "../features/iro-staff/expiry/Page";
 import IncomingPage from "../features/iro-staff/incoming/Page";
-import NotificationsPage from "../features/iro-staff/notifications/Page";
 import SettingsPage from "../features/iro-staff/settings/Page";
 import StatusPage from "../features/iro-staff/status/Page";
 
@@ -13,7 +12,6 @@ const pages = {
   incoming: IncomingPage,
   status: StatusPage,
   expiry: ExpiryPage,
-  notifications: NotificationsPage,
   settings: SettingsPage,
 };
 

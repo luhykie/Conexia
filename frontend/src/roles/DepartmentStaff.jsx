@@ -19,7 +19,6 @@ import { createNotification } from "../utils/notifications";
 import { Panel } from "../components/Panel";
 import { DashboardView, Dropzone, ExpiryView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
-import { NotificationsPage } from "../components/NotificationsPage";
 import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
 import DepartmentSettingsPage from "../features/department-staff/settings/Page";
 import {
@@ -44,10 +43,7 @@ export function DepartmentStaff({ page, account }) {
   if (page === "engagements") return <EngagementsPage />;
   if (page === "expiry") return <ExpiryView />;
   if (page === "settings") return <DepartmentSettingsPage account={account} />;
-  if (page === "notifications") {
-    return <NotificationsPage />;
-  }
-  
+
   return (
     <DashboardView
       roleKey="department"
@@ -95,7 +91,11 @@ function SubmissionPage({ account }) {
       setLoadingDepartments(true);
 
       try {
-        const response = await getDepartments({ per_page: 100 });
+        const response = await getDepartments({
+          per_page: 100,
+          sort: "code",
+          direction: "asc",
+        });
         setDepartments(response.data ?? []);
       } catch (requestError) {
         reportClientError("Unable to load departments:", requestError);
@@ -576,7 +576,7 @@ function formatDepartmentName(department) {
   }
 
   return department.code
-    ? `${department.name} (${department.code})`
+    ? `${department.code} - ${department.name}`
     : department.name;
 }
 

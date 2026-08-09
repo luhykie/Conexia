@@ -27,6 +27,21 @@ export function assignDocumentToLegal(
   );
 }
 
+export function reassignDocumentToLegal(
+  documentId,
+  destination,
+  reason
+) {
+  return apiPatch(
+    `/iro/documents/${documentId}/reassign-legal`,
+    {
+      destination_type: destination.type,
+      destination_id: destination.id,
+      reason,
+    }
+  );
+}
+
 export function getIroStatusDocuments(params = {}) {
   return apiGet(withQuery("/iro/documents/status", params));
 }
@@ -34,6 +49,13 @@ export function getIroStatusDocuments(params = {}) {
 export function archiveIroDocument(documentId) {
   return apiPatch(
     `/iro/documents/${documentId}/archive`,
+    {}
+  );
+}
+
+export function unarchiveIroDocument(documentId) {
+  return apiPatch(
+    `/iro/documents/${documentId}/unarchive`,
     {}
   );
 }

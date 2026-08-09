@@ -16,11 +16,9 @@ export function DocumentFilesPanel({
   canDelete = false,
 }) {
   const [files, setFiles] = React.useState([]);
-  const [selectedFile, setSelectedFile] =
-    React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
-  const [processing, setProcessing] =
-    React.useState("");
+  const [processing, setProcessing] = React.useState("");
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
@@ -79,11 +77,7 @@ export function DocumentFilesPanel({
     setError("");
 
     try {
-      await downloadDocumentFile(
-        documentId,
-        file.id,
-        file.filename
-      );
+      await downloadDocumentFile(documentId, file.id, file.filename);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -105,9 +99,7 @@ export function DocumentFilesPanel({
   }
 
   async function removeFile(file) {
-    const confirmed = window.confirm(
-      `Delete ${file.filename}?`
-    );
+    const confirmed = window.confirm(`Delete ${file.filename}?`);
 
     if (!confirmed) return;
 
@@ -131,10 +123,7 @@ export function DocumentFilesPanel({
       {canUpload && (
         <>
           <Dropzone
-            label={
-              selectedFile?.name ||
-              "Attach agreement file"
-            }
+            label={selectedFile?.name || "Attach agreement file"}
             detail="PDF, DOCX, ODT - MAX 25MB"
           />
 
@@ -143,94 +132,89 @@ export function DocumentFilesPanel({
             accept=".pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text"
             disabled={processing === "upload"}
             onChange={(event) =>
-              setSelectedFile(
-                event.target.files?.[0] || null
-              )
+              setSelectedFile(event.target.files?.[0] || null)
             }
           />
 
           <button
             type="button"
-            disabled={
-              !selectedFile || processing === "upload"
-            }
+            disabled={!selectedFile || processing === "upload"}
             onClick={uploadSelectedFile}
           >
-            {processing === "upload"
-              ? "Uploading..."
-              : "Upload File"}
+            {processing === "upload" ? "Uploading..." : "Upload File"}
           </button>
         </>
       )}
 
       {loading && <p>Loading files...</p>}
 
-      {error && (
-        <p className="auth-error">{error}</p>
-      )}
+      {error && <p className="auth-error">{error}</p>}
 
-      {success && (
-        <p className="success-message">{success}</p>
-      )}
+      {success && <p className="success-message">{success}</p>}
 
-      {!loading && files.length === 0 && (
-        <p>No files uploaded.</p>
-      )}
+      {!loading && files.length === 0 && <p>No files uploaded.</p>}
 
       {files.map((file) => (
         <div className="file-row" key={file.id}>
-          <FileText size={22} />
+          <span className="file-row__icon">
+            <FileText size={22} />
+          </span>
 
-          <div>
+          <div className="file-row__content">
             <b>{file.filename}</b>
             <small>
-              {formatBytes(file.size)} · {file.mime_type} ·{" "}
-              {file.uploaded_at
-                ? new Date(
-                    file.uploaded_at
-                  ).toLocaleString()
-                : "-"}
-              {file.uploader?.name
-                ? ` · ${file.uploader.name}`
-                : ""}
+              {formatMime(file.mime_type)} &bull; {formatBytes(file.size)}
             </small>
+            <small>
+              Uploaded{" "}
+              {file.uploaded_at
+                ? new Date(file.uploaded_at).toLocaleString()
+                : "-"}
+            </small>
+            {file.uploader?.name && (
+              <small>Uploaded by {file.uploader.name}</small>
+            )}
           </div>
 
-          <button
-            type="button"
-            className="table-action"
-            disabled={processing === file.id}
-            onClick={() => previewFile(file)}
-          >
-            Preview
-          </button>
-
-          <button
-            type="button"
-            className="table-action"
-            disabled={processing === file.id}
-            onClick={() => downloadFile(file)}
-          >
-            Download
-          </button>
-
-          {canDelete && (
+          <div className="file-row__actions">
             <button
               type="button"
               className="table-action"
               disabled={processing === file.id}
-              onClick={() => removeFile(file)}
+              onClick={() => previewFile(file)}
             >
-              Delete
+              Preview
             </button>
-          )}
+
+            <button
+              type="button"
+              className="table-action"
+              disabled={processing === file.id}
+              onClick={() => downloadFile(file)}
+            >
+              Download
+            </button>
+
+            {canDelete && (
+              <button
+                type="button"
+                className="table-action"
+                disabled={processing === file.id}
+                onClick={() => removeFile(file)}
+              >
+                Delete
+              </button>
+            )}
+          </div>
         </div>
       ))}
 
       {!loading && files.length > 0 && meta && (
-        <div className="table">
+        <div className="document-files-pagination">
           <footer>
-            Showing {meta.from || 0}-{meta.to || 0} of {meta.total} records
+            <span>
+              Showing {meta.from || 0}-{meta.to || 0} of {meta.total} records
+            </span>
             <div>
               <button
                 disabled={meta.current_page <= 1}
@@ -238,9 +222,7 @@ export function DocumentFilesPanel({
               >
                 &lt;
               </button>
-              <button className="active-page">
-                {meta.current_page}
-              </button>
+              <button className="active-page">{meta.current_page}</button>
               <button
                 disabled={meta.current_page >= meta.last_page}
                 onClick={() => setPage(meta.current_page + 1)}
@@ -263,4 +245,13 @@ function formatBytes(size) {
   }
 
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatMime(mimeType) {
+  if (!mimeType) return "File";
+  if (mimeType.includes("pdf")) return "PDF";
+  if (mimeType.includes("word")) return "DOCX";
+  if (mimeType.includes("opendocument")) return "ODT";
+
+  return mimeType;
 }

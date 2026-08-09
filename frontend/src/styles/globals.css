@@ -46,11 +46,18 @@ body {
 .admin-checkbox {
   align-self: center;
   display: flex !important;
+  align-items: center;
   gap: 8px !important;
+  min-height: 42px;
 }
 
 .admin-checkbox input {
-  min-height: auto;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--cx-color-primary-700);
+  flex: 0 0 auto;
 }
 
 .admin-form-actions {
