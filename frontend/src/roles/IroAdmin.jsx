@@ -1,7 +1,9 @@
 import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  ArchiveRestore,
   CalendarClock,
+  Eye,
   FileCheck2,
   Folder,
   Gauge,
@@ -29,6 +31,7 @@ import {
   markDistributionDelivered,
   prepareDocumentDistribution,
   reassignSubmission,
+  unarchiveDocument,
   updateDistributionRecipient,
 } from "../services/documentService";
 
@@ -898,13 +901,6 @@ function ArchivePage() {
   const [previewError, setPreviewError] = React.useState("");
   const [busyId, setBusyId] = React.useState("");
   const [actionError, setActionError] = React.useState("");
-  const rows = (data?.archivedDocuments || []).map((document) => [
-    document.tracking_number,
-    document.partner_institution,
-    document.document_type,
-    formatDateTime(document.archived_at),
-    document.status,
-  ]);
 
   React.useEffect(() => {
     if (!selectedDocumentId) {
@@ -953,8 +949,22 @@ function ArchivePage() {
     }
   }
 
+  async function unarchive(document) {
+    setBusyId(document.id);
+    setActionError("");
+    try {
+      await unarchiveDocument(document.id);
+      if (selectedDocumentId === document.id) closeDocument();
+      await refresh();
+    } catch (unarchiveError) {
+      setActionError(unarchiveError.message || "Unable to restore this record.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   return (
-    <section className="page iro-admin-page">
+    <section className="page iro-admin-page archive-page">
       <PageTitle
         title="Records Archive"
         subtitle="Records with persisted archive timestamps."
@@ -986,9 +996,9 @@ function ArchivePage() {
                       <td>{document.partner_institution}</td>
                       <td>{document.document_type}</td>
                       <td>
-                        <div className="table-actions">
-                          <button className="btn outline" type="button" onClick={() => viewDocument(document)}>View Document</button>
-                          <button className="primary" type="button" disabled={busyId === document.id} onClick={() => archive(document)}>{busyId === document.id ? "Archiving..." : "Archive Record"}</button>
+                        <div className="archive-row-actions">
+                          <button className="archive-action view" type="button" onClick={() => viewDocument(document)}><Eye size={16} />View Document</button>
+                          <button className="archive-action primary" type="button" disabled={busyId === document.id} onClick={() => archive(document)}>{busyId === document.id ? "Archiving..." : "Archive Record"}</button>
                         </div>
                       </td>
                     </tr>
@@ -999,11 +1009,30 @@ function ArchivePage() {
           ) : <p className="notification-state">No distribution-complete records are waiting for archival.</p>}
         </Panel>
         <Panel title="Archive Records">
-          {rows.length ? (
-            <DataTable
-              headers={["Tracking ID", "Partner", "Type", "Archived At", "Status"]}
-              rows={rows}
-            />
+          {(data?.archivedDocuments || []).length ? (
+            <div className="submission-table-wrap">
+              <table className="submission-table">
+                <thead><tr><th>Tracking ID</th><th>Partner</th><th>Type</th><th>Archived At</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {data.archivedDocuments.map((document) => (
+                    <tr key={document.id}>
+                      <td>{document.tracking_number}</td>
+                      <td>{document.partner_institution}</td>
+                      <td>{document.document_type}</td>
+                      <td>{formatDateTime(document.archived_at)}</td>
+                      <td>
+                        <div className="archive-row-actions">
+                          <button className="archive-action view" type="button" onClick={() => viewDocument(document)}><Eye size={16} />View Document</button>
+                          <button className="archive-action restore" type="button" disabled={busyId === document.id} onClick={() => unarchive(document)}>
+                            <ArchiveRestore size={16} />{busyId === document.id ? "Restoring..." : "Unarchive"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <p className="notification-state">No records have been archived.</p>
           )}

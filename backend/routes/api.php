@@ -69,6 +69,11 @@ Route::middleware('supabase.auth')->group(function (): void {
         [IroAdminController::class, 'archive']
     )->middleware('role:iro_admin');
 
+    Route::patch(
+        '/iro-admin/documents/{document}/unarchive',
+        [IroAdminController::class, 'unarchive']
+    )->middleware('role:iro_admin');
+
     Route::get(
         '/iro-admin/distribution-recipients',
         [DistributionRecipientController::class, 'index']

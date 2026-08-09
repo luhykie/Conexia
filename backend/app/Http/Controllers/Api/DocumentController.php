@@ -56,53 +56,45 @@ class DocumentController extends Controller
     public function iroStaffDashboard(Request $request): JsonResponse
     {
         $profile = $this->profile($request);
-        $rows = DB::table('documents')
+        $documents = DB::table('documents')
             ->leftJoin('departments', 'departments.id', '=', 'documents.department_id')
-            ->leftJoin('workflow_events', 'workflow_events.document_id', '=', 'documents.id')
             ->where(function ($query) use ($profile): void {
                 $query->where('documents.status', 'Submitted')
                     ->orWhere('documents.assigned_iro_staff', $profile->id);
             })
-            ->select([
-                'documents.*',
-                'departments.name as dashboard_department_name',
-                'workflow_events.id as dashboard_event_id',
-                'workflow_events.actor_id as dashboard_event_actor_id',
-                'workflow_events.actor_role as dashboard_event_actor_role',
-                'workflow_events.event_type as dashboard_event_type',
-                'workflow_events.from_status as dashboard_event_from_status',
-                'workflow_events.to_status as dashboard_event_to_status',
-                'workflow_events.notes as dashboard_event_notes',
-                'workflow_events.created_at as dashboard_event_created_at',
-            ])
-            ->get();
-
-        $documents = $rows->unique('id')->map(function (object $row): array {
+            ->select(['documents.*', 'departments.name as dashboard_department_name'])
+            ->get()
+            ->map(function (object $row): array {
             $document = (array) $row;
-            foreach (array_keys($document) as $key) {
-                if (str_starts_with($key, 'dashboard_event_')) unset($document[$key]);
-            }
             $document['departments'] = ['name' => $row->dashboard_department_name];
             unset($document['dashboard_department_name']);
             return $document;
         })->values();
-        $activities = $rows->whereNotNull('dashboard_event_id')
-            ->unique('dashboard_event_id')
-            ->sortByDesc('dashboard_event_created_at')
-            ->take(6)
+
+        $documentIds = $documents->pluck('id');
+        $activities = DB::table('workflow_events')
+            ->join('documents', 'documents.id', '=', 'workflow_events.document_id')
+            ->whereIn('workflow_events.document_id', $documentIds)
+            ->orderByDesc('workflow_events.created_at')
+            ->limit(6)
+            ->get([
+                'workflow_events.*',
+                'documents.tracking_number as activity_tracking_number',
+                'documents.partner_institution as activity_partner_institution',
+            ])
             ->map(fn (object $row): array => [
-                'id' => $row->dashboard_event_id,
-                'actor_id' => $row->dashboard_event_actor_id,
-                'actor_role' => $row->dashboard_event_actor_role,
-                'event_type' => $row->dashboard_event_type,
-                'from_status' => $row->dashboard_event_from_status,
-                'to_status' => $row->dashboard_event_to_status,
-                'notes' => $row->dashboard_event_notes,
-                'created_at' => $row->dashboard_event_created_at,
+                'id' => $row->id,
+                'actor_id' => $row->actor_id,
+                'actor_role' => $row->actor_role,
+                'event_type' => $row->event_type,
+                'from_status' => $row->from_status,
+                'to_status' => $row->to_status,
+                'notes' => $row->notes,
+                'created_at' => $row->created_at,
                 'document' => [
-                    'id' => $row->id,
-                    'tracking_number' => $row->tracking_number,
-                    'partner_institution' => $row->partner_institution,
+                    'id' => $row->document_id,
+                    'tracking_number' => $row->activity_tracking_number,
+                    'partner_institution' => $row->activity_partner_institution,
                 ],
             ])->values();
         $queue = $documents->where('status', 'Submitted')->sortBy('submitted_at')->take(5)->values();
@@ -110,10 +102,11 @@ class DocumentController extends Controller
         $assignedQueue = $documents->where('assigned_iro_staff', $profile->id)
             ->reject(fn (array $document): bool => in_array($document['status'], $completedStatuses, true))
             ->sortByDesc('updated_at')->values();
-        $loggedToday = $rows->where('dashboard_event_type', 'document_logged')
-            ->where('dashboard_event_actor_id', $profile->id)
-            ->filter(fn (object $row): bool => $row->dashboard_event_created_at && now()->isSameDay($row->dashboard_event_created_at))
-            ->unique('dashboard_event_id')->count();
+        $loggedToday = DB::table('workflow_events')
+            ->where('event_type', 'document_logged')
+            ->where('actor_id', $profile->id)
+            ->whereDate('created_at', now()->toDateString())
+            ->count();
 
         return response()->json([
             'data' => [
@@ -333,7 +326,15 @@ class DocumentController extends Controller
     ): JsonResponse
     {
         $this->ensureCanView($request, $document);
-        $document->load($this->documentRelationships());
+        $relationships = array_values(array_filter(
+            $this->documentRelationships(),
+            fn (string $relationship): bool => $relationship !== 'workflowEvents'
+        ));
+        $document->load($relationships);
+        $document->setRelation(
+            'workflowEvents',
+            $document->workflowEvents()->latest('created_at')->limit(100)->get()
+        );
 
         return response()->json([
             'data' => $document,
@@ -485,6 +486,7 @@ class DocumentController extends Controller
                 })->orWhereHas('engagement');
             })
             ->orderByDesc('documents.updated_at')
+            ->limit(200)
             ->get()
             ->each(function (Document $document): void {
                 $document->setAttribute('department_name', $document->queue_department_name);
@@ -729,10 +731,23 @@ class DocumentController extends Controller
         ]);
 
         $reviewForm = $document->reviewForm;
+        $isCheckedRevision = $document->status === 'Logged'
+            && $document->workflowEvents()
+                ->where('event_type', 'revision_checked')
+                ->exists();
 
         if (
             $document->status !== 'Admin Validated'
-            || ! $reviewForm
+            && ! $isCheckedRevision
+        ) {
+            return response()->json([
+                'message' =>
+                    'The Review Form must be validated by IRO Admin before routing.',
+            ], 422);
+        }
+
+        if (
+            ! $reviewForm
             || $reviewForm->review_form_status !== 'validated'
             || ! $reviewForm->validated_by
             || ! $reviewForm->validated_at

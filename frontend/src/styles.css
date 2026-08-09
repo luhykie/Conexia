@@ -67,6 +67,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 248px 1fr; background: var(--workspace); }
 .sidebar { background: var(--green-900); color: white; display: flex; flex-direction: column; min-height: 100vh; border-right: 1px solid rgba(255,255,255,.16); }
 .brand-mark { height: 250px; display: grid; place-items: center; align-content: center; gap: 8px; }
+.sidebar-brand-logo { width: 96px; height: 96px; display: block; object-fit: cover; border-radius: 50%; box-shadow: 0 4px 14px rgba(0,0,0,.16); }
 .seal { width: 78px; height: 78px; border: 3px solid #f6df99; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); }
 .brand-mark h1 { margin: 0; font-size: 32px; letter-spacing: .02em; color: var(--gold); }
 .brand-mark p { margin: 0; color: #89c49e; font-weight: 700; letter-spacing: .08em; }
@@ -1052,18 +1053,28 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   padding: 0 40px 0 26px;
 }
 
-.staff-shell .topbar .search {
-  width: min(760px, 62vw);
-  height: 34px;
+.staff-shell .topbar .search,
+.admin-shell .topbar .search {
+  width: min(400px, 40vw);
+  height: 40px;
   border-radius: 10px;
   border-color: var(--line);
-  background: #eef3fb;
+  background: #f7faf8;
+  margin-right: 0;
 }
 
-.staff-shell .topbar .search input {
-  height: 34px;
-  min-height: 34px;
-  font-size: 13px;
+.staff-shell .topbar .search input,
+.admin-shell .topbar .search input {
+  height: 38px;
+  min-height: 38px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.staff-shell .topbar .search:focus-within,
+.admin-shell .topbar .search:focus-within {
+  border-color: var(--green-700);
+  box-shadow: 0 0 0 3px rgba(0, 105, 72, .14);
 }
 
 .staff-shell .topbar > svg {
@@ -1520,6 +1531,38 @@ textarea { padding-top: var(--space-3); resize: vertical; }
    ========================================================================== */
 .iro-admin-page .selected-record { border: 1px solid var(--line); border-radius: var(--radius-card); background: #eef4ff; padding: var(--space-4); color: var(--green-950); font-weight: 900; }
 .iro-admin-page > .page-title { margin-bottom: 18px; }
+.archive-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
+}
+.archive-action {
+  width: auto;
+  min-width: 124px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0;
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+.archive-action.view { border-color: #8eaaa0; background: #fff; color: var(--green-900); }
+.archive-action.view:hover { border-color: var(--green-700); background: #edf7f2; }
+.archive-action.primary { border-color: var(--green-800); background: var(--green-900); color: #fff; }
+.archive-action.primary:hover { background: var(--green-800); }
+.archive-action.restore { border-color: #d39a48; background: #fffaf1; color: #8a4a00; }
+.archive-action.restore:hover { border-color: #b87317; background: #fff2dc; }
+.archive-action:disabled { cursor: wait; opacity: .62; }
+.archive-page .submission-table th:last-child,
+.archive-page .submission-table td:last-child { width: 280px; }
 .manage-filter-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1808,6 +1851,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .sidebar { position: static; min-height: auto; overflow: hidden; }
   .brand-mark { height: auto; min-height: 96px; grid-template-columns: auto 1fr; grid-template-rows: auto auto; justify-content: start; padding: 16px; column-gap: 12px; }
   .seal { width: 54px; height: 54px; grid-row: 1 / span 2; }
+  .sidebar-brand-logo { width: 64px; height: 64px; grid-row: 1 / span 2; }
   .brand-mark h1 { align-self: end; font-size: 24px; }
   .brand-mark p { align-self: start; font-size: 12px; }
   .sidebar nav { display: flex; overflow-x: auto; padding: 0 16px 14px; gap: 8px; scrollbar-width: thin; }
@@ -1838,6 +1882,8 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   .welcome-cta { margin: 0 16px 24px; }
   .auth-card { width: min(520px, calc(100vw - 32px)); }
   .staff-shell .topbar { height: auto; min-height: 68px; justify-content: flex-end; padding: 12px 16px; }
+  .staff-shell .topbar .topbar-search { width: min(360px, 45vw); }
+  .admin-shell .topbar .topbar-search { width: min(360px, 45vw); }
   .iro-staff-dashboard { max-width: none; padding: 24px 16px; }
   .iro-dashboard-header { display: grid; }
   .iro-dashboard-actions { justify-content: flex-start; }

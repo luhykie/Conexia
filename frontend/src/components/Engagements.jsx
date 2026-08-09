@@ -12,6 +12,7 @@ import {
   getEngagementOptions,
   getEngagements,
 } from "../services/engagementService";
+import { getDocumentFileBlob } from "../services/documentService";
 
 const emptyForm = {
   client_submission_id: "",
@@ -172,9 +173,36 @@ export function Engagements() {
 }
 
 function EngagementDetail({ engagement, onClose }) {
+  const [openingFileId, setOpeningFileId] = React.useState("");
+  const [fileError, setFileError] = React.useState("");
   const events = [...(engagement.document?.workflow_events || [])].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
+
+  async function openRelatedDocument(file) {
+    const previewWindow = window.open("", "_blank");
+    setOpeningFileId(file.id);
+    setFileError("");
+
+    try {
+      const blob = await getDocumentFileBlob(engagement.document.id, file.id);
+      const url = URL.createObjectURL(blob);
+
+      if (previewWindow) {
+        previewWindow.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      previewWindow?.close();
+      setFileError(error.message || "Unable to open the related document.");
+    } finally {
+      setOpeningFileId("");
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="engagement-detail-modal" role="dialog" aria-modal="true" aria-labelledby="engagement-detail-title">
@@ -188,7 +216,23 @@ function EngagementDetail({ engagement, onClose }) {
           <section><h3>Departments / Offices</h3>{(engagement.departments || []).map((item) => <p key={item.id}>{item.name}</p>)}</section>
           <section><h3>Distribution Recipients</h3>{(engagement.distribution_recipients || []).length ? engagement.distribution_recipients.map((item) => <p key={item.id}>{item.recipient_name} · {item.role_scope}</p>) : <p>No recipients selected.</p>}</section>
         </div>
-        <section className="engagement-files"><h3><FileText size={18} /> Related Documents</h3>{(engagement.document?.files || []).map((file) => <p key={file.id}>{file.original_filename} <span>{file.file_category.replaceAll("_", " ")}</span></p>)}</section>
+        <section className="engagement-files">
+          <h3><FileText size={18} /> Related Documents</h3>
+          {(engagement.document?.files || []).map((file) => (
+            <p key={file.id}>
+              <button
+                className="text-action"
+                type="button"
+                disabled={Boolean(openingFileId)}
+                onClick={() => openRelatedDocument(file)}
+              >
+                {openingFileId === file.id ? "Opening..." : file.original_filename}
+              </button>
+              <span>{file.file_category.replaceAll("_", " ")}</span>
+            </p>
+          ))}
+          {fileError && <p className="review-status error" role="alert">{fileError}</p>}
+        </section>
         <section className="engagement-history"><h3><History size={18} /> Agreement History</h3>{events.length ? events.map((event) => <article key={event.id}><b>{event.event_type.replaceAll("_", " ")}</b><p>{event.notes || `${event.from_status || "Created"} → ${event.to_status}`}</p><time>{new Date(event.created_at).toLocaleString()}</time></article>) : <p>No history recorded.</p>}</section>
       </section>
     </div>

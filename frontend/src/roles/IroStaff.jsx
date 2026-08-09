@@ -213,6 +213,8 @@ function IroStaffDashboard({ account }) {
                       const canContinue = [
                         "Logged",
                         "Review Form Sent Back",
+                        "Assigned for Revision Handling",
+                        "Revised and Resubmitted",
                       ].includes(document.status);
 
                       return (

@@ -287,6 +287,7 @@ function getNotificationDestination(roleKey, type = "") {
       [
         "document_logged",
         "revision_requested",
+        "revision_assigned_to_iro_staff",
         "revision_resubmitted",
         "submission_reassigned",
       ].includes(type)

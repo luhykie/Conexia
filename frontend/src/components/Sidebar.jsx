@@ -1,6 +1,7 @@
 import React from "react";
-import { FileText, LogOut, Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { getAllowedNavItems } from "../auth/rbac";
+import conexiaLogo from "../assets/conexia-logo.png";
 
 // Role-aware sidebar renders only RBAC-approved links.
 export function Sidebar({ role, roleKey, page, setPage, onLogout }) {
@@ -13,9 +14,7 @@ export function Sidebar({ role, roleKey, page, setPage, onLogout }) {
   return (
     <aside className="sidebar">
       <div className="brand-mark">
-        <div className="seal">
-          <FileText size={34} />
-        </div>
+        <img className="sidebar-brand-logo" src={conexiaLogo} alt="CONEXIA" />
         <h1>CONEXIA</h1>
         <p>{role.theme}</p>
       </div>

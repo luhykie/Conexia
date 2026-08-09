@@ -6,6 +6,7 @@ export function DocumentPreview({ document, canViewContent = true }) {
   const [previewUrl, setPreviewUrl] = useState("");
   const [fileError, setFileError] = useState("");
   const [loadingFile, setLoadingFile] = useState(false);
+  const [previewRequested, setPreviewRequested] = useState(false);
   const attachment = useMemo(
     () =>
       ["notarized_copy", "reviewed_version", "original_draft"]
@@ -21,7 +22,7 @@ export function DocumentPreview({ document, canViewContent = true }) {
     let objectUrl = "";
 
     async function loadAttachment() {
-      if (!canViewContent || !document?.id || !attachment?.id) {
+      if (!canViewContent || !previewRequested || !document?.id || !attachment?.id) {
         setPreviewUrl("");
         return;
       }
@@ -53,7 +54,13 @@ export function DocumentPreview({ document, canViewContent = true }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [canViewContent, document?.id, attachment?.id]);
+  }, [canViewContent, previewRequested, document?.id, attachment?.id]);
+
+  useEffect(() => {
+    setPreviewRequested(false);
+    setPreviewUrl("");
+    setFileError("");
+  }, [document?.id, attachment?.id]);
 
   if (!document) {
     return (
@@ -106,6 +113,17 @@ export function DocumentPreview({ document, canViewContent = true }) {
 
         {canViewContent && loadingFile && (
           <div className="doc-file-state">Loading submitted document...</div>
+        )}
+
+        {canViewContent && !previewRequested && attachment && (
+          <div className="doc-file-state">
+            <FileText size={48} />
+            <b>{attachment.original_filename}</b>
+            <p>The document preview is loaded only when requested to keep this page fast.</p>
+            <button type="button" onClick={() => setPreviewRequested(true)}>
+              Load document preview
+            </button>
+          </div>
         )}
 
         {canViewContent && !loadingFile && fileError && (

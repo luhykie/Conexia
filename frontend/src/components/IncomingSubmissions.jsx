@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Inbox } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { DashboardStats } from "./DashboardStats";
 import { IncomingHeader } from "./IncomingHeader";
@@ -26,11 +26,13 @@ function departmentName(document) {
 
 export function IncomingSubmissions({ roleKey = "staff" }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [documents, setDocuments] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const linkedSearch = searchParams.get("search") || "";
+  const [searchTerm, setSearchTerm] = useState(linkedSearch);
   const [departmentFilter, setDepartmentFilter] =
     useState("All");
   const [partnerFilter, setPartnerFilter] = useState("All");
@@ -40,6 +42,11 @@ export function IncomingSubmissions({ roleKey = "staff" }) {
   useEffect(() => {
     loadDocuments();
   }, []);
+
+  useEffect(() => {
+    setSearchTerm(linkedSearch);
+    setCurrentPage(1);
+  }, [linkedSearch]);
 
   async function loadDocuments() {
     setLoading(true);

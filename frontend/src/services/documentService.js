@@ -654,6 +654,15 @@ export async function assignDistributionToIroStaff(documentId, instructions = ""
   return result.data ?? result;
 }
 
+export async function unarchiveDocument(documentId) {
+  const result = await apiRequest(
+    `/iro-admin/documents/${documentId}/unarchive`,
+    { method: "PATCH" }
+  );
+  announceWorkflowChange();
+  return result.data ?? result;
+}
+
 export async function saveRevisionForwardingDraft(documentId, forwardingNote = "") {
   const result = await apiRequest(
     `/iro-staff/documents/${documentId}/revision-forwarding-draft`,

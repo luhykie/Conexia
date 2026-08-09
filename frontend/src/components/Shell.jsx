@@ -13,6 +13,7 @@ export function Shell({ roleKey, page, setPage, account, onLogout, children }) {
       <main className="workspace">
         <Topbar
           role={role}
+          roleKey={roleKey}
           account={account}
           onOpenNotifications={
             roleKey === "super"

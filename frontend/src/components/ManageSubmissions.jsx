@@ -131,6 +131,12 @@ export function ManageSubmissions({
   }, []);
 
   useEffect(() => {
+    const linkedSearch = searchParams.get("search") || "";
+    setSearchInput(linkedSearch);
+    setSearchTerm(linkedSearch);
+  }, [searchParams]);
+
+  useEffect(() => {
     const documentId =
       selectedDocumentId || searchParams.get("document");
 
@@ -210,7 +216,7 @@ export function ManageSubmissions({
         ...INITIAL_CHECKLIST,
         ...(document.review_form?.checklist_answers || {}),
       });
-      setLegalCounselId("");
+      setLegalCounselId(document.assigned_legal_counsel || "");
       setAdminRemarks(document.review_form?.admin_remarks || "");
       setSentBackReason(document.review_form?.sent_back_reason || "");
       setReassignReason("");
@@ -566,6 +572,10 @@ export function ManageSubmissions({
     const isValidated = reviewFormStatus === "validated";
     const isLogged =
       selectedDocument.status === "Logged" || !hasReviewForm;
+    const isCheckedRevision = selectedDocument.status === "Logged" &&
+      (selectedDocument.workflow_events || []).some(
+        (event) => event.event_type === "revision_checked"
+      );
     const incompleteChecklist = CHECKLIST_ITEMS.filter(
       (item) => !checklist[item.key]
     );
@@ -670,8 +680,10 @@ export function ManageSubmissions({
             ) : (
             <>
             <header className="admin-review-intro">
-              <h2>Administrative Review</h2>
-              <p>Review and process the selected submission.</p>
+              <h2>{isCheckedRevision ? "Revised Document Review" : "Administrative Review"}</h2>
+              <p>{isCheckedRevision
+                ? "Confirm and forward the revised document to Legal Counsel."
+                : "Review and process the selected submission."}</p>
             </header>
 
             <div className="card-block">
@@ -716,7 +728,7 @@ export function ManageSubmissions({
               </label>
             </div>
 
-            <div className="card-block assignment-card">
+            {!isCheckedRevision && <div className="card-block assignment-card">
               <h3>Assignment</h3>
               <label>
                 Reason for Reassignment <span className="required-mark">Required</span>
@@ -738,7 +750,7 @@ export function ManageSubmissions({
               {iroStaff.length !== 1 && (
                 <p className="assignment-unavailable">The action requires exactly one active IRO Staff account.</p>
               )}
-            </div>
+            </div>}
 
             {(isLogged || isSubmitted || isValidated) && (
             <div className="card-block route-card">
@@ -849,7 +861,9 @@ export function ManageSubmissions({
                 >
                   {submitting
                     ? "Submitting..."
-                    : "Validate and Route to Legal"}
+                    : isCheckedRevision
+                      ? "Forward Revised Document to Legal"
+                      : "Validate and Route to Legal"}
                 </button>
               )}
               {routeDisabledReason && !isValidated && <p className="action-disabled-reason">{routeDisabledReason}</p>}

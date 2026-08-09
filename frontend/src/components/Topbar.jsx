@@ -1,12 +1,28 @@
 import React from "react";
-import { Bell } from "lucide-react";
+import { Bell, Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { getUnreadNotificationCount } from "../services/notificationService";
 
 // Shared top navigation with search and role profile context.
-export function Topbar({ role, account, onOpenNotifications }) {
+export function Topbar({ role, roleKey, account, onOpenNotifications }) {
+  const navigate = useNavigate();
   const displayName = account?.fullName || role.user;
   const title = account?.role || role.title;
   const [unreadCount, setUnreadCount] = React.useState(0);
+  const [documentSearch, setDocumentSearch] = React.useState("");
+
+  function handleDocumentSearch(event) {
+    event.preventDefault();
+    const query = documentSearch.trim();
+    const destination = roleKey === "admin"
+      ? "/app/manage-submissions"
+      : "/app/incoming";
+    navigate(
+      query
+        ? `${destination}?search=${encodeURIComponent(query)}`
+        : destination
+    );
+  }
 
   React.useEffect(() => {
     if (!onOpenNotifications) return undefined;
@@ -37,6 +53,25 @@ export function Topbar({ role, account, onOpenNotifications }) {
 
   return (
     <header className="topbar">
+      {["staff", "admin"].includes(roleKey) && (
+        <form
+          className="search topbar-search"
+          role="search"
+          onSubmit={handleDocumentSearch}
+        >
+          <Search size={18} aria-hidden="true" />
+          <label className="sr-only" htmlFor={`${roleKey}-document-search`}>
+            Search documents
+          </label>
+          <input
+            id={`${roleKey}-document-search`}
+            type="search"
+            value={documentSearch}
+            onChange={(event) => setDocumentSearch(event.target.value)}
+            placeholder="Search documents..."
+          />
+        </form>
+      )}
       <div className="topbar-spacer" aria-hidden="true" />
       {onOpenNotifications && (
         <button

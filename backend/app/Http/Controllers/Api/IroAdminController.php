@@ -421,6 +421,40 @@ class IroAdminController extends Controller
         ]);
     }
 
+    public function unarchive(Request $request, Document $document): JsonResponse
+    {
+        if ($document->status !== 'Archived' || ! $document->archived_at) {
+            return response()->json([
+                'message' => 'Only archived records can be restored.',
+            ], 422);
+        }
+
+        $profile = $request->attributes->get('auth_profile');
+        DB::transaction(function () use ($document, $profile): void {
+            $document->update([
+                'status' => 'Distribution Complete',
+                'archived_at' => null,
+                'archived_by' => null,
+                'updated_at' => now(),
+            ]);
+            WorkflowEvent::create([
+                'document_id' => $document->id,
+                'actor_id' => $profile->id,
+                'actor_role' => $profile->role,
+                'event_type' => 'document_unarchived',
+                'from_status' => 'Archived',
+                'to_status' => 'Distribution Complete',
+                'notes' => 'Archived record was restored by IRO Admin.',
+                'created_at' => now(),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Record restored from the archive.',
+            'data' => $document->fresh(),
+        ]);
+    }
+
     private function reportData(Collection $documents, Collection $events): array
     {
         $eventsByDocument = $events->groupBy('document_id');
