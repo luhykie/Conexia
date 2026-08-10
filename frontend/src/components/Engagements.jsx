@@ -1,12 +1,10 @@
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Building2, CalendarClock, ChevronLeft, ChevronRight, FileText,
-  Globe2, History, MapPin, Plus, Search, Users, X,
+  ArrowUpRight, Building2, CalendarClock, ChevronLeft, ChevronRight, FileText,
+  Globe2, History, MapPin, Plus, RefreshCw, Users, X,
 } from "lucide-react";
 import { PageTitle } from "./PageTitle";
-import { Panel } from "./Panel";
-import { StatGrid } from "./StatGrid";
 import {
   createEngagement,
   getEngagementOptions,
@@ -40,7 +38,6 @@ export function Engagements() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [message, setMessage] = React.useState("");
-  const [search, setSearch] = React.useState("");
   const [classification, setClassification] = React.useState("all");
   const [status, setStatus] = React.useState("all");
   const [selected, setSelected] = React.useState(null);
@@ -72,24 +69,16 @@ export function Engagements() {
     displayStatus: engagementStatus(item),
   }));
   const visible = normalized.filter((item) => {
-    const term = search.trim().toLowerCase();
-    const matchesSearch = !term || [
-      item.partner_name,
-      item.agreement_title,
-      item.document?.tracking_number,
-      item.document?.document_type,
-      ...(item.departments || []).map((department) => department.name),
-    ].some((value) => String(value || "").toLowerCase().includes(term));
-    return matchesSearch
-      && (classification === "all" || item.partner_classification === classification)
+    return (classification === "all" || item.partner_classification === classification)
       && (status === "all" || item.displayStatus.toLowerCase() === status);
   });
 
+  const expiredCount = normalized.filter((item) => item.displayStatus === "Expired").length;
   const stats = [
-    [String(normalized.length), "All Engagements", Building2],
-    [String(normalized.filter((item) => item.partner_classification === "International").length), "International", Globe2],
-    [String(normalized.filter((item) => item.displayStatus === "Expiring").length), "Expiring", CalendarClock, "", "warn"],
-    [String(normalized.filter((item) => item.displayStatus === "Expired").length), "Expired", CalendarClock, "", "danger"],
+    { value: normalized.length, label: "All Engagements", Icon: Building2, tone: "green" },
+    { value: normalized.filter((item) => item.partner_classification === "International").length, label: "International", Icon: Globe2, tone: "green" },
+    { value: normalized.filter((item) => item.displayStatus === "Expiring").length, label: "Expiring", Icon: CalendarClock, tone: "gold" },
+    { value: expiredCount, label: "Expired", Icon: CalendarClock, tone: expiredCount > 0 ? "danger" : "neutral" },
   ];
 
   async function handleCreated() {
@@ -107,58 +96,46 @@ export function Engagements() {
         onAction={() => setModalOpen(true)}
       />
       {message && <p className="workflow-message success" role="status">{message}</p>}
-      <StatGrid stats={stats} />
+      <div className="engagement-summary-grid">
+        {stats.map(({ value, label, Icon, tone }) => (
+          <article className={`engagement-summary-card ${tone}`} key={label}>
+            <span><Icon size={18} /></span>
+            <div><strong>{value}</strong><p>{label}</p></div>
+          </article>
+        ))}
+      </div>
       <div className="engagement-toolbar" aria-label="Engagement filters">
-        <label className="engagement-search">
-          <span className="sr-only">Search engagements</span>
-          <Search size={18} />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search partner, agreement, tracking number, or department"
-          />
-        </label>
-        <select aria-label="Partner classification" value={classification} onChange={(event) => setClassification(event.target.value)}>
-          <option value="all">All classifications</option>
-          <option value="Local">Local</option>
-          <option value="International">International</option>
-        </select>
-        <select aria-label="Engagement status" value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="expiring">Expiring</option>
-          <option value="expired">Expired</option>
-          <option value="renewed">Renewed</option>
-        </select>
-        <button className="outline" type="button" onClick={load} disabled={loading}>Refresh</button>
+        <div className="engagement-filter-group">
+          <label><span>Classification</span><select aria-label="Partner classification" value={classification} onChange={(event) => setClassification(event.target.value)}><option value="all">All classifications</option><option value="Local">Local</option><option value="International">International</option></select></label>
+          <label><span>Status</span><select aria-label="Engagement status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="expiring">Expiring</option><option value="expired">Expired</option><option value="renewed">Renewed</option></select></label>
+        </div>
+        <button className="engagement-refresh" type="button" onClick={load} disabled={loading}><RefreshCw className={loading ? "spin" : ""} size={17} />{loading ? "Refreshing" : "Refresh"}</button>
       </div>
 
-      <Panel title={`${visible.length} ${visible.length === 1 ? "Engagement" : "Engagements"}`}>
+      <section className="engagement-list-section">
+        <header><div><h2>Engagement Directory</h2><p>{visible.length} {visible.length === 1 ? "engagement" : "engagements"}</p></div></header>
         {loading ? (
           <p className="notification-state">Loading engagements...</p>
         ) : error ? (
           <div className="notification-state error"><p>{error}</p><button className="outline" type="button" onClick={load}>Try Again</button></div>
         ) : visible.length === 0 ? (
-          <p className="notification-state">No engagements match the current filters.</p>
+          <div className="engagement-empty-state"><Building2 size={28} /><h3>No engagements found</h3><p>No engagements match the selected classification and status.</p><button type="button" onClick={() => { setClassification("all"); setStatus("all"); }}>Clear filters</button></div>
         ) : (
           <div className="engagement-grid">
             {visible.map((item) => (
-              <button className="engagement-card" type="button" key={item.id} onClick={() => setSelected(item)}>
+              <button className="engagement-card" type="button" key={item.id} onClick={() => setSelected(item)} title={`${item.agreement_title} — ${item.partner_name}`}>
                 <span className="engagement-card-top">
                   <span className="badge">{item.document?.document_type}</span>
                   <span className={`badge ${item.displayStatus.toLowerCase()}`}>{item.displayStatus}</span>
                 </span>
-                <strong>{item.agreement_title}</strong>
-                <span>{item.partner_name}</span>
-                <small><MapPin size={14} /> {item.partner_classification}</small>
-                <small><Users size={14} /> {(item.departments || []).map((department) => department.name).join(", ")}</small>
-                <span className="tracking-number">{item.document?.tracking_number}</span>
+                <div className="engagement-card-heading"><strong title={item.agreement_title}>{displayName(item.agreement_title)}</strong><span title={item.partner_name}>{displayName(item.partner_name)}</span></div>
+                <div className="engagement-card-meta"><small><MapPin size={14} />{displayName(item.partner_classification)}</small><small title={(item.departments || []).map((department) => department.name).join(", ")}><Users size={14} />{(item.departments || []).length} linked {(item.departments || []).length === 1 ? "department" : "departments"}</small></div>
+                <span className="engagement-card-footer"><span className="tracking-number">{item.document?.tracking_number}</span><strong>View Details <ArrowUpRight size={15} /></strong></span>
               </button>
             ))}
           </div>
         )}
-      </Panel>
+      </section>
 
       {selected && <EngagementDetail engagement={selected} onClose={() => setSelected(null)} />}
       {modalOpen && (
@@ -326,6 +303,11 @@ function engagementStatus(item) {
   if (days < 0) return "Expired";
   if (days <= 90) return "Expiring";
   return "Active";
+}
+function displayName(value) {
+  const text = String(value || "Not specified").trim();
+  if (text !== text.toLowerCase()) return text;
+  return text.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 function formatDate(value) {
   return value ? new Date(value).toLocaleDateString() : "Not specified";

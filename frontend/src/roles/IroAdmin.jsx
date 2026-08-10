@@ -3,11 +3,15 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArchiveRestore,
   CalendarClock,
+  Download,
   Eye,
   FileCheck2,
   Folder,
   Gauge,
+  RefreshCw,
   ShieldCheck,
+  Stamp,
+  Undo2,
 } from "lucide-react";
 
 import { DataTable } from "../components/DataTable";
@@ -819,6 +823,7 @@ function PerformanceReports() {
   const [report, setReport] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [departmentFilter, setDepartmentFilter] = React.useState("all");
   const refresh = React.useCallback(async () => {
     setLoading(true);
     setError("");
@@ -838,55 +843,67 @@ function PerformanceReports() {
       window.removeEventListener("conexia:workflow-changed", refresh);
   }, [refresh]);
 
-  const stats = report
-    ? [
-        [String(report.reviewed), "Review Forms Validated", FileCheck2],
-        [String(report.returned), "Returned for Corrections", CalendarClock, "", "danger"],
-        [String(report.approved), "Approved", ShieldCheck],
-        [String(report.notarized), "Notarized", FileCheck2],
-      ]
-    : [];
+  const stats = report ? [
+    { value: report.reviewed, label: "Validated", Icon: FileCheck2, tone: "green" },
+    { value: report.returned, label: "Returned", Icon: Undo2, tone: "red" },
+    { value: report.approved, label: "Approved", Icon: ShieldCheck, tone: "gold" },
+    { value: report.notarized, label: "Notarized", Icon: Stamp, tone: "dark" },
+  ] : [];
   const stageLabels = {
     submissionToLogging: "Submission to logging",
     loggingToValidation: "Logging to validation",
     validationToLegalDecision: "Validation to legal decision",
     approvalToNotarization: "Approval to notarization",
   };
+  const stages = Object.entries(report?.averageStageHours || {});
+  const maxStageHours = Math.max(1, ...stages.map(([, hours]) => Number(hours) || 0));
+  const statusTotal = Math.max(1, stats.reduce((sum, item) => sum + Number(item.value || 0), 0));
+  const departments = report?.departments || [];
+  const visibleDepartments = departmentFilter === "all"
+    ? departments
+    : departments.filter((row) => row.department === departmentFilter);
+
+  function exportCsv() {
+    const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = [
+      ["CONEXIA Institutional Performance Report"],
+      [],
+      ["Metric", "Value"],
+      ...stats.map((item) => [item.label, item.value]),
+      [],
+      ["Department", "Total", "Approved", "Returned"],
+      ...visibleDepartments.map((row) => [row.department, row.total, row.approved, row.returned]),
+    ];
+    const blob = new Blob([rows.map((row) => row.map(escape).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "conexia-performance-report.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
-    <section className="page iro-admin-page">
+    <section className="page iro-admin-page performance-report-page">
       <PageTitle
         title="Institutional Performance Reports"
         subtitle="Metrics calculated from submissions and recorded workflow events."
-        action="Refresh"
-        onAction={refresh}
-        actionDisabled={loading}
       />
+      <div className="report-toolbar" aria-label="Report controls">
+        <label className="report-department-filter"><span>Department</span><select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}><option value="all">All departments</option>{departments.map((row) => <option key={row.department} value={row.department}>{row.department}</option>)}</select></label>
+        <div className="report-toolbar-actions">
+          <button className="report-button secondary" type="button" onClick={exportCsv} disabled={!report}><Download size={16} />Export CSV</button>
+          <button className="report-button secondary" type="button" onClick={() => window.print()} disabled={!report}><Download size={16} />Export PDF</button>
+          <button className="report-button refresh" type="button" onClick={refresh} disabled={loading}><RefreshCw className={loading ? "spin" : ""} size={17} />{loading ? "Refreshing" : "Refresh"}</button>
+        </div>
+      </div>
       <DataState loading={loading} error={error} onRetry={refresh}>
-        <StatGrid stats={stats} />
-        <Panel title="Average Time per Workflow Stage">
-          {Object.entries(report?.averageStageHours || {}).map(([key, hours]) => (
-            <div className="bar-row" key={key}>
-              <span>{stageLabels[key] || key}</span>
-              <b>{hours === null ? "Insufficient data" : `${hours} hours`}</b>
-            </div>
-          ))}
-        </Panel>
-        <Panel title="Departmental Breakdown">
-          {(report?.departments || []).length ? (
-            <DataTable
-              headers={["Department", "Total", "Approved", "Returned"]}
-              rows={report.departments.map((row) => [
-                row.department,
-                String(row.total),
-                String(row.approved),
-                String(row.returned),
-              ])}
-            />
-          ) : (
-            <p className="notification-state">No departmental report data available.</p>
-          )}
-        </Panel>
+        <div className="report-kpi-grid">{stats.map(({ value, label, Icon, tone }) => <article className={`report-kpi ${tone}`} key={label}><span><Icon size={19} /></span><div><strong>{value}</strong><p>{label}</p></div></article>)}</div>
+        <div className="report-chart-grid">
+          <section className="report-card stage-chart"><header><div><h2>Average Time per Workflow Stage</h2><p>Average processing duration in hours</p></div></header><div className="stage-bars">{stages.map(([key, hours]) => <div className="stage-bar" key={key}><div className="stage-bar-label"><span>{stageLabels[key] || key}</span><b>{hours === null ? "No data" : `${hours}h`}</b></div><div className="stage-bar-track"><i style={{ width: hours === null ? "0%" : `${Math.max(4, (Number(hours) / maxStageHours) * 100)}%` }} /></div></div>)}</div></section>
+          <section className="report-card status-chart"><header><div><h2>Status Distribution</h2><p>Document outcomes by workflow status</p></div></header><div className="status-bars">{stats.map((item) => <div className={`status-bar ${item.tone}`} key={item.label}><div><span>{item.label}</span><b>{item.value}</b></div><i><span style={{ width: `${(Number(item.value || 0) / statusTotal) * 100}%` }} /></i></div>)}</div></section>
+        </div>
+        <section className="report-card department-report-card"><header><div><h2>Departmental Breakdown</h2><p>{visibleDepartments.length} {visibleDepartments.length === 1 ? "department" : "departments"} in the current view</p></div></header>{visibleDepartments.length ? <div className="report-table-wrap"><table className="report-table"><thead><tr><th>Department</th><th>Total</th><th>Approved</th><th>Returned</th><th>Approval Rate</th></tr></thead><tbody>{visibleDepartments.map((row) => { const rate = row.total ? Math.round((row.approved / row.total) * 100) : 0; return <tr key={row.department}><td><strong>{row.department}</strong></td><td>{row.total}</td><td><span className="report-badge approved">{row.approved}</span></td><td><span className="report-badge returned">{row.returned}</span></td><td><span className="rate-value">{rate}%</span></td></tr>; })}</tbody></table></div> : <p className="notification-state">No departmental report data available.</p>}</section>
       </DataState>
     </section>
   );
