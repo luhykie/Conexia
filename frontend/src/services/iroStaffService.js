@@ -1,6 +1,7 @@
 import {
   apiGet,
   apiPatch,
+  apiPost,
   withQuery,
 } from "../api/apiClient";
 
@@ -58,6 +59,10 @@ export function unarchiveIroDocument(documentId) {
     `/iro/documents/${documentId}/unarchive`,
     {}
   );
+}
+
+export function createIroDocument(payload) {
+  return apiPost('/iro/documents', payload);
 }
 
 export function getActiveLegalCounselUsers(params = {}) {

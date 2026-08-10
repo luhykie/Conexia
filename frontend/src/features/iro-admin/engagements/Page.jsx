@@ -9,6 +9,7 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { getIroStatusDocuments } from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
+import { IroNewEngagementModal } from "./NewEngagementModal";
 import "./Page.css";
 
 export default function IroAdminEngagementsPage() {
@@ -18,6 +19,7 @@ export default function IroAdminEngagementsPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const [showModal, setShowModal] = React.useState(false);
   const {
     filters,
     queryParams,
@@ -30,58 +32,48 @@ export default function IroAdminEngagementsPage() {
     setPage(1);
   }
 
-  React.useEffect(() => {
-    let active = true;
+  const loadEngagements = React.useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-    async function loadEngagements() {
-      setLoading(true);
-      setError("");
+    try {
+      const response = await getIroStatusDocuments({
+        page,
+        ...queryParams,
+      });
+      const loadedDocuments = response.documents ?? response.data ?? [];
 
-      try {
-        const response = await getIroStatusDocuments({
-          page,
-          ...queryParams,
-        });
-        const loadedDocuments = response.documents ?? response.data ?? [];
+      setDocuments(loadedDocuments);
+      setMeta(response.meta ?? null);
+      setSelectedDocument((current) => {
+        if (!loadedDocuments.length) return null;
 
-        if (active) {
-          setDocuments(loadedDocuments);
-          setMeta(response.meta ?? null);
-          setSelectedDocument((current) => {
-            if (!loadedDocuments.length) return null;
-
-            return (
-              loadedDocuments.find((document) => document.id === current?.id) ||
-              loadedDocuments[0]
-            );
-          });
-        }
-      } catch (requestError) {
-        reportClientError("Unable to load engagements:", requestError);
-
-        if (active) {
-          setError(requestError.message);
-          setDocuments([]);
-          setSelectedDocument(null);
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
+        return (
+          loadedDocuments.find((document) => document.id === current?.id) ||
+          loadedDocuments[0]
+        );
+      });
+    } catch (requestError) {
+      reportClientError("Unable to load engagements:", requestError);
+      setError(requestError.message);
+      setDocuments([]);
+      setSelectedDocument(null);
+    } finally {
+      setLoading(false);
     }
-
-    loadEngagements();
-
-    return () => {
-      active = false;
-    };
   }, [page, queryParams]);
+
+  React.useEffect(() => {
+    loadEngagements();
+  }, [loadEngagements]);
+
 
   const rows = documents.map((document) => [
     document.partner_institution || "-",
     `${document.document_type || "-"} / ${
       document.department?.code || document.department?.name || "-"
     }`,
-    document.expiry_date || document.expected_duration || "-",
+    document.expiry_date || document.requested_completion_date || "-",
     document.status || "-",
     <button
       type="button"
@@ -99,6 +91,8 @@ export default function IroAdminEngagementsPage() {
         <PageTitle
           title="Partner Engagements"
           subtitle="Global view of institutional partnerships."
+          action="New Engagement"
+          onAction={() => setShowModal(true)}
         />
 
         <Panel title="Engagement Registry">
@@ -171,6 +165,12 @@ export default function IroAdminEngagementsPage() {
           Edit Engagement unavailable
         </button>
       </aside>
+
+      <IroNewEngagementModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onCreated={loadEngagements}
+      />
     </section>
   );
 }
