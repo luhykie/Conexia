@@ -1,6 +1,7 @@
 import {
   apiGet,
   apiPatch,
+  apiPost,
   withQuery,
 } from "../api/apiClient";
 
@@ -44,6 +45,10 @@ export function reassignDocumentToLegal(
 
 export function getIroStatusDocuments(params = {}) {
   return apiGet(withQuery("/iro/documents/status", params));
+}
+
+export function createIroDocument(payload) {
+  return apiPost("/iro/documents", payload);
 }
 
 export function archiveIroDocument(documentId) {

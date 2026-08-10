@@ -1,3 +1,115 @@
 .iro-admin-engagements-page .detail-drawer button:disabled {
   cursor: not-allowed;
 }
+
+.engagement-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(19, 32, 51, 0.42);
+}
+
+.engagement-modal {
+  width: min(840px, 100%);
+  max-height: min(90vh, 100%);
+  overflow: auto;
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 28px 80px rgba(19, 32, 51, 0.22);
+}
+
+.engagement-modal header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.engagement-modal header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.engagement-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.engagement-steps span {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #d7dfd9;
+  background: #f8fbfa;
+  color: #647075;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.engagement-steps span.active {
+  border-color: #256349;
+  background: #e7f7ed;
+  color: #164b34;
+  font-weight: 700;
+}
+
+.engagement-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-step {
+  display: grid;
+  gap: 18px;
+}
+
+.engagement-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.engagement-form input,
+.engagement-form select,
+.engagement-form textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 12px 14px;
+  border: 1px solid #d7dfd9;
+  border-radius: 8px;
+  background: #f8fbfa;
+}
+
+.engagement-form textarea {
+  resize: vertical;
+}
+
+.engagement-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.engagement-modal-actions button {
+  min-width: 140px;
+}
+
+.engagement-modal .outline {
+  border-color: #d7dfd9;
+  background: #ffffff;
+  color: #164b34;
+}
+
+.engagement-modal .auth-error {
+  margin: 0;
+}
+
+.engagement-modal .success-message {
+  margin: 0;
+}

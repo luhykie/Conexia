@@ -58,6 +58,14 @@ class Document extends Model
         'expiry_date',
         'renewal_notice_days',
         'renewal_status',
+        'partnership_type',
+        'partnership_scope',
+        'contact_person',
+        'contact_position',
+        'contact_email',
+        'contact_number',
+        'urgency',
+        'requested_completion_date',
     ];
 
     protected function casts(): array
@@ -69,6 +77,7 @@ class Document extends Model
             'archived_at' => 'datetime',
             'effective_date' => 'date',
             'expiry_date' => 'date',
+            'requested_completion_date' => 'date',
             'renewal_notice_days' => 'integer',
         ];
     }
