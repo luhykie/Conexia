@@ -6,12 +6,14 @@ import {
   deleteDocumentFile,
   downloadDocumentFile,
   getDocumentFiles,
+  getDocumentPreviewUrl,
   previewDocumentFile,
   uploadDocumentFile,
 } from "../services/documentFileService";
 
 export function DocumentFilesPanel({
   documentId,
+  embeddedPreview = false,
   canUpload = false,
   canDelete = false,
 }) {
@@ -23,6 +25,8 @@ export function DocumentFilesPanel({
   const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const [embeddedPreviewUrl, setEmbeddedPreviewUrl] = React.useState("");
+  const [embeddedPreviewFile, setEmbeddedPreviewFile] = React.useState(null);
 
   async function loadFiles() {
     if (!documentId) return;
@@ -32,8 +36,13 @@ export function DocumentFilesPanel({
 
     try {
       const response = await getDocumentFiles(documentId, { page });
-      setFiles(response.files ?? response.data ?? []);
+      const loadedFiles = response.files ?? response.data ?? [];
+      setFiles(loadedFiles);
       setMeta(response.meta ?? null);
+
+      if (embeddedPreview && loadedFiles.length) {
+        await loadEmbeddedPreview(loadedFiles[0]);
+      }
     } catch (requestError) {
       setError(requestError.message);
       setFiles([]);
@@ -49,6 +58,21 @@ export function DocumentFilesPanel({
     setSuccess("");
     loadFiles();
   }, [documentId, page]);
+
+  React.useEffect(() => () => {
+    if (embeddedPreviewUrl) URL.revokeObjectURL(embeddedPreviewUrl);
+  }, [embeddedPreviewUrl]);
+
+  async function loadEmbeddedPreview(file) {
+    if (!file || !documentId) return;
+
+    const url = await getDocumentPreviewUrl(documentId, file.id);
+    setEmbeddedPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return url;
+    });
+    setEmbeddedPreviewFile(file);
+  }
 
   async function uploadSelectedFile() {
     if (!selectedFile) {
@@ -90,6 +114,10 @@ export function DocumentFilesPanel({
     setError("");
 
     try {
+      if (embeddedPreview) {
+        await loadEmbeddedPreview(file);
+        return;
+      }
       await previewDocumentFile(documentId, file.id);
     } catch (requestError) {
       setError(requestError.message);
@@ -120,6 +148,29 @@ export function DocumentFilesPanel({
 
   return (
     <Panel title="Document Files">
+      {embeddedPreview && (
+        <div className="embedded-document-preview">
+          {loading && <p>Loading document preview...</p>}
+          {!loading && !embeddedPreviewFile && !error && (
+            <p>No attached document is available for preview.</p>
+          )}
+          {embeddedPreviewFile?.mime_type?.includes("pdf") && embeddedPreviewUrl && (
+            <iframe
+              className="embedded-document-preview__frame"
+              title={`Preview ${embeddedPreviewFile.filename}`}
+              src={embeddedPreviewUrl}
+            />
+          )}
+          {embeddedPreviewFile && !embeddedPreviewFile.mime_type?.includes("pdf") && (
+            <div className="embedded-document-preview__unsupported">
+              <FileText size={38} />
+              <b>{embeddedPreviewFile.filename}</b>
+              <p>This document type opens in its associated application.</p>
+              <button type="button" className="outline" onClick={() => downloadFile(embeddedPreviewFile)}>Download document</button>
+            </div>
+          )}
+        </div>
+      )}
       {canUpload && (
         <>
           <Dropzone
@@ -183,7 +234,7 @@ export function DocumentFilesPanel({
               disabled={processing === file.id}
               onClick={() => previewFile(file)}
             >
-              Preview
+              {embeddedPreview ? "Show in preview" : "Preview"}
             </button>
 
             <button
