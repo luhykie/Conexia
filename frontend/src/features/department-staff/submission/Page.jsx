@@ -45,6 +45,42 @@ export default function Page({ account }) {
   const [success, setSuccess] = React.useState("");
   const [submittedTrackingNumber, setSubmittedTrackingNumber] =
     React.useState("");
+  const [preSubmissionAnswers, setPreSubmissionAnswers] = React.useState(null);
+
+  React.useEffect(() => {
+    // Load pre-submission answers from sessionStorage
+    const stored = sessionStorage.getItem("department-pre-submission");
+    if (stored) {
+      try {
+        const answers = JSON.parse(stored);
+        setPreSubmissionAnswers(answers);
+
+        // Map pre-submission answers to form
+        const mappedForm = { ...initialForm };
+
+        // Map partnerClassification to partnershipType
+        if (answers.partnerClassification === "local") {
+          mappedForm.partnershipType = "Local";
+        } else if (answers.partnerClassification === "international") {
+          mappedForm.partnershipType = "International";
+        } else if (answers.partnerClassification === "interdepartmental") {
+          mappedForm.partnershipType = "Departmental";
+        }
+
+        // Pre-fill agreement type
+        if (answers.agreementType) {
+          mappedForm.agreementType = answers.agreementType;
+        }
+
+        setForm(mappedForm);
+
+        // Clear sessionStorage after loading
+        sessionStorage.removeItem("department-pre-submission");
+      } catch (err) {
+        console.error("Failed to parse pre-submission data:", err);
+      }
+    }
+  }, []);
 
   React.useEffect(() => {
     async function loadDepartments() {
@@ -233,6 +269,26 @@ export default function Page({ account }) {
 
         {step === 1 && (
           <Panel title="Partnership Information">
+            {preSubmissionAnswers && (
+              <div className="pre-submission-info-banner">
+                <p>
+                  <b>Agreement Type:</b> {preSubmissionAnswers.agreementType}
+                </p>
+                <p>
+                  <b>Submission Type:</b>{" "}
+                  {preSubmissionAnswers.submissionType === "new_partnership"
+                    ? "New Partnership"
+                    : "Renewal"}
+                </p>
+                <p>
+                  <b>Partner Classification:</b>{" "}
+                  {preSubmissionAnswers.partnerClassification === "interdepartmental"
+                    ? "Interdepartmental"
+                    : preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() +
+                      preSubmissionAnswers.partnerClassification.slice(1)}
+                </p>
+              </div>
+            )}
             <div className="department-form-grid">
               <fieldset className="department-form-wide segmented-field">
                 <legend>Partnership Type</legend>
@@ -250,6 +306,7 @@ export default function Page({ account }) {
                           },
                         })
                       }
+                      disabled={preSubmissionAnswers !== null}
                     >
                       <Icon size={17} />
                       {type}

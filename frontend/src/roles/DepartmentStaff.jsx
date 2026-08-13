@@ -9,6 +9,7 @@ import {
   MapPin,
   UploadCloud,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
 import {
   DocumentFilters,
@@ -20,6 +21,7 @@ import { Panel } from "../components/Panel";
 import { DashboardView, Dropzone, ExpiryView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
+import { PreSubmissionModal } from "../components/PreSubmissionModal";
 import DepartmentSettingsPage from "../features/department-staff/settings/Page";
 import {
   createDepartmentDocument,
@@ -38,6 +40,28 @@ const partnershipTypes = [
 
 // Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account }) {
+  const navigate = useNavigate();
+  const [preSubmissionModalOpen, setPreSubmissionModalOpen] = React.useState(false);
+
+  function handleNewSubmission() {
+    setPreSubmissionModalOpen(true);
+  }
+
+  function handlePreSubmissionConfirm(selection) {
+    // Store pre-submission selections in sessionStorage
+    sessionStorage.setItem(
+      "department-pre-submission",
+      JSON.stringify(selection)
+    );
+    setPreSubmissionModalOpen(false);
+    // Navigate to submission page
+    navigate("/app/submission");
+  }
+
+  function handlePreSubmissionClose() {
+    setPreSubmissionModalOpen(false);
+  }
+
   if (page === "submission") return <SubmissionPage account={account} />;
   if (page === "submissions") return <MySubmissionsPage />;
   if (page === "engagements") return <EngagementsPage />;
@@ -45,12 +69,20 @@ export function DepartmentStaff({ page, account }) {
   if (page === "settings") return <DepartmentSettingsPage account={account} />;
 
   return (
-    <DashboardView
-      roleKey="department"
-      title="Institutional Workspace"
-      subtitle={`Welcome back, ${account.name || account.fullName}. Here is the real-time status for your department.`}
-      action="New Submission"
-    />
+    <>
+      <DashboardView
+        roleKey="department"
+        title="Institutional Workspace"
+        subtitle={`Welcome back, ${account.name || account.fullName}. Here is the real-time status for your department.`}
+        action="New Submission"
+        onAction={handleNewSubmission}
+      />
+      <PreSubmissionModal
+        open={preSubmissionModalOpen}
+        onClose={handlePreSubmissionClose}
+        onConfirm={handlePreSubmissionConfirm}
+      />
+    </>
   );
 }
 
