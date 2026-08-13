@@ -9,6 +9,7 @@ import {
   MapPin,
   UploadCloud,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
 import {
   DocumentFilters,
@@ -38,6 +39,8 @@ const partnershipTypes = [
 
 // Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account }) {
+  const navigate = useNavigate();
+
   if (page === "submission") return <SubmissionPage account={account} />;
   if (page === "submissions") return <MySubmissionsPage />;
   if (page === "engagements") return <EngagementsPage />;
@@ -50,6 +53,7 @@ export function DepartmentStaff({ page, account }) {
       title="Institutional Workspace"
       subtitle={`Welcome back, ${account.name || account.fullName}. Here is the real-time status for your department.`}
       action="New Submission"
+      onAction={() => navigate("/app/submission")}
     />
   );
 }
