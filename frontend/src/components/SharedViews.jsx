@@ -156,6 +156,7 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
     formatDateTime(item.timestamp),
     item.status || "-",
   ]);
+  const departmentApiUnavailable = roleKey === "department" && Boolean(error);
 
   return (
     <section className="page">
@@ -164,7 +165,12 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
       <div className="dashboard-grid">
         <Panel title="Recent Activity">
           {loading && <p>Loading dashboard activity...</p>}
-          {error && <p className="auth-error">{error}</p>}
+          {departmentApiUnavailable && (
+            <p className="dashboard-offline-message">
+              Dashboard activity will appear when the local API is connected. You can still start a new submission and preview a selected document.
+            </p>
+          )}
+          {error && !departmentApiUnavailable && <p className="auth-error">{error}</p>}
           {!loading && !error && activityRows.length === 0 && (
             <p>No recent activity is available.</p>
           )}
@@ -178,7 +184,8 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
         <NotificationCenter
           items={dashboard?.notifications ?? []}
           loading={loading}
-          error={error}
+          error={departmentApiUnavailable ? "" : error}
+          offline={departmentApiUnavailable}
         />
       </div>
     </section>
@@ -186,12 +193,13 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
 }
 
 // Shared notification cards for dashboards.
-export function NotificationCenter({ items = [], loading = false, error = "" }) {
+export function NotificationCenter({ items = [], loading = false, error = "", offline = false }) {
   return (
     <Panel title="Notification Center">
       {loading && <p>Loading notifications...</p>}
+      {offline && <p className="dashboard-offline-message">Notifications will appear when the local API is connected.</p>}
       {error && <p className="auth-error">{error}</p>}
-      {!loading && !error && items.length === 0 && (
+      {!loading && !error && !offline && items.length === 0 && (
         <p>No dashboard notifications are available.</p>
       )}
       {!loading && !error && items.map((item) => (

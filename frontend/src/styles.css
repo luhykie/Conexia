@@ -366,6 +366,168 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .summary-card, .form-card, .review-panel, .review-sidebar { padding: var(--space-6); display: grid; gap: var(--space-5); }
 .summary-card { background: #d7e8ff; border-color: #a8c7ef; position: sticky; top: 88px; }
 .summary-card h2, .form-card h2, .review-panel h2, .review-sidebar h2 { margin: 0; color: var(--green-950); }
+
+.submission-review-summary {
+  gap: var(--space-4);
+}
+
+.submission-review-note {
+  margin: calc(var(--space-3) * -1) 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.submission-review-section {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.submission-review-section h3 {
+  margin: 0 0 var(--space-3);
+  color: var(--green-900);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.submission-review-section dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+
+.submission-review-section dl > div {
+  min-width: 0;
+}
+
+.submission-review-section dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.submission-review-section dd {
+  margin: var(--space-1) 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-offline-message {
+  margin: 0;
+  padding: var(--space-4);
+  color: #53635d;
+  background: #f3f7f5;
+  border: 1px solid #d7e3dc;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.wizard-preview-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.wizard-preview-action span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.department-local-preview {
+  margin-top: var(--space-4);
+  background: #eef1f4;
+  border: 1px solid var(--line);
+}
+
+.department-local-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.department-local-preview__frame {
+  display: block;
+  width: min(100%, 900px);
+  height: 68vh;
+  min-height: 540px;
+  margin: 0 auto;
+  border: 0;
+  background: #fff;
+}
+
+.department-submission-review__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.department-submission-review__document .panel { margin-bottom: 0; }
+
+.department-submission-review__document .embedded-document-preview {
+  min-height: calc(100vh - 220px);
+  padding: var(--space-3);
+}
+
+.department-submission-review__document .embedded-document-preview__frame {
+  width: min(100%, 1040px);
+  height: calc(100vh - 246px);
+  min-height: 680px;
+}
+
+.department-submission-review__details {
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  padding: var(--space-5);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.department-submission-review__details h2 { margin: 0; color: var(--green-950); }
+
+.department-submission-review__section {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.department-submission-review__section h3 {
+  margin: 0 0 var(--space-3);
+  color: var(--green-900);
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.department-submission-review__section p { display: grid; gap: 3px; margin: 0 0 var(--space-3); }
+.department-submission-review__section p:last-child { margin-bottom: 0; }
+.department-submission-review__section p span { color: var(--muted); font-size: 12px; }
+.department-submission-review__section p b { color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.department-submission-review__description { white-space: pre-line; color: var(--ink); font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 1100px) {
+  .department-submission-review__workspace { grid-template-columns: 1fr; }
+  .department-submission-review__details { position: static; max-height: none; }
+  .department-submission-review__document .embedded-document-preview__frame { height: 72vh; min-height: 560px; }
+}
+
+
+@media (max-width: 620px) {
+  .submission-review-section dl { grid-template-columns: 1fr; }
+}
 .review-panel { background: var(--green-950); color: white; }
 .review-panel h2, .review-panel label { color: white; }
 .review-panel input, .review-panel textarea, .review-panel select { background: rgba(255,255,255,.08); color: #b9ddca; border-color: rgba(255,255,255,.18); }

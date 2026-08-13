@@ -28,7 +28,6 @@ import {
   getDepartmentDocuments,
   resubmitDepartmentDocument,
 } from "../services/departmentStaffService";
-import { getDepartments } from "../services/departmentService";
 import { uploadDocumentFile } from "../services/documentFileService";
 import { reportClientError } from "../utils/reportClientError";
 
@@ -36,6 +35,17 @@ const partnershipTypes = [
   ["Departmental", Building2],
   ["Local", MapPin],
   ["International", Globe2],
+];
+
+const collaboratingDepartments = [
+  "School of Engineering and Architecture",
+  "School of Computer Science",
+  "School of Education",
+  "School of Business and Management",
+  "School of Law",
+  "School of Arts and Sciences",
+  "Expanded Tertiary Education Equivalency and Accreditation Program (ETEEAP)",
+  "School of Allied Medical Sciences",
 ];
 
 // Routes all Department Staff pages through one role-owned component.
@@ -48,9 +58,9 @@ export function DepartmentStaff({ page, account }) {
   }
 
   function handlePreSubmissionConfirm(selection) {
-    // Store pre-submission selections in sessionStorage
+    // The upload page consumes this completed Department Staff draft at step 2.
     sessionStorage.setItem(
-      "department-pre-submission",
+      "department-submission-draft",
       JSON.stringify(selection)
     );
     setPreSubmissionModalOpen(false);
@@ -81,6 +91,7 @@ export function DepartmentStaff({ page, account }) {
         open={preSubmissionModalOpen}
         onClose={handlePreSubmissionClose}
         onConfirm={handlePreSubmissionConfirm}
+        account={account}
       />
     </>
   );
@@ -97,6 +108,15 @@ function SubmissionPage({ account }) {
     durationUnit: "Years",
     partnerEmail: "",
     description: "",
+    agreementTitle: "",
+    submissionType: "new",
+    requestingOffice: "",
+    contactPerson: "",
+    position: "",
+    emailAddress: "",
+    contactNumber: "",
+    requestedCompletionDate: "",
+    urgencyLevel: "normal",
   });
 
   const [submitting, setSubmitting] =
@@ -110,35 +130,53 @@ function SubmissionPage({ account }) {
 
   const [selectedFile, setSelectedFile] =
     React.useState(null);
-  const [departments, setDepartments] =
-    React.useState([]);
-  const [loadingDepartments, setLoadingDepartments] =
-    React.useState(false);
+  const [localPreviewUrl, setLocalPreviewUrl] = React.useState("");
   const [step, setStep] = React.useState(1);
   const [submittedTrackingNumber, setSubmittedTrackingNumber] =
     React.useState("");
+  const [preSubmissionAnswers, setPreSubmissionAnswers] =
+    React.useState(null);
 
   React.useEffect(() => {
-    async function loadDepartments() {
-      setLoadingDepartments(true);
+    const storedDraft = sessionStorage.getItem("department-submission-draft");
+    if (!storedDraft) return;
 
-      try {
-        const response = await getDepartments({
-          per_page: 100,
-          sort: "code",
-          direction: "asc",
-        });
-        setDepartments(response.data ?? []);
-      } catch (requestError) {
-        reportClientError("Unable to load departments:", requestError);
-        setDepartments([]);
-      } finally {
-        setLoadingDepartments(false);
-      }
+    try {
+      const draft = JSON.parse(storedDraft);
+      setPreSubmissionAnswers(draft);
+      setForm({
+        partnershipType: draft.partnerClassification === "interdepartmental" ? "Departmental" : draft.partnerClassification === "international" ? "International" : "Local",
+        partnerDepartmentId: draft.partnerDepartmentId || "",
+        partnerInstitution: draft.partnerInstitution || "",
+        agreementType: draft.agreementType || "MOA",
+        durationValue: draft.durationValue || "5",
+        durationUnit: draft.durationUnit || "Years",
+        partnerEmail: draft.emailAddress || "",
+        description: formatReviewFormDetails(draft),
+        agreementTitle: draft.agreementTitle || "",
+        submissionType: draft.submissionType || "new",
+        requestingOffice: draft.requestingOffice || "",
+        contactPerson: draft.contactPerson || "",
+        position: draft.position || "",
+        emailAddress: draft.emailAddress || "",
+        contactNumber: draft.contactNumber || "",
+        requestedCompletionDate: draft.requestedCompletionDate || "",
+        urgencyLevel: draft.urgencyLevel || "normal",
+      });
+      setStep(2);
+    } catch (parseError) {
+      reportClientError("Unable to restore Department Staff submission draft:", parseError);
+      sessionStorage.removeItem("department-submission-draft");
     }
-
-    loadDepartments();
   }, []);
+
+  React.useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      requestingOffice: current.requestingOffice || account?.department || account?.departmentCode || account?.office || "",
+      emailAddress: current.emailAddress || account?.email || "",
+    }));
+  }, [account]);
 
   function updateForm(event) {
     const { name, value } = event.target;
@@ -158,17 +196,11 @@ function SubmissionPage({ account }) {
     }
 
     if (name === "partnerDepartmentId") {
-      const department = departments.find(
-        (item) => item.id === value,
-      );
-
       setForm((current) => ({
         ...current,
         partnerDepartmentId: value,
-        partnerInstitution: department
-          ? formatDepartmentName(department)
-          : "",
-        partnerEmail: department?.email || "",
+        partnerInstitution: value,
+        partnerEmail: "",
       }));
       setError("");
       setSuccess("");
@@ -208,13 +240,49 @@ function SubmissionPage({ account }) {
       return;
     }
 
+    if (!form.agreementTitle.trim() || !form.requestingOffice.trim() || !form.contactPerson.trim() || !form.position.trim() || !form.emailAddress.trim() || !form.contactNumber.trim() || !form.requestedCompletionDate) {
+      setError("Please complete all required review form fields.");
+      return;
+    }
+    if (!isValidEmail(form.emailAddress)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!isValidPhoneNumber(form.contactNumber)) {
+      setError("Please enter a valid contact number with 7 to 15 digits.");
+      return;
+    }
+
     setError("");
     setStep(2);
   }
 
   function continueToConfirmation() {
+    if (!selectedFile) {
+      setError("Please select a document before continuing to confirmation.");
+      return;
+    }
+
     setError("");
     setStep(3);
+  }
+
+  function previewSelectedFile() {
+    if (!selectedFile) {
+      setError("Select a document to preview first.");
+      return;
+    }
+
+    setLocalPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(selectedFile);
+    });
+    setError("");
+  }
+
+  function closeLocalPreview() {
+    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    setLocalPreviewUrl("");
   }
 
   function backToStep(previousStep) {
@@ -268,13 +336,6 @@ function SubmissionPage({ account }) {
       return;
     }
 
-    if (!account?.id || !account?.departmentId) {
-      setError(
-        "Your account has no department assignment.",
-      );
-      return;
-    }
-
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -285,13 +346,15 @@ function SubmissionPage({ account }) {
       const partnerName = form.partnerInstitution.trim();
       const response =
         await createDepartmentDocument({
-          title: `${partnerName} ${form.agreementType}`,
+          title: form.agreementTitle.trim() || `${partnerName} ${form.agreementType}`,
           document_type: form.agreementType,
           partner_institution: partnerName,
           partner_email:
             form.partnerEmail.trim() || null,
-          description:
-            form.description.trim() || null,
+          description: (form.description.trim() || formatReviewFormDetails({
+            ...form,
+            partnerClassification: form.partnershipType === "Departmental" ? "interdepartmental" : form.partnershipType.toLowerCase(),
+          })).trim() || null,
           ...expiryPayload(),
         });
 
@@ -336,10 +399,20 @@ function SubmissionPage({ account }) {
       durationUnit: "Years",
       partnerEmail: "",
       description: "",
+      agreementTitle: "",
+      submissionType: "new",
+      requestingOffice: account?.department || account?.departmentCode || account?.office || "",
+      contactPerson: "",
+      position: "",
+      emailAddress: account?.email || "",
+      contactNumber: "",
+      requestedCompletionDate: "",
+      urgencyLevel: "normal",
     });
 
     setSelectedFile(null);
     setStep(3);
+    sessionStorage.removeItem("department-submission-draft");
     setSubmitting(false);
   }
 
@@ -370,8 +443,21 @@ function SubmissionPage({ account }) {
         {step === 1 && (
           <Panel title="Partnership Information">
             <div className="form-grid submission-step-grid">
+              <label>
+                Submission Type
+                <select name="submissionType" value={form.submissionType} onChange={updateForm}>
+                  <option value="new">New Partnership</option>
+                  <option value="renewal">Renewal</option>
+                </select>
+              </label>
+
+              <label>
+                Title of Agreement
+                <input name="agreementTitle" value={form.agreementTitle} onChange={updateForm} placeholder="Enter agreement title" required />
+              </label>
+
               <fieldset className="full-width segmented-field">
-                <legend>Partnership Type</legend>
+                <legend>Partner Classification</legend>
                 <div className="segmented-cards">
                   {partnershipTypes.map(([type, Icon]) => (
                     <button
@@ -388,7 +474,7 @@ function SubmissionPage({ account }) {
                       }
                     >
                       <Icon size={17} />
-                      {type}
+                      {type === "Departmental" ? "Interdepartmental" : type}
                     </button>
                   ))}
                 </div>
@@ -396,22 +482,19 @@ function SubmissionPage({ account }) {
 
               {form.partnershipType === "Departmental" ? (
                 <label>
-                  Partner Department
+                  Which department are you collaborating with?
                   <select
                     name="partnerDepartmentId"
                     value={form.partnerDepartmentId}
                     onChange={updateForm}
-                    disabled={loadingDepartments}
                     required
                   >
                     <option value="">
-                      {loadingDepartments
-                        ? "Loading departments..."
-                        : "Select department"}
+                      Select department or program
                     </option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {formatDepartmentName(department)}
+                    {collaboratingDepartments.map((department) => (
+                      <option key={department} value={department}>
+                        {department}
                       </option>
                     ))}
                   </select>
@@ -466,27 +549,47 @@ function SubmissionPage({ account }) {
               </label>
 
               <label>
-                Partner Contact Email
+                Requesting Office / Department
                 <input
-                  className={form.partnershipType === "Departmental" ? "auto-filled-input" : ""}
-                  name="partnerEmail"
-                  type="email"
-                  value={form.partnerEmail}
+                  name="requestingOffice"
+                  value={form.requestingOffice}
                   onChange={updateForm}
-                  readOnly={form.partnershipType === "Departmental"}
-                  placeholder={form.partnershipType === "Departmental" ? "Auto-filled from department" : "contact@partner.edu"}
+                  required
                 />
               </label>
 
-              <label className="full-width">
-                Description
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={updateForm}
-                  placeholder="Briefly describe the agreement."
-                  rows="4"
-                />
+              <label>
+                Contact Person
+                <input name="contactPerson" value={form.contactPerson} onChange={updateForm} required />
+              </label>
+
+              <label>
+                Position
+                <input name="position" value={form.position} onChange={updateForm} required />
+              </label>
+
+              <label>
+                Email Address
+                <input name="emailAddress" type="email" value={form.emailAddress} onChange={updateForm} required />
+              </label>
+
+              <label>
+                Contact Number
+                <input name="contactNumber" type="tel" inputMode="numeric" pattern="[0-9]{7,15}" maxLength="15" title="Use a valid contact number with 7 to 15 digits." value={form.contactNumber} onChange={(event) => updateForm({ target: { name: "contactNumber", value: numbersOnly(event.target.value) } })} required />
+              </label>
+
+              <label>
+                Requested Date of Completion
+                <input name="requestedCompletionDate" type="date" value={form.requestedCompletionDate} onChange={updateForm} required />
+              </label>
+
+              <label>
+                Urgency Level
+                <select name="urgencyLevel" value={form.urgencyLevel} onChange={updateForm}>
+                  <option value="normal">Normal</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="highly_urgent">Highly Urgent</option>
+                </select>
               </label>
             </div>
             <WizardActions>
@@ -501,8 +604,20 @@ function SubmissionPage({ account }) {
           <div className="submission-step-layout">
             <Panel
               title="Document Upload"
-              subtitle="Upload the agreement draft for review."
+              subtitle="Step 2: upload the agreement draft for review."
             >
+              {preSubmissionAnswers && (
+                <div className="pre-submission-info-banner">
+                  <p><b>Partner:</b> {form.partnerInstitution}</p>
+                  <p><b>Agreement:</b> {preSubmissionAnswers.agreementType} · {preSubmissionAnswers.submissionType === "renewal" ? "Renewal" : "New Partnership"}</p>
+                  <p><b>Classification:</b> {preSubmissionAnswers.partnerClassification === "interdepartmental" ? "Interdepartmental" : preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() + preSubmissionAnswers.partnerClassification.slice(1)}</p>
+                  <p><b>Title:</b> {preSubmissionAnswers.agreementTitle}</p>
+                  <p><b>Requesting Office:</b> {preSubmissionAnswers.requestingOffice}</p>
+                  <p><b>Contact:</b> {preSubmissionAnswers.contactPerson} · {preSubmissionAnswers.position}</p>
+                  <p><b>Email / Number:</b> {preSubmissionAnswers.emailAddress} · {preSubmissionAnswers.contactNumber}</p>
+                  <p><b>Requested completion:</b> {preSubmissionAnswers.requestedCompletionDate} · {preSubmissionAnswers.urgencyLevel === "highly_urgent" ? "Highly Urgent" : preSubmissionAnswers.urgencyLevel.charAt(0).toUpperCase() + preSubmissionAnswers.urgencyLevel.slice(1)}</p>
+                </div>
+              )}
               <Dropzone
                 label="Drag and drop agreement draft"
                 detail="PDF, DOCX, ODT - Maximum 25 MB"
@@ -511,6 +626,25 @@ function SubmissionPage({ account }) {
                 onFileSelect={setSelectedFile}
                 onRemove={() => setSelectedFile(null)}
               />
+              <div className="wizard-preview-action">
+                <button type="button" className="outline" disabled={!selectedFile || submitting} onClick={previewSelectedFile}>
+                  Preview Selected Document
+                </button>
+                {selectedFile && <span>{selectedFile.name}</span>}
+              </div>
+              {localPreviewUrl && (
+                <div className="department-local-preview">
+                  <div className="department-local-preview__header">
+                    <b>{selectedFile?.name || "Document preview"}</b>
+                    <button type="button" className="outline" onClick={closeLocalPreview}>Close Preview</button>
+                  </div>
+                  {selectedFile?.type === "application/pdf" || selectedFile?.name?.toLowerCase().endsWith(".pdf") ? (
+                    <iframe title="Selected document preview" src={localPreviewUrl} className="department-local-preview__frame" />
+                  ) : (
+                    <p>This file type cannot be rendered in the browser. You can still continue with the selected file.</p>
+                  )}
+                </div>
+              )}
               <WizardActions>
                 <button type="button" className="outline" onClick={() => backToStep(1)}>
                   <ArrowLeft size={16} /> Back
@@ -570,19 +704,63 @@ function WizardActions({ children }) {
 
 function SubmissionSummary({ form, account, selectedFile, compact = false }) {
   return (
-    <aside className={compact ? "summary-card compact" : "summary-card"}>
+    <aside className={`${compact ? "summary-card compact" : "summary-card"} submission-review-summary`}>
       <h2>Review Summary</h2>
-      <p>Partnership Type: <b>{form.partnershipType}</b></p>
-      <p>{form.partnershipType === "Departmental" ? "Partner Department" : "Partner / Institution"}: <b>{form.partnerInstitution || "-"}</b></p>
-      <p>Agreement Type: <b>{form.agreementType}</b></p>
-      <p>Expected Duration: <b>{durationLabel(form)}</b></p>
-      <p>Partner Contact: <b>{form.partnerEmail || "-"}</b></p>
-      {!compact && <p>Description: <b>{form.description || "-"}</b></p>}
-      <p>Selected File: <b>{selectedFile?.name || "No file selected"}</b></p>
-      <p>Processing Office: <b>{account?.office || "Assigned Department"}</b></p>
-      <p>Initial Status: <b>Submitted</b></p>
+      <p className="submission-review-note">Please verify these details before submitting. They are arranged for the review-form export.</p>
+      <SummarySection title="Agreement Details">
+        <SummaryField label="Title of Agreement" value={form.agreementTitle} />
+        <SummaryField label="Type of Document" value={form.agreementType} />
+        <SummaryField label="Submission Type" value={form.submissionType === "renewal" ? "Renewal" : "New Partnership"} />
+        <SummaryField label="Partner Classification" value={form.partnershipType === "Departmental" ? "Interdepartmental" : form.partnershipType} />
+        <SummaryField label={form.partnershipType === "Departmental" ? "Collaborating Department / Program" : "Partner Organization"} value={form.partnerInstitution} />
+      </SummarySection>
+      <SummarySection title="Requesting Office Information">
+        <SummaryField label="Office / Department" value={form.requestingOffice} />
+        <SummaryField label="Contact Person" value={form.contactPerson} />
+        <SummaryField label="Position" value={form.position} />
+        <SummaryField label="Email Address" value={form.emailAddress} />
+        <SummaryField label="Contact Number" value={form.contactNumber} />
+      </SummarySection>
+      <SummarySection title="Timeline Requirement">
+        <SummaryField label="Requested Date of Completion" value={formatDate(form.requestedCompletionDate)} />
+        <SummaryField label="Urgency Level" value={formatUrgency(form.urgencyLevel)} />
+      </SummarySection>
+      <SummarySection title="Submission Document">
+        <SummaryField label="Selected File" value={selectedFile?.name || "No file selected"} />
+        <SummaryField label="Processing Office" value={account?.office || account?.department || "Assigned Department"} />
+        <SummaryField label="Initial Status" value="Submitted" />
+      </SummarySection>
     </aside>
   );
+}
+
+function SummarySection({ title, children }) {
+  return <section className="submission-review-section"><h3>{title}</h3><dl>{children}</dl></section>;
+}
+
+function SummaryField({ label, value }) {
+  return <div><dt>{label}</dt><dd>{value || "—"}</dd></div>;
+}
+
+function formatUrgency(value) {
+  return value === "highly_urgent" ? "Highly Urgent" : value === "urgent" ? "Urgent" : "Normal";
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en", { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${value}T00:00:00`));
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isValidPhoneNumber(value) {
+  return /^\d{7,15}$/.test(value);
+}
+
+function numbersOnly(value) {
+  return value.replace(/\D/g, "").slice(0, 15);
 }
 
 function isValidDuration(form) {
@@ -602,14 +780,18 @@ function durationLabel(form) {
   return `${duration} ${unit}${duration === 1 ? "" : "s"}`;
 }
 
-function formatDepartmentName(department) {
-  if (!department) {
-    return "";
-  }
-
-  return department.code
-    ? `${department.code} - ${department.name}`
-    : department.name;
+function formatReviewFormDetails(draft) {
+  return [
+    `Submission type: ${draft.submissionType === "renewal" ? "Renewal" : "New Partnership"}`,
+    `Partner classification: ${draft.partnerClassification}`,
+    `Requesting office/department: ${draft.requestingOffice}`,
+    `Contact person: ${draft.contactPerson}`,
+    `Position: ${draft.position}`,
+    `Email address: ${draft.emailAddress}`,
+    `Contact number: ${draft.contactNumber}`,
+    `Requested completion date: ${draft.requestedCompletionDate}`,
+    `Urgency level: ${draft.urgencyLevel}`,
+  ].join("\n");
 }
 
 // Shows department-owned submissions and legal comments.
@@ -617,6 +799,7 @@ function MySubmissionsPage() {
  const [documents, setDocuments] = React.useState([]);
  const [selectedDocument, setSelectedDocument] =
   React.useState(null);
+ const [reviewOpen, setReviewOpen] = React.useState(false);
 
  const [loading, setLoading] = React.useState(true);
  const [processing, setProcessing] =
@@ -658,15 +841,9 @@ function MySubmissionsPage() {
         setDocuments(loadedDocuments);
         setMeta(response.meta ?? null);
 
-        setSelectedDocument((current) => {
-          if (!loadedDocuments.length) return null;
-
-          return (
-            loadedDocuments.find(
-              (document) => document.id === current?.id
-            ) || loadedDocuments[0]
-          );
-        });
+        setSelectedDocument((current) => current
+          ? loadedDocuments.find((document) => document.id === current.id) || null
+          : null);
       } catch (requestError) {
         reportClientError(
           "Unable to load submissions:",
@@ -709,11 +886,12 @@ function MySubmissionsPage() {
       className="table-action"
       onClick={() => {
         setSelectedDocument(document);
+        setReviewOpen(true);
         setError("");
         setSuccess("");
       }}
     >
-      View
+      View & Preview
     </button>,
   ]);
 
@@ -771,8 +949,48 @@ function MySubmissionsPage() {
     setProcessing(false);
   }
 
+  if (reviewOpen && selectedDocument) {
+    return (
+      <section className="page department-page department-submission-review">
+        <PageTitle
+          title="Document Review"
+          subtitle="Review your submitted document and completed submission information."
+          action="Back to My Submissions"
+          onAction={() => { setReviewOpen(false); setSelectedDocument(null); }}
+        />
+        <div className="department-submission-review__workspace">
+          <main className="department-submission-review__document">
+            <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview />
+          </main>
+          <aside className="department-submission-review__details">
+            <h2>Submission Details</h2>
+            <SubmissionDetailSection title="Submission Information">
+              <SubmissionDetail label="Tracking Number" value={selectedDocument.tracking_number} />
+              <SubmissionDetail label="Status" value={selectedDocument.status} />
+              <SubmissionDetail label="Submitted Date" value={formatDocumentDate(selectedDocument.submitted_at)} />
+            </SubmissionDetailSection>
+            <SubmissionDetailSection title="Requesting Office / Department">
+              <SubmissionDetail label="Department" value={selectedDocument.department?.name || selectedDocument.department?.code} />
+            </SubmissionDetailSection>
+            <SubmissionDetailSection title="Agreement Details">
+              <SubmissionDetail label="Document Type" value={selectedDocument.document_type} />
+              <SubmissionDetail label="Title of Agreement" value={selectedDocument.title} />
+              <SubmissionDetail label="Partner Organization" value={selectedDocument.partner_institution} />
+              <SubmissionDetail label="Partner Contact Email" value={selectedDocument.partner_email} />
+            </SubmissionDetailSection>
+            {selectedDocument.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{selectedDocument.description}</p></SubmissionDetailSection>}
+            {selectedDocument.legal_notes && <SubmissionDetailSection title="Legal Remarks"><div className="notice danger"><p>{selectedDocument.legal_notes}</p></div></SubmissionDetailSection>}
+            {selectedDocument.status === "Corrections Needed" && <button disabled={processing} onClick={resubmitDocument}>{processing ? "Resubmitting..." : "Resubmit Document"}</button>}
+            {error && <p className="auth-error">{error}</p>}
+            {success && <p className="success-message">{success}</p>}
+          </aside>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="page split-page department-page">
+    <section className="page department-page">
       <div>
         <PageTitle
           title="My Submissions"
@@ -886,7 +1104,7 @@ function MySubmissionsPage() {
         </Panel>
       </div>
 
-      <aside className="detail-drawer">
+      {false && <aside className="detail-drawer">
         <h2>Submission Details</h2>
 
         {!selectedDocument ? (
@@ -967,9 +1185,21 @@ function MySubmissionsPage() {
             )}
           </>
         )}
-      </aside>
+      </aside>}
     </section>
   );
+}
+
+function SubmissionDetailSection({ title, children }) {
+  return <section className="department-submission-review__section"><h3>{title}</h3><div>{children}</div></section>;
+}
+
+function SubmissionDetail({ label, value }) {
+  return <p><span>{label}</span><b>{value || "—"}</b></p>;
+}
+
+function formatDocumentDate(value) {
+  return value ? new Date(value).toLocaleDateString() : "—";
 }
 
 // Lists external partnerships visible to the department.
