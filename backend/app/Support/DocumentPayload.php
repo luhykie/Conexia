@@ -18,6 +18,15 @@ class DocumentPayload
             'partner_institution' => $document->partner_institution,
             'partner_email' => $document->partner_email,
             'description' => $document->description,
+            'partnership_type' => $document->partnership_type,
+            'partnership_scope' => $document->partnership_scope,
+            'contact_person' => $document->contact_person,
+            'contact_position' => $document->contact_position,
+            'contact_email' => $document->contact_email,
+            'contact_number' => $document->contact_number,
+            'urgency' => $document->urgency,
+            'requested_completion_date' =>
+                $document->requested_completion_date?->toDateString(),
             'department_id' => $document->department_id,
             'submitted_by' => $document->submitted_by,
             'assigned_legal_counsel' =>

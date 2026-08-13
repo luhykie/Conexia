@@ -338,6 +338,11 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )
             ->group(function (): void {
+                Route::post(
+                    '/iro/documents',
+                    [IroDocumentController::class, 'store']
+                );
+
                 Route::patch(
                     '/iro/documents/{id}/log',
                     [IroDocumentController::class, 'markLogged']

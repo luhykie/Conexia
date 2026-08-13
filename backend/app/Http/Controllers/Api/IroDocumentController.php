@@ -7,8 +7,10 @@ use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Document;
 use App\Models\Profile;
+use App\Services\TrackingNumberService;
 use App\Support\DocumentPayload;
 use App\Support\Pagination;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +50,100 @@ class IroDocumentController extends Controller
             null,
             $profile
         );
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $profile = $this->ensureIro($request);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'document_type' => [
+                'required',
+                'string',
+                'in:MOA,MOU,MOF',
+            ],
+            'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
+            'partner_institution' => ['required', 'string', 'max:255'],
+            'partner_email' => ['nullable', 'email', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'partnership_type' => ['required', 'string', 'max:255'],
+            'partnership_scope' => ['required', 'string', 'max:255'],
+            'contact_person' => ['required', 'string', 'max:255'],
+            'contact_position' => ['nullable', 'string', 'max:255'],
+            'contact_email' => ['required', 'email', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:100'],
+            'urgency' => ['required', 'string', 'max:255'],
+            'requested_completion_date' => ['nullable', 'date'],
+        ]);
+
+        $document = $this->createDocumentWithTrackingNumber(
+            $validated,
+            $profile,
+            Document::STATUS_SUBMITTED
+        );
+
+        AuditLog::query()->create([
+            'actor_id' => $document->submitted_by,
+            'document_id' => $document->id,
+            'action' => 'iro_admin.document.created',
+            'metadata' => [
+                'tracking_number' => $document->tracking_number,
+                'document_type' => $document->document_type,
+                'partner_institution' => $document->partner_institution,
+                'urgency' => $document->urgency,
+            ],
+        ]);
+
+        return $this->documentResponse(
+            'Document created successfully.',
+            $document
+        );
+    }
+
+    private function createDocumentWithTrackingNumber(
+        array $validated,
+        Profile $profile,
+        string $status
+    ): Document {
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            try {
+                return DB::transaction(function () use (
+                    $validated,
+                    $profile,
+                    $status
+                ) {
+                    $createdAt = now();
+
+                    return Document::query()->create([
+                        ...$validated,
+                        'tracking_number' => app(TrackingNumberService::class)
+                            ->generateForDate($createdAt),
+                        'renewal_status' => $validated['expiry_date'] ?? null
+                            ? Document::RENEWAL_ACTIVE
+                            : Document::RENEWAL_NOT_REQUIRED,
+                        'submitted_by' => $profile->id,
+                        'status' => $status,
+                        'submitted_at' => $createdAt,
+                    ]);
+                });
+            } catch (QueryException $exception) {
+                if ($attempt === 3 ||
+                    !$this->isDuplicateTrackingNumberError($exception->getMessage())
+                ) {
+                    throw $exception;
+                }
+            }
+        }
+
+        throw new \RuntimeException('Unable to generate a unique tracking number.');
+    }
+
+    private function isDuplicateTrackingNumberError(string $message): bool
+    {
+        return str_contains($message, 'documents_tracking_number_unique') ||
+            str_contains($message, 'documents_tracking_number_unique_idx') ||
+            str_contains($message, 'tracking_number');
     }
 
     public function markLogged(
