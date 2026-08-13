@@ -4,10 +4,7 @@ import {
   clearApiAccessToken,
   primeApiAccessToken,
 } from "../api/apiClient";
-import {
-  supabase,
-  isSupabaseConfigured,
-} from "../supabaseConfig";
+import { supabase } from "../supabaseConfig";
 import { reportClientError } from "../utils/reportClientError";
 
 let profileRequestPromise = null;
@@ -30,14 +27,6 @@ export async function loginWithSupabase(
   email,
   password,
 ) {
-  if (!isSupabaseConfigured) {
-    return {
-      ok: false,
-      message:
-        "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to frontend/.env.",
-    };
-  }
-
   const normalizedEmail = email
     .trim()
     .toLowerCase();
@@ -90,44 +79,6 @@ export async function loginWithSupabase(
       account: response.account,
     };
   } catch (error) {
-    // If the backend is unreachable (network error), fall back to
-    // a frontend-only authenticated flow using the Supabase user
-    // so the developer can still sign in while the Laravel API
-    // is offline. Do not change backend auth architecture.
-    reportClientError(
-      "Unable to load CONEXIA profile, falling back to Supabase user:",
-      error,
-    );
-
-    const user = data?.user || null;
-
-    // If this looks like a network error, return a best-effort
-    // account constructed from the Supabase user session so the
-    // frontend can continue to the dashboard.
-    if (
-      user &&
-      (error?.message?.includes("fetch") || error instanceof TypeError)
-    ) {
-      const fallbackAccount = {
-        id: user.id,
-        email: user.email,
-        name:
-          (user.user_metadata && user.user_metadata.full_name) ||
-          user.email,
-        // Prefer a role from user metadata if present, otherwise
-        // choose a safe default so navigation works.
-        roleKey:
-          (user.user_metadata && user.user_metadata.roleKey) ||
-          "department",
-      };
-
-      return {
-        ok: true,
-        account: fallbackAccount,
-        _frontendFallback: true,
-      };
-    }
-
     clearApiAccessToken();
     await supabase.auth.signOut();
 
@@ -141,10 +92,6 @@ export async function loginWithSupabase(
 }
 
 export async function getAuthenticatedAccount() {
-  if (!isSupabaseConfigured) {
-    return null;
-  }
-
   try {
     const {
       data: { session },
@@ -158,36 +105,9 @@ export async function getAuthenticatedAccount() {
 
     primeApiAccessToken(session);
 
-    try {
-      const response = await loadAuthenticatedProfile();
+    const response = await loadAuthenticatedProfile();
 
-      return response?.account || null;
-    } catch (error) {
-      reportClientError(
-        "Unable to restore CONEXIA profile, falling back to Supabase user:",
-        error,
-      );
-
-      // Network error: construct a best-effort account from the
-      // Supabase session user so the app can continue in offline
-      // or backend-down scenarios.
-      const user = session?.user || null;
-
-      if (user && (error?.message?.includes("fetch") || error instanceof TypeError)) {
-        return {
-          id: user.id,
-          email: user.email,
-          name:
-            (user.user_metadata && user.user_metadata.full_name) ||
-            user.email,
-          roleKey:
-            (user.user_metadata && user.user_metadata.roleKey) ||
-            "department",
-        };
-      }
-
-      throw error;
-    }
+    return response?.account || null;
   } catch (error) {
     reportClientError(
       "Unable to restore authenticated account:",
@@ -204,10 +124,6 @@ export async function getAuthenticatedAccount() {
 }
 
 export function subscribeToAuthChanges(onAccountChange) {
-  if (!isSupabaseConfigured) {
-    return () => {};
-  }
-
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((event, session) => {
@@ -238,10 +154,6 @@ export function subscribeToAuthChanges(onAccountChange) {
 
 export async function logoutFromSupabase() {
   clearApiAccessToken();
-
-  if (!isSupabaseConfigured) {
-    return;
-  }
 
   const { error } =
     await supabase.auth.signOut();

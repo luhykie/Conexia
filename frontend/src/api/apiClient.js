@@ -1,7 +1,4 @@
-import {
-  supabase,
-  isSupabaseConfigured,
-} from "../supabaseConfig";
+import { supabase } from "../supabaseConfig";
 
 const API_URL =
     import.meta.env.VITE_API_URL ||
@@ -85,12 +82,6 @@ async function signOutOnce() {
 }
 
 async function getCurrentAccessToken(forceRefresh = false) {
-    if (!isSupabaseConfigured) {
-        throw new AuthenticationError(
-            "Supabase auth is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to frontend/.env.",
-        );
-    }
-
     if (!forceRefresh && hasUsableCachedToken()) {
         return cachedAccessToken;
     }
