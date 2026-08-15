@@ -189,7 +189,7 @@ export default function LegalCounselReviewPage() {
   ]);
 
   return (
-    <section className="page split-page legal-page legal-counsel-review-page">
+    <section className="page legal-page legal-counsel-review-page">
       <div>
         <PageTitle
           title="Review Queue"
@@ -239,37 +239,39 @@ export default function LegalCounselReviewPage() {
         </Panel>
       </div>
 
-      <aside className="review-sidebar">
-        <h2>Review Sidebar</h2>
+      <div className="legal-review-workspace">
+      <main className="legal-document-area">
+        {!selectedDocument ? (
+          <Panel title="Document Preview"><p>Select a routed document to view its attached file.</p></Panel>
+        ) : (
+          <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview />
+        )}
+      </main>
+
+      <aside className="review-sidebar legal-review-details">
+        <h2>Submission Details</h2>
 
         {!selectedDocument ? (
           <p>Select a routed document to begin reviewing.</p>
         ) : (
           <>
-            <div className="dropzone">
+            <div className="legal-review-document-summary">
               <FileText />
-              <b>{selectedDocument.title}</b>
-              <p>
-                {selectedDocument.tracking_number} -{" "}
-                {selectedDocument.document_type}
-              </p>
+              <div><b>{selectedDocument.title}</b><p>{selectedDocument.tracking_number} · {selectedDocument.document_type}</p></div>
             </div>
 
-            <p>
-              <b>Partner:</b> {selectedDocument.partner_institution}
-            </p>
-
-            <p>
-              <b>Status:</b> {selectedDocument.status}
-            </p>
+            <dl className="legal-review-metadata">
+              <div><dt>Partner Institution</dt><dd>{selectedDocument.partner_institution}</dd></div>
+              <div><dt>Agreement Type</dt><dd>{selectedDocument.document_type}</dd></div>
+              <div><dt>Status</dt><dd>{selectedDocument.status}</dd></div>
+              <div><dt>Date Routed</dt><dd>{selectedDocument.updated_at ? new Date(selectedDocument.updated_at).toLocaleDateString() : "—"}</dd></div>
+            </dl>
 
             {selectedDocument.description && (
               <p>
                 <b>Description:</b> {selectedDocument.description}
               </p>
             )}
-
-            <DocumentFilesPanel documentId={selectedDocument.id} />
 
             <label>
               Liability Assessment and Legal Findings
@@ -315,6 +317,7 @@ export default function LegalCounselReviewPage() {
           </>
         )}
       </aside>
+      </div>
     </section>
   );
 }

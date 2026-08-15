@@ -61,6 +61,14 @@ export async function previewDocumentFile(
   }, 60000);
 }
 
+export async function getDocumentPreviewUrl(documentId, fileId) {
+  const { blob } = await apiGetBlob(
+    `/documents/${documentId}/files/${fileId}/preview`
+  );
+
+  return URL.createObjectURL(blob);
+}
+
 export function deleteDocumentFile(documentId, fileId) {
   return apiDelete(
     `/documents/${documentId}/files/${fileId}`
