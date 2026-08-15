@@ -4,14 +4,17 @@
   "private": true,
   "description": "Development workspace for the Conexia React frontend and Laravel API.",
   "scripts": {
-  "dev": "concurrently --kill-others --names api,web --prefix-colors blue,green \"cd backend && php artisan serve --host=127.0.0.1 --port=8000\" \"npm --prefix frontend run dev\"",
-  "dev:api": "cd backend && php artisan serve --host=127.0.0.1 --port=8000",
-  "dev:web": "npm --prefix frontend run dev",
-  "test": "cd backend && php artisan test",
-  "build": "npm --prefix frontend run build",
-  "clean": "cd backend && php artisan optimize:clear"
-},
+    "dev": "concurrently --kill-others --names api,web --prefix-colors blue,green \"cd backend && php artisan serve --host=127.0.0.1 --port=8000\" \"npm --prefix frontend run dev\"",
+    "dev:api": "cd backend && php artisan serve --host=127.0.0.1 --port=8000",
+    "dev:web": "npm --prefix frontend run dev",
+    "test": "cd backend && php artisan test",
+    "build": "npm --prefix frontend run build",
+    "clean": "cd backend && php artisan optimize:clear"
+  },
   "devDependencies": {
     "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^6.2.108"
   }
 }

@@ -11,7 +11,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
     "@vitejs/plugin-react": "^5.0.0",
-    "libphonenumber-js": "^1.11.20",
+    "libphonenumber-js": "^1.13.11",
     "lucide-react": "^0.468.0",
     "pdfjs-dist": "^5.4.149",
     "react": "^19.0.0",
