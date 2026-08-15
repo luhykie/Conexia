@@ -4,6 +4,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentDocumentController;
+use App\Http\Controllers\Api\DepartmentDiscussionController;
+use App\Http\Controllers\Api\DepartmentHistoryController;
+use App\Http\Controllers\Api\DepartmentReviewController;
 use App\Http\Controllers\Api\DocumentFileController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\IroDocumentController;
@@ -313,6 +316,18 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     '/department/documents/{id}/resubmit',
                     [DepartmentDocumentController::class, 'resubmit']
                 );
+
+                Route::get('/department/documents/{document}/history', [DepartmentHistoryController::class, 'index']);
+
+                Route::get('/department/documents/{document}/review', [DepartmentReviewController::class, 'show']);
+                Route::post('/department/documents/{document}/review/items', [DepartmentReviewController::class, 'storeItem']);
+                Route::patch('/department/documents/{document}/review/items/{item}', [DepartmentReviewController::class, 'updateItem']);
+                Route::delete('/department/documents/{document}/review/items/{item}', [DepartmentReviewController::class, 'destroyItem']);
+                Route::patch('/department/documents/{document}/review/approve', [DepartmentReviewController::class, 'approve']);
+                Route::patch('/department/documents/{document}/review/correction', [DepartmentReviewController::class, 'requestCorrection']);
+                Route::patch('/department/documents/{document}/review/route-to-staff', [DepartmentReviewController::class, 'routeToStaff']);
+                Route::get('/department/documents/{document}/discussion', [DepartmentDiscussionController::class, 'index']);
+                Route::post('/department/documents/{document}/discussion', [DepartmentDiscussionController::class, 'store']);
             });
 
         Route::middleware(

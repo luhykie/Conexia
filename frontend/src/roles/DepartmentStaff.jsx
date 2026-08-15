@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   FileText,
   Globe2,
+  History,
   MapPin,
+  Trash2,
   UploadCloud,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -21,31 +23,32 @@ import { Panel } from "../components/Panel";
 import { DashboardView, Dropzone, ExpiryView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
+import { DepartmentalPdfReview } from "../components/DepartmentalPdfReview";
 import { PreSubmissionModal } from "../components/PreSubmissionModal";
 import DepartmentSettingsPage from "../features/department-staff/settings/Page";
 import {
   createDepartmentDocument,
+  approveDepartmentReview,
+  createDepartmentReviewItem,
+  deleteDepartmentReviewItem,
+  getDepartmentReview,
+  getDepartmentDiscussion,
   getDepartmentDocuments,
+  getDepartmentHistory,
+  requestDepartmentCorrection,
+  routeDepartmentReviewToStaff,
+  sendDepartmentDiscussionMessage,
   resubmitDepartmentDocument,
+  updateDepartmentReviewHighlight,
 } from "../services/departmentStaffService";
 import { uploadDocumentFile } from "../services/documentFileService";
+import { apiGet } from "../api/apiClient";
 import { reportClientError } from "../utils/reportClientError";
 
 const partnershipTypes = [
   ["Departmental", Building2],
   ["Local", MapPin],
   ["International", Globe2],
-];
-
-const collaboratingDepartments = [
-  "School of Engineering and Architecture",
-  "School of Computer Science",
-  "School of Education",
-  "School of Business and Management",
-  "School of Law",
-  "School of Arts and Sciences",
-  "Expanded Tertiary Education Equivalency and Accreditation Program (ETEEAP)",
-  "School of Allied Medical Sciences",
 ];
 
 // Routes all Department Staff pages through one role-owned component.
@@ -73,7 +76,7 @@ export function DepartmentStaff({ page, account }) {
   }
 
   if (page === "submission") return <SubmissionPage account={account} />;
-  if (page === "submissions") return <MySubmissionsPage />;
+  if (page === "submissions") return <MySubmissionsPage account={account} />;
   if (page === "engagements") return <EngagementsPage />;
   if (page === "expiry") return <ExpiryView />;
   if (page === "settings") return <DepartmentSettingsPage account={account} />;
@@ -136,6 +139,13 @@ function SubmissionPage({ account }) {
     React.useState("");
   const [preSubmissionAnswers, setPreSubmissionAnswers] =
     React.useState(null);
+  const [departments, setDepartments] = React.useState([]);
+
+  React.useEffect(() => {
+    apiGet("/departments?per_page=100")
+      .then((response) => setDepartments(response.data ?? response.departments ?? []))
+      .catch(() => setDepartments([]));
+  }, []);
 
   React.useEffect(() => {
     const storedDraft = sessionStorage.getItem("department-submission-draft");
@@ -145,7 +155,7 @@ function SubmissionPage({ account }) {
       const draft = JSON.parse(storedDraft);
       setPreSubmissionAnswers(draft);
       setForm({
-        partnershipType: draft.partnerClassification === "interdepartmental" ? "Departmental" : draft.partnerClassification === "international" ? "International" : "Local",
+        partnershipType: draft.partnerClassification === "Departmental" ? "Departmental" : draft.partnerClassification === "international" ? "International" : "Local",
         partnerDepartmentId: draft.partnerDepartmentId || "",
         partnerInstitution: draft.partnerInstitution || "",
         agreementType: draft.agreementType || "MOA",
@@ -196,10 +206,11 @@ function SubmissionPage({ account }) {
     }
 
     if (name === "partnerDepartmentId") {
+      const department = departments.find((item) => item.id === value);
       setForm((current) => ({
         ...current,
         partnerDepartmentId: value,
-        partnerInstitution: value,
+        partnerInstitution: department?.name || "",
         partnerEmail: "",
       }));
       setError("");
@@ -351,9 +362,13 @@ function SubmissionPage({ account }) {
           partner_institution: partnerName,
           partner_email:
             form.partnerEmail.trim() || null,
+          partner_department_id:
+            form.partnershipType === "Departmental"
+              ? form.partnerDepartmentId || null
+              : null,
           description: (form.description.trim() || formatReviewFormDetails({
             ...form,
-            partnerClassification: form.partnershipType === "Departmental" ? "interdepartmental" : form.partnershipType.toLowerCase(),
+            partnerClassification: form.partnershipType === "Departmental" ? "Departmental" : form.partnershipType.toLowerCase(),
           })).trim() || null,
           ...expiryPayload(),
         });
@@ -474,7 +489,7 @@ function SubmissionPage({ account }) {
                       }
                     >
                       <Icon size={17} />
-                      {type === "Departmental" ? "Interdepartmental" : type}
+                      {type === "Departmental" ? "Departmental" : type}
                     </button>
                   ))}
                 </div>
@@ -492,9 +507,9 @@ function SubmissionPage({ account }) {
                     <option value="">
                       Select department or program
                     </option>
-                    {collaboratingDepartments.map((department) => (
-                      <option key={department} value={department}>
-                        {department}
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.code ? `${department.code} — ` : ""}{department.name}
                       </option>
                     ))}
                   </select>
@@ -610,7 +625,7 @@ function SubmissionPage({ account }) {
                 <div className="pre-submission-info-banner">
                   <p><b>Partner:</b> {form.partnerInstitution}</p>
                   <p><b>Agreement:</b> {preSubmissionAnswers.agreementType} · {preSubmissionAnswers.submissionType === "renewal" ? "Renewal" : "New Partnership"}</p>
-                  <p><b>Classification:</b> {preSubmissionAnswers.partnerClassification === "interdepartmental" ? "Interdepartmental" : preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() + preSubmissionAnswers.partnerClassification.slice(1)}</p>
+                  <p><b>Classification:</b> {preSubmissionAnswers.partnerClassification === "Departmental" ? "Departmental" : preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() + preSubmissionAnswers.partnerClassification.slice(1)}</p>
                   <p><b>Title:</b> {preSubmissionAnswers.agreementTitle}</p>
                   <p><b>Requesting Office:</b> {preSubmissionAnswers.requestingOffice}</p>
                   <p><b>Contact:</b> {preSubmissionAnswers.contactPerson} · {preSubmissionAnswers.position}</p>
@@ -711,7 +726,7 @@ function SubmissionSummary({ form, account, selectedFile, compact = false }) {
         <SummaryField label="Title of Agreement" value={form.agreementTitle} />
         <SummaryField label="Type of Document" value={form.agreementType} />
         <SummaryField label="Submission Type" value={form.submissionType === "renewal" ? "Renewal" : "New Partnership"} />
-        <SummaryField label="Partner Classification" value={form.partnershipType === "Departmental" ? "Interdepartmental" : form.partnershipType} />
+        <SummaryField label="Partner Classification" value={form.partnershipType === "Departmental" ? "Departmental" : form.partnershipType} />
         <SummaryField label={form.partnershipType === "Departmental" ? "Collaborating Department / Program" : "Partner Organization"} value={form.partnerInstitution} />
       </SummarySection>
       <SummarySection title="Requesting Office Information">
@@ -795,11 +810,16 @@ function formatReviewFormDetails(draft) {
 }
 
 // Shows department-owned submissions and legal comments.
-function MySubmissionsPage() {
+function MySubmissionsPage({ account }) {
  const [documents, setDocuments] = React.useState([]);
  const [selectedDocument, setSelectedDocument] =
   React.useState(null);
  const [reviewOpen, setReviewOpen] = React.useState(false);
+ const [departmentalReview, setDepartmentalReview] = React.useState(null);
+ const [pendingReviewItems, setPendingReviewItems] = React.useState([]);
+ const [revisedFile, setRevisedFile] = React.useState(null);
+ const [historyPreview, setHistoryPreview] = React.useState(null);
+ const accountDepartmentId = account?.department_id || account?.departmentId || account?.department?.id;
 
  const [loading, setLoading] = React.useState(true);
  const [processing, setProcessing] =
@@ -844,6 +864,7 @@ function MySubmissionsPage() {
         setSelectedDocument((current) => current
           ? loadedDocuments.find((document) => document.id === current.id) || null
           : null);
+        setPendingReviewItems([]);
       } catch (requestError) {
         reportClientError(
           "Unable to load submissions:",
@@ -877,7 +898,7 @@ function MySubmissionsPage() {
             : "active"
       }`}
     >
-      {document.status}
+      {departmentalStatusLabel(document, document.department_id === accountDepartmentId)}
     </span>,
 
     <button
@@ -886,6 +907,9 @@ function MySubmissionsPage() {
       className="table-action"
       onClick={() => {
         setSelectedDocument(document);
+        setPendingReviewItems([]);
+        setRevisedFile(null);
+        setHistoryPreview(null);
         setReviewOpen(true);
         setError("");
         setSuccess("");
@@ -901,6 +925,10 @@ function MySubmissionsPage() {
       setError("Select a valid document first.");
       return;
     }
+    if (!revisedFile) {
+      setError("Choose the corrected file before submitting it to the Partner Department.");
+      return;
+    }
 
     setProcessing(true);
     setError("");
@@ -909,6 +937,7 @@ function MySubmissionsPage() {
     let updatedDocument;
 
     try {
+      await uploadDocumentFile(selectedDocument.id, revisedFile);
       const response =
         await resubmitDepartmentDocument(
           selectedDocument.id
@@ -945,11 +974,15 @@ function MySubmissionsPage() {
     );
 
     setSelectedDocument(updatedDocument);
+    setRevisedFile(null);
     setSuccess("Document successfully resubmitted.");
     setProcessing(false);
   }
 
   if (reviewOpen && selectedDocument) {
+    const reviewIsSubmitted = Boolean(selectedDocument.submitted_at);
+    const isCreator = accountDepartmentId === selectedDocument.department_id;
+
     return (
       <section className="page department-page department-submission-review">
         <PageTitle
@@ -960,13 +993,13 @@ function MySubmissionsPage() {
         />
         <div className="department-submission-review__workspace">
           <main className="department-submission-review__document">
-            <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview />
+            {historyPreview ? (historyPreview.file.mime_type?.includes("pdf") ? <DepartmentalPdfReview documentId={selectedDocument.id} fileId={historyPreview.file.id} items={historyPreview.annotations} /> : <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview previewFileId={historyPreview.file.id} />) : selectedDocument.partner_department_id && reviewIsSubmitted ? <DepartmentalPdfReview documentId={selectedDocument.id} items={[...(departmentalReview?.items ?? []), ...pendingReviewItems]} canAnnotate={!isCreator && selectedDocument.status === "Department Review"} onCreateItem={async (item) => { const temporaryId = `pending-${Date.now()}`; const activeHighlights = [...(departmentalReview?.items ?? []), ...pendingReviewItems].filter((entry) => entry.type === "highlight" && !entry.highlight_removed_at); const optimisticItem = { ...item, id: temporaryId, highlight_color: item.type === "highlight" ? "blue" : null, display_number: item.type === "highlight" ? activeHighlights.length + 1 : null, created_at: new Date().toISOString(), department: selectedDocument.partner_department?.name, author: "You" }; setPendingReviewItems((current) => [...current, optimisticItem]); try { const response = await createDepartmentReviewItem(selectedDocument.id, item); setPendingReviewItems((current) => current.filter((entry) => entry.id !== temporaryId)); setDepartmentalReview((current) => ({ ...(current ?? {}), items: [...(current?.items ?? []).filter((entry) => entry.id !== response.item.id), response.item] })); return response; } catch (requestError) { setPendingReviewItems((current) => current.filter((entry) => entry.id !== temporaryId)); throw requestError; } }} onUpdateHighlight={async (itemId, payload) => { await updateDepartmentReviewHighlight(selectedDocument.id, itemId, payload); setDepartmentalReview(await getDepartmentReview(selectedDocument.id)); }} /> : <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview />}
           </main>
           <aside className="department-submission-review__details">
             <h2>Submission Details</h2>
             <SubmissionDetailSection title="Submission Information">
               <SubmissionDetail label="Tracking Number" value={selectedDocument.tracking_number} />
-              <SubmissionDetail label="Status" value={selectedDocument.status} />
+              <SubmissionDetail label="Status" value={departmentalStatusLabel(selectedDocument, isCreator)} />
               <SubmissionDetail label="Submitted Date" value={formatDocumentDate(selectedDocument.submitted_at)} />
             </SubmissionDetailSection>
             <SubmissionDetailSection title="Requesting Office / Department">
@@ -979,8 +1012,12 @@ function MySubmissionsPage() {
               <SubmissionDetail label="Partner Contact Email" value={selectedDocument.partner_email} />
             </SubmissionDetailSection>
             {selectedDocument.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{selectedDocument.description}</p></SubmissionDetailSection>}
+            {selectedDocument.partner_department_id && <DepartmentalHistoryPanel documentId={selectedDocument.id} onViewVersion={setHistoryPreview} onCloseVersion={() => setHistoryPreview(null)} viewingVersion={Boolean(historyPreview)} />}
+            {historyPreview && <DepartmentalVersionAnnotations version={historyPreview} />}
             {selectedDocument.legal_notes && <SubmissionDetailSection title="Legal Remarks"><div className="notice danger"><p>{selectedDocument.legal_notes}</p></div></SubmissionDetailSection>}
-            {selectedDocument.status === "Corrections Needed" && <button disabled={processing} onClick={resubmitDocument}>{processing ? "Resubmitting..." : "Resubmit Document"}</button>}
+            {selectedDocument.partner_department_id && reviewIsSubmitted && <><DepartmentalReviewPanel document={selectedDocument} review={departmentalReview} isCreator={isCreator} onReviewChange={setDepartmentalReview} onRemoveAnnotation={async (itemId) => { await deleteDepartmentReviewItem(selectedDocument.id, itemId); setDepartmentalReview(await getDepartmentReview(selectedDocument.id)); }} onDocumentChange={(document) => { setSelectedDocument(document); setDocuments((current) => current.map((item) => item.id === document.id ? document : item)); }} /><DepartmentDiscussionPanel document={selectedDocument} currentDepartmentId={accountDepartmentId} /></>}
+            {isCreator && selectedDocument.status === "Corrections Needed" && <><label className="file-picker">Revised version<input type="file" accept=".pdf,.docx,.odt" onChange={(event) => setRevisedFile(event.target.files?.[0] || null)} /></label><button disabled={processing || !revisedFile} onClick={resubmitDocument}>{processing ? "Submitting revised version..." : "Submit Revised Version"}</button></>}
+            {isCreator && selectedDocument.status === "Partner Review Complete" && <button disabled={processing} onClick={async () => { setProcessing(true); setError(""); try { const response = await routeDepartmentReviewToStaff(selectedDocument.id); const updated = response.document ?? response.data; setSelectedDocument(updated); setDocuments((current) => current.map((item) => item.id === updated.id ? updated : item)); setSuccess("Submission sent to the next process."); } catch (requestError) { setError(requestError.message); } finally { setProcessing(false); } }}>{processing ? "Sending..." : "Send to Next Process"}</button>}
             {error && <p className="auth-error">{error}</p>}
             {success && <p className="success-message">{success}</p>}
           </aside>
@@ -1196,6 +1233,200 @@ function SubmissionDetailSection({ title, children }) {
 
 function SubmissionDetail({ label, value }) {
   return <p><span>{label}</span><b>{value || "—"}</b></p>;
+}
+
+function DepartmentalHistoryPanel({ documentId, onViewVersion, onCloseVersion, viewingVersion }) {
+  const [open, setOpen] = React.useState(false);
+  const [events] = React.useState([]);
+  const [versions, setVersions] = React.useState([]);
+  const [original, setOriginal] = React.useState(null);
+  const [highlightedVersions, setHighlightedVersions] = React.useState([]);
+  const [approvedDocument, setApprovedDocument] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await getDepartmentHistory(documentId);
+      setVersions(response.versions ?? []);
+      setOriginal(response.original ?? null);
+      setHighlightedVersions(response.highlighted_versions ?? []);
+      setApprovedDocument(response.approved_document ?? null);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next) await load();
+  }
+
+  return <SubmissionDetailSection title="Document History">
+    <div className="department-history">
+      <button type="button" className="outline department-history__trigger" onClick={toggle}>
+        <History size={16} /> {open ? "Hide History" : "History"}
+      </button>
+      {viewingVersion && <button type="button" className="table-action" onClick={onCloseVersion}>Return to current version</button>}
+      {open && <div className="department-history__events">
+        {loading && <p>Loading history...</p>}
+        {error && <p className="auth-error">{error}</p>}
+        {!loading && !error && !original && <p>No original document found.</p>}
+        {original && <article className="department-history__version"><div><b>Original Document</b><small>{original.file.filename}</small></div><button type="button" className="table-action" onClick={() => onViewVersion(original)}>View Document</button></article>}
+        <div className="department-history__group"><b>Highlighted Versions</b>{highlightedVersions.map((version) => <article key={`highlighted-${version.file.id}`} className="department-history__version"><div><b>Version {version.file.version}</b><small>{version.annotations.length} saved review annotation{version.annotations.length === 1 ? "" : "s"}</small></div><button type="button" className="table-action" onClick={() => onViewVersion(version)}>View Highlighted Version</button></article>)}{!highlightedVersions.length && <p>No saved highlighted versions.</p>}</div>
+        {approvedDocument && <div className="department-history__group"><b>Approved Document</b><article className="department-history__version"><div><b>APPROVED - Version {approvedDocument.file.version}</b><small>{approvedDocument.approved_at ? new Date(approvedDocument.approved_at).toLocaleString() : approvedDocument.file.filename}</small></div><button type="button" className="table-action" onClick={() => onViewVersion(approvedDocument)}>View Approved Document</button></article></div>}
+        {false && versions.map((version) => <article key={version.file.id} className="department-history__version">
+          <div><b>{version.label}{version.latest ? " · Latest" : ""}</b><small>{version.status}{version.approved_at ? ` · ${new Date(version.approved_at).toLocaleString()}` : ""}</small></div>
+          <button type="button" className="table-action" onClick={() => onViewVersion(version)}>View {version.annotations?.length ? "Highlighted " : ""}Document</button>
+        </article>)}
+        {events.map((event) => <article key={event.id}>
+          <div><b>{event.label}</b><small>{event.actor} · {event.created_at ? new Date(event.created_at).toLocaleString() : ""}</small></div>
+          {event.file && <button type="button" className="table-action" onClick={() => onViewVersion(versions.find((version) => version.file.id === event.file.id) || { file: event.file, annotations: [] })}>View Document</button>}
+        </article>)}
+      </div>}
+    </div>
+  </SubmissionDetailSection>;
+}
+
+function DepartmentalVersionAnnotations({ version }) {
+  return <SubmissionDetailSection title={`${version.label} Annotations`}>
+    <div className="department-history__annotations">
+      <p><b>{version.status}</b>{version.approved_at ? ` · Approved ${new Date(version.approved_at).toLocaleString()}` : ""}</p>
+      {!version.annotations?.length && <p>No saved annotations for this version.</p>}
+      {(version.annotations ?? []).map((item) => <article key={item.id}>
+        <small>{item.department || "Department"} · {item.author || "Staff"}</small>
+        {item.selected_text && <blockquote>{item.selected_text}</blockquote>}
+        {item.comment && <p>{item.comment}</p>}
+      </article>)}
+    </div>
+  </SubmissionDetailSection>;
+}
+
+function DepartmentalReviewPanel({ document, review, isCreator, onReviewChange, onRemoveAnnotation, onDocumentChange }) {
+  const [comment, setComment] = React.useState("");
+  const [replyTo, setReplyTo] = React.useState("");
+  const [replyText, setReplyText] = React.useState("");
+  const [color, setColor] = React.useState("yellow");
+  const [error, setError] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const canReview = !isCreator && document.status === "Department Review";
+  const canRemoveAnnotation = !isCreator && ["Department Review", "Corrections Needed", "Partner Review Complete"].includes(document.status);
+
+  const load = React.useCallback(async () => {
+    try {
+      onReviewChange(await getDepartmentReview(document.id));
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }, [document.id, onReviewChange]);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  async function saveItem(type) {
+    if (type === "comment" && !comment.trim()) {
+      setError("Enter a document comment.");
+      return;
+    }
+    setSaving(true); setError("");
+    try {
+      await createDepartmentReviewItem(document.id, { type, comment: type === "comment" ? comment.trim() : null });
+      setComment("");
+      await load();
+    } catch (requestError) { setError(requestError.message); }
+    finally { setSaving(false); }
+  }
+
+  async function approve() {
+    const previous = document; onDocumentChange({ ...document, status: "Partner Review Complete" }); setSaving(true); setError("");
+    try {
+      const response = await approveDepartmentReview(document.id);
+      onDocumentChange(response.document ?? response.data);
+      await load();
+    } catch (requestError) { onDocumentChange(previous); setError(requestError.message); }
+    finally { setSaving(false); }
+  }
+
+  async function requestCorrection() {
+    if (!comment.trim()) { setError("Explain the correction required before sending it."); return; }
+    const previous = document; onDocumentChange({ ...document, status: "Corrections Needed" }); setSaving(true); setError("");
+    try {
+      await requestDepartmentCorrection(document.id, comment.trim());
+      setComment("");
+      onDocumentChange({ ...document, status: "Corrections Needed" });
+      await load();
+    } catch (requestError) { onDocumentChange(previous); setError(requestError.message); }
+    finally { setSaving(false); }
+  }
+
+  async function reply() {
+    if (!replyTo || !replyText.trim()) return;
+    setSaving(true); setError("");
+    try {
+      await createDepartmentReviewItem(document.id, { type: "reply", parent_id: replyTo, comment: replyText.trim() });
+      setReplyTo(""); setReplyText(""); await load();
+    } catch (requestError) { setError(requestError.message); }
+    finally { setSaving(false); }
+  }
+
+  async function removeAnnotation(itemId) {
+    const previous = review;
+    onReviewChange({ ...(review ?? {}), items: (review?.items ?? []).filter((item) => item.id !== itemId) });
+    setSaving(true); setError("");
+    try {
+      await onRemoveAnnotation(itemId);
+    } catch (requestError) {
+      onReviewChange(previous);
+      setError(requestError.message || "Unable to remove this annotation.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <SubmissionDetailSection title="Departmental Review">
+    <div className="departmental-review">
+      <p className="departmental-review__hint">Both participating departments review this same file. Highlights and comments are shared and retained with the submission.</p>
+      <div className="departmental-review__legend" aria-label="Highlight legend"><b>Highlight legend</b><span><i className="departmental-review__legend-dot departmental-review__legend-dot--yellow" />{document.department?.name || "Submitting Department"}</span><span><i className="departmental-review__legend-dot departmental-review__legend-dot--blue" />{document.partner_department?.name || "Partner Department"}</span></div>
+      <div className="departmental-review__approvals">
+        {(review?.reviews ?? []).map((entry) => <p key={entry.department_id}><b>{entry.department || "Department"}</b><span className={entry.approved_at ? "badge active" : "badge pending"}>{entry.approved_at ? "Approved" : "Pending review"}</span></p>)}
+      </div>
+      {canReview && <>
+        <p className="departmental-review__hint">Select text in the document preview to add a contextual highlight or comment.</p>
+        <label>Correction note<textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Explain the correction required." /></label>
+        <div className="departmental-review__actions"><button type="button" className="danger" disabled={saving} onClick={requestCorrection}>Request Correction</button><button type="button" disabled={saving} onClick={approve}>Approve Review</button></div>
+      </>}
+      {(review?.items ?? []).length > 0 && <div className="departmental-review__items">{review.items.map((item) => { const marker = item.type === "highlight" ? item.display_number : null; return <article key={item.id}><small>{marker && <b className="departmental-review__marker">Highlight #{marker}</b>}{item.department || "Department"} · {item.author || "Staff"} · {item.created_at ? new Date(item.created_at).toLocaleString() : ""}</small>{item.selected_text && <blockquote className={`departmental-review__highlight departmental-review__highlight--${item.highlight_color || "yellow"}`}>{item.selected_text}</blockquote>}{item.comment && <p>{item.comment}</p>}{canRemoveAnnotation && <button type="button" className="table-action danger departmental-review__delete" title="Remove annotation" aria-label="Remove annotation" disabled={saving} onMouseDown={(event) => event.stopPropagation()} onClick={() => removeAnnotation(item.id)}><Trash2 size={14} /></button>}</article>; })}</div>}
+      {error && <p className="auth-error">{error}</p>}
+    </div>
+  </SubmissionDetailSection>;
+}
+
+function DepartmentDiscussionPanel({ document, currentDepartmentId }) {
+  const documentId = document.id;
+  const [messages, setMessages] = React.useState([]); const [text, setText] = React.useState(""); const [error, setError] = React.useState(""); const [sending, setSending] = React.useState(false); const [open, setOpen] = React.useState(false);
+  const load = React.useCallback(async () => { try { const result = await getDepartmentDiscussion(documentId); setMessages(result.messages ?? []); } catch (e) { setError(e.message); } }, [documentId]);
+  React.useEffect(() => { load(); const timer = window.setInterval(load, 12000); return () => window.clearInterval(timer); }, [load]);
+  async function send() { if (!text.trim() || sending) return; const body = text.trim(); const temporaryId = `pending-message-${Date.now()}`; const optimistic = { id: temporaryId, message: body, department_id: currentDepartmentId, department: document.department?.name || "Your Department", created_at: new Date().toISOString() }; setMessages((current) => [...current, optimistic]); setText(""); setSending(true); setError(""); try { const result = await sendDepartmentDiscussionMessage(documentId, body); setMessages((current) => current.map((message) => message.id === temporaryId ? result.message : message).filter((message, index, all) => all.findIndex((entry) => entry.id === message.id) === index)); } catch (e) { setMessages((current) => current.filter((message) => message.id !== temporaryId)); setText(body); setError(e.message || "Unable to send message. Please try again."); } finally { setSending(false); } }
+  return <div className="submission-discussion"><button type="button" className="submission-discussion__launcher" onClick={() => setOpen((value) => !value)} aria-expanded={open}>💬 Discussion{messages.length > 0 && <span>{messages.length}</span>}</button>{open && <section className="submission-discussion__window"><header><b>Submission Discussion</b><button type="button" onClick={() => setOpen(false)} aria-label="Close discussion">×</button></header><div className="submission-discussion__messages">{messages.map((message) => <article key={message.id} className={message.department_id === currentDepartmentId ? "is-current" : ""}><small><b>{message.department_id === currentDepartmentId ? "You" : message.department || "Department"}</b> · {message.author || "Staff"}</small><p>{message.message}</p><time>{message.created_at ? new Date(message.created_at).toLocaleString() : ""}</time></article>)}</div><div className="submission-discussion__compose"><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="Write a message..." /><button type="button" disabled={sending || !text.trim()} onClick={send}>{sending ? "Sending..." : "Send"}</button></div>{error && <p className="auth-error">{error}</p>}</section>}</div>;
+}
+
+function departmentalStatusLabel(document, isCreator) {
+  if (!document?.partner_department_id) return document?.status;
+  if (isCreator) {
+    if (document.status === "Department Review") return "Under Partner Department Review";
+    if (document.status === "Corrections Needed") return "Ready for Correction";
+    if (document.status === "Partner Review Complete") return "Partner Review Complete — Ready to Route";
+    return document.status;
+  }
+  if (document.status === "Department Review") return "Pending Your Review";
+  if (document.status === "Corrections Needed") return "Awaiting Creator's Corrections";
+  if (document.status === "Partner Review Complete") return "Review Complete — Returned to Creator";
+  if (document.status === "Submitted") return "Routed to Staff Review";
+  return document.status;
 }
 
 function formatDocumentDate(value) {

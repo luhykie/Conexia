@@ -12,6 +12,8 @@ class Document extends Model
     use HasUuids;
 
     public const STATUS_SUBMITTED = 'Submitted';
+    public const STATUS_DEPARTMENT_REVIEW = 'Department Review';
+    public const STATUS_PARTNER_REVIEW_COMPLETE = 'Partner Review Complete';
     public const STATUS_LOGGED = 'Logged';
     public const STATUS_UNDER_LEGAL_REVIEW = 'Under Legal Review';
     public const STATUS_CORRECTIONS_NEEDED = 'Corrections Needed';
@@ -45,6 +47,9 @@ class Document extends Model
         'partner_email',
         'description',
         'department_id',
+        'partner_department_id',
+        'department_review_version',
+        'department_review_routed_at',
         'submitted_by',
         'assigned_legal_counsel',
         'status',
@@ -72,6 +77,7 @@ class Document extends Model
     {
         return [
             'submitted_at' => 'datetime',
+            'department_review_routed_at' => 'datetime',
             'updated_at' => 'datetime',
             'notarization_date' => 'date',
             'archived_at' => 'datetime',
@@ -98,6 +104,8 @@ class Document extends Model
     {
         return [
             self::STATUS_SUBMITTED,
+            self::STATUS_DEPARTMENT_REVIEW,
+            self::STATUS_PARTNER_REVIEW_COMPLETE,
             self::STATUS_LOGGED,
             self::STATUS_UNDER_LEGAL_REVIEW,
             self::STATUS_CORRECTIONS_NEEDED,
@@ -141,6 +149,21 @@ class Document extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function partnerDepartment(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'partner_department_id');
+    }
+
+    public function departmentReviews(): HasMany
+    {
+        return $this->hasMany(DocumentDepartmentReview::class);
+    }
+
+    public function reviewItems(): HasMany
+    {
+        return $this->hasMany(DocumentReviewItem::class);
     }
 
     public function submitter(): BelongsTo

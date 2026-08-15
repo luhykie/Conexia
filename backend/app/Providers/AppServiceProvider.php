@@ -41,6 +41,27 @@ class AppServiceProvider extends ServiceProvider
                 Profile $profile,
                 Document $document
             ): bool {
+                // A selected partner is not yet a recipient.  Keep all
+                // document and annotation data private until it is routed.
+                if (
+                    $profile->role === Profile::ROLE_DEPARTMENT_STAFF &&
+                    $profile->department_id === $document->partner_department_id &&
+                    !$document->department_review_routed_at
+                ) {
+                    return false;
+                }
+
+                if (
+                    $document->partner_department_id &&
+                    $document->status === Document::STATUS_DEPARTMENT_REVIEW
+                ) {
+                    return $profile->role === Profile::ROLE_DEPARTMENT_STAFF &&
+                        in_array($profile->department_id, [
+                            $document->department_id,
+                            $document->partner_department_id,
+                        ], true);
+                }
+
                 if (
                     in_array($profile->role, [
                         Profile::ROLE_IRO_ADMIN,
@@ -61,8 +82,10 @@ class AppServiceProvider extends ServiceProvider
                     $profile->role ===
                     Profile::ROLE_DEPARTMENT_STAFF
                 ) {
-                    return $document->department_id ===
-                        $profile->department_id;
+                    return in_array($profile->department_id, [
+                        $document->department_id,
+                        $document->partner_department_id,
+                    ], true);
                 }
 
                 return false;

@@ -14,6 +14,7 @@ import {
 export function DocumentFilesPanel({
   documentId,
   embeddedPreview = false,
+  previewFileId = null,
   canUpload = false,
   canDelete = false,
 }) {
@@ -35,13 +36,21 @@ export function DocumentFilesPanel({
     setError("");
 
     try {
-      const response = await getDocumentFiles(documentId, { page });
+      const response = await getDocumentFiles(documentId, previewFileId ? { page: 1, per_page: 100 } : { page });
       const loadedFiles = response.files ?? response.data ?? [];
       setFiles(loadedFiles);
       setMeta(response.meta ?? null);
 
       if (embeddedPreview && loadedFiles.length) {
-        await loadEmbeddedPreview(loadedFiles[0]);
+        const file = previewFileId
+          ? loadedFiles.find((entry) => entry.id === previewFileId)
+          : loadedFiles[0];
+        if (!file) {
+          setError("The requested document version is unavailable.");
+          return;
+        }
+        if (previewFileId && import.meta.env.DEV) console.debug("Department history preview", { submission_id: documentId, file_id: file.id, version: file.version });
+        await loadEmbeddedPreview(file);
       }
     } catch (requestError) {
       setError(requestError.message);
@@ -57,7 +66,7 @@ export function DocumentFilesPanel({
     setError("");
     setSuccess("");
     loadFiles();
-  }, [documentId, page]);
+  }, [documentId, page, previewFileId]);
 
   React.useEffect(() => () => {
     if (embeddedPreviewUrl) URL.revokeObjectURL(embeddedPreviewUrl);

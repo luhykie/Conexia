@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\DocumentDepartmentReview;
+use App\Models\AuditLog;
 use App\Models\Profile;
 use App\Services\TrackingNumberService;
 use App\Support\DocumentPayload;
@@ -35,7 +37,13 @@ class DepartmentDocumentController extends Controller
 
         $documents = Document::query()
             ->with('department')
-            ->where('department_id', $profile->department_id)
+            ->where(function ($query) use ($profile) {
+                $query->where('department_id', $profile->department_id)
+                    ->orWhere(function ($partnerQuery) use ($profile) {
+                        $partnerQuery->where('partner_department_id', $profile->department_id)
+                            ->whereNotNull('department_review_routed_at');
+                    });
+            })
             ->when(
                 $options['search'] !== '',
                 fn ($query) => $query->where(function ($builder) use ($options, $operator) {
@@ -99,6 +107,7 @@ class DepartmentDocumentController extends Controller
                 'nullable',
                 Rule::in(Document::renewalStatuses()),
             ],
+            'partner_department_id' => ['nullable', 'uuid', 'exists:departments,id'],
         ]);
 
         $document = $this->createDocumentWithTrackingNumber(
@@ -122,7 +131,11 @@ class DepartmentDocumentController extends Controller
                 return DB::transaction(function () use ($validated, $profile) {
                     $createdAt = now();
 
-                    return Document::query()->create([
+                    $partnerDepartmentId = $validated['partner_department_id'] ?? null;
+                    if ($partnerDepartmentId === $profile->department_id) {
+                        throw ValidationException::withMessages(['partner_department_id' => 'Select a different partner department.']);
+                    }
+                    $document = Document::query()->create([
                         ...$validated,
                         'tracking_number' => $this->trackingNumbers
                             ->generateForDate($createdAt),
@@ -132,9 +145,23 @@ class DepartmentDocumentController extends Controller
                                 : Document::RENEWAL_NOT_REQUIRED),
                         'department_id' => $profile->department_id,
                         'submitted_by' => $profile->id,
-                        'status' => Document::STATUS_SUBMITTED,
+                        'status' => $partnerDepartmentId ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_SUBMITTED,
                         'submitted_at' => $createdAt,
+                        // This is the point at which “Submit for Review”
+                        // officially delivers a departmental submission.
+                        'department_review_routed_at' => $partnerDepartmentId ? $createdAt : null,
                     ]);
+                    if ($partnerDepartmentId) {
+                        foreach ([$profile->department_id, $partnerDepartmentId] as $departmentId) {
+                            DocumentDepartmentReview::query()->create(['document_id' => $document->id, 'department_id' => $departmentId, 'version' => 1]);
+                        }
+                    }
+                    AuditLog::query()->create([
+                        'actor_id' => $profile->id,
+                        'document_id' => $document->id,
+                        'action' => 'department.submission.created',
+                    ]);
+                    return $document;
                 });
             } catch (QueryException $exception) {
                 if (!$this->isTrackingNumberCollision($exception) || $attempt === 3) {
@@ -177,9 +204,25 @@ class DepartmentDocumentController extends Controller
                 ]);
             }
 
-            $document->update([
-                'status' => Document::STATUS_SUBMITTED,
+            $update = [
+                'status' => $document->partner_department_id ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_SUBMITTED,
                 'legal_notes' => null,
+                'department_review_routed_at' => $document->partner_department_id ? now() : null,
+            ];
+            if ($document->partner_department_id) {
+                $version = $document->department_review_version + 1;
+                $update['department_review_version'] = $version;
+                foreach ([$document->department_id, $document->partner_department_id] as $departmentId) {
+                    DocumentDepartmentReview::query()->create(['document_id' => $document->id, 'department_id' => $departmentId, 'version' => $version]);
+                }
+            }
+            $document->update($update);
+
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'department.revision.resubmitted',
+                'metadata' => ['review_version' => $document->department_review_version],
             ]);
 
             return $document->refresh();

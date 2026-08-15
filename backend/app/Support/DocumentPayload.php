@@ -8,7 +8,7 @@ class DocumentPayload
 {
     public static function make(Document $document): array
     {
-        $document->loadMissing('department');
+        $document->loadMissing(['department', 'partnerDepartment']);
 
         return [
             'id' => $document->id,
@@ -28,6 +28,9 @@ class DocumentPayload
             'requested_completion_date' =>
                 $document->requested_completion_date?->toDateString(),
             'department_id' => $document->department_id,
+            'partner_department_id' => $document->partner_department_id,
+            'department_review_version' => $document->department_review_version,
+            'department_review_routed_at' => $document->department_review_routed_at?->toISOString(),
             'submitted_by' => $document->submitted_by,
             'assigned_legal_counsel' =>
                 $document->assigned_legal_counsel,
@@ -59,6 +62,13 @@ class DocumentPayload
                     'id' => $document->department->id,
                     'code' => $document->department->code,
                     'name' => $document->department->name,
+                ]
+                : null,
+            'partner_department' => $document->partnerDepartment
+                ? [
+                    'id' => $document->partnerDepartment->id,
+                    'code' => $document->partnerDepartment->code,
+                    'name' => $document->partnerDepartment->name,
                 ]
                 : null,
         ];

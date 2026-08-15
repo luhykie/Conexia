@@ -144,6 +144,16 @@ class DocumentFileService
                 ['filename' => $originalName]
             );
 
+            if ($version === 1 && $document->partner_department_id) {
+                $this->files->log(
+                    'department.review.routed',
+                    $actor,
+                    $document,
+                    $file,
+                    ['review_version' => $document->department_review_version]
+                );
+            }
+
             return $this->payload($file);
         });
     }
@@ -306,6 +316,20 @@ class DocumentFileService
         Document $document
     ): void {
         $this->authorizeView($actor, $document);
+
+        if ($document->partner_department_id && $document->status === Document::STATUS_DEPARTMENT_REVIEW && $actor->role === Profile::ROLE_DEPARTMENT_STAFF && DocumentFile::query()->where('document_id', $document->id)->whereNull('deleted_at')->exists()) {
+            throw ValidationException::withMessages(['document' => 'Submitted files are locked while the partner department is reviewing them.']);
+        }
+
+        if (
+            $document->partner_department_id &&
+            $actor->role === Profile::ROLE_DEPARTMENT_STAFF &&
+            $actor->department_id !== $document->department_id
+        ) {
+            throw ValidationException::withMessages([
+                'document' => 'Only the submitting department can replace or delete shared files.',
+            ]);
+        }
 
         if ($document->status === Document::STATUS_ARCHIVED) {
             throw ValidationException::withMessages([
