@@ -32,7 +32,7 @@ export default function IroAdminArchivePage() {
     queryParams,
     updateFilter,
     clearFilters,
-  } = useDocumentFilters({ status: "Archived" });
+  } = useDocumentFilters();
 
   function changeFilter(key, value) {
     updateFilter(key, value);
@@ -163,9 +163,6 @@ export default function IroAdminArchivePage() {
           }}
           statusOptions={["Archived"]}
           showDepartment
-          unsupported={{
-            partnership_scope: true,
-          }}
         />
         {loading && <p>Loading archive records...</p>}
         {error && <p className="auth-error">{error}</p>}

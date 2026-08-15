@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   Clock3,
@@ -21,14 +22,36 @@ export default function IroStaffIncomingPage() {
   const [documents, setDocuments] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const [statistics, setStatistics] = React.useState(null);
   const {
     filters,
     queryParams,
     updateFilter,
     clearFilters,
   } = useDocumentFilters();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const message = location.state?.success;
+    if (!message) return;
+
+    setSuccess(message);
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [location.pathname, location.search, location.state?.success, navigate]);
+
+  React.useEffect(() => {
+    if (!success) return undefined;
+
+    const timeout = window.setTimeout(() => setSuccess(""), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [success]);
 
   function changeFilter(key, value) {
     updateFilter(key, value);
@@ -47,10 +70,12 @@ export default function IroStaffIncomingPage() {
 
       setDocuments(response.documents ?? response.data ?? []);
       setMeta(response.meta ?? null);
+      setStatistics(response.statistics ?? null);
     } catch (requestError) {
       reportClientError("Unable to load reminder queue:", requestError);
       setError(requestError.message);
       setDocuments([]);
+      setStatistics(null);
     } finally {
       setLoading(false);
     }
@@ -60,20 +85,9 @@ export default function IroStaffIncomingPage() {
     loadDocuments();
   }, [page, queryParams]);
 
-  const submittedCount = documents.filter(
-    (document) => document.status === "Submitted",
-  ).length;
-  const pendingCount = documents.filter((document) =>
-    [
-      "Submitted",
-      "Logged",
-      "Under Legal Review",
-      "Corrections Needed",
-    ].includes(document.status),
-  ).length;
-  const overdueCount = documents.filter((document) =>
-    isOlderThan(document.submitted_at, 3),
-  ).length;
+  const submittedCount = statistics?.submitted ?? 0;
+  const pendingCount = statistics?.pending ?? 0;
+  const overdueCount = statistics?.older_than_three_days ?? 0;
 
   const rows = documents.map((document) => [
     document.tracking_number,
@@ -81,9 +95,15 @@ export default function IroStaffIncomingPage() {
     formatDate(document.submitted_at),
     ageLabel(document.submitted_at),
     statusBadge(document),
-    <span key={`reminder-${document.id}`} className="badge active">
-      Reminder only
-    </span>,
+    <div key={`action-${document.id}`} className="table-action-group">
+      <button
+        type="button"
+        className="table-action"
+        onClick={() => navigate(`/app/incoming/${document.id}`)}
+      >
+        View Details
+      </button>
+    </div>,
   ]);
 
   return (
@@ -92,6 +112,8 @@ export default function IroStaffIncomingPage() {
         title="Incoming Queue"
         subtitle="Monitor submissions for reminders and IRO Admin follow-up."
       />
+
+      {success && <div className="notice success"><b>{success}</b></div>}
 
       <StatGrid
         stats={[
@@ -137,11 +159,6 @@ export default function IroStaffIncomingPage() {
           ]}
           showAgreementType={false}
           showDepartment={false}
-          unsupported={{
-            partnership_scope: true,
-            date_from: true,
-            date_to: true,
-          }}
         />
         {loading && <p>Loading reminder queue...</p>}
         {error && <p className="auth-error">{error}</p>}
@@ -165,13 +182,17 @@ export default function IroStaffIncomingPage() {
             onPageChange={setPage}
           />
         )}
+
       </Panel>
     </section>
   );
 }
-
 function departmentName(document) {
-  return document.department?.code || document.department?.name || "-";
+  const department = document.department;
+  if (!department) return "PAIR/IRO";
+  return department.code && department.name
+    ? `${department.code} - ${department.name}`
+    : department.code || department.name || "PAIR/IRO";
 }
 
 function formatDate(value) {
@@ -187,13 +208,6 @@ function ageLabel(value) {
   );
 
   return days === 1 ? "1 day" : `${days} days`;
-}
-
-function isOlderThan(value, days) {
-  if (!value) return false;
-
-  return Date.now() - new Date(value).getTime() >
-    days * 24 * 60 * 60 * 1000;
 }
 
 function statusBadge(document) {

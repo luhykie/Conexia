@@ -36,6 +36,7 @@ class ExpiryTrackingTest extends SecurityTestCase
                 'tracking_number' => 'NO-EXPIRY',
                 'title' => 'No Expiry Agreement',
                 'document_type' => 'MOA',
+                'partnership_scope' => 'Local',
                 'partner_institution' => 'Partner',
             ],
             $this->authHeaders($staff)
@@ -61,6 +62,7 @@ class ExpiryTrackingTest extends SecurityTestCase
                 'tracking_number' => 'VALID-EXPIRY',
                 'title' => 'Valid Expiry Agreement',
                 'document_type' => 'MOA',
+                'partnership_scope' => 'International',
                 'partner_institution' => 'Partner',
                 'effective_date' => '2026-07-27',
                 'expiry_date' => '2027-07-27',
@@ -91,6 +93,7 @@ class ExpiryTrackingTest extends SecurityTestCase
                 'tracking_number' => 'BAD-EXPIRY',
                 'title' => 'Bad Expiry Agreement',
                 'document_type' => 'MOA',
+                'partnership_scope' => 'Departmental',
                 'partner_institution' => 'Partner',
                 'effective_date' => '2026-07-27',
                 'expiry_date' => '2026-07-26',
@@ -213,6 +216,90 @@ class ExpiryTrackingTest extends SecurityTestCase
 
         $this->getJson('/api/expiry', $this->authHeaders($superAdmin))
             ->assertForbidden();
+    }
+
+    public function test_iro_staff_can_filter_expiry_records_by_partnership_scope(): void
+    {
+        $iro = $this->profile(Profile::ROLE_IRO_STAFF);
+
+        $departmental = $this->document([
+            'tracking_number' => 'EXP-DEPARTMENTAL',
+            'partnership_scope' => 'Departmental',
+            'expiry_date' => '2026-08-01',
+            'renewal_status' => Document::RENEWAL_ACTIVE,
+        ]);
+        $local = $this->document([
+            'tracking_number' => 'EXP-LOCAL',
+            'partnership_scope' => 'Local',
+            'expiry_date' => '2026-08-01',
+            'renewal_status' => Document::RENEWAL_ACTIVE,
+        ]);
+        $international = $this->document([
+            'tracking_number' => 'EXP-INTERNATIONAL',
+            'partnership_scope' => 'International',
+            'expiry_date' => '2026-08-01',
+            'renewal_status' => Document::RENEWAL_ACTIVE,
+        ]);
+
+        foreach ([
+            'Departmental' => $departmental,
+            'Local' => $local,
+            'International' => $international,
+        ] as $scope => $expected) {
+            $response = $this->getJson(
+                "/api/expiry?partnership_scope={$scope}",
+                $this->authHeaders($iro)
+            )->assertOk();
+
+            $response
+                ->assertJsonCount(1, 'data.records')
+                ->assertJsonPath('data.records.0.id', $expected->id);
+        }
+
+        $this->getJson('/api/expiry', $this->authHeaders($iro))
+            ->assertOk()
+            ->assertJsonCount(3, 'data.records');
+    }
+
+    public function test_iro_admin_expiry_filters_use_expiry_and_document_data(): void
+    {
+        $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $scs = $this->department(['code' => 'SCS']);
+        $sea = $this->department(['code' => 'SEA']);
+
+        $matching = $this->document([
+            'department_id' => $scs->id,
+            'document_type' => 'MOA',
+            'partnership_scope' => 'International',
+            'expiry_date' => '2026-10-01',
+            'renewal_status' => Document::RENEWAL_ACTIVE,
+        ]);
+        $this->document([
+            'department_id' => $sea->id,
+            'document_type' => 'MOU',
+            'partnership_scope' => 'Local',
+            'expiry_date' => '2026-12-01',
+            'renewal_status' => Document::RENEWAL_ACTIVE,
+        ]);
+
+        $this->getJson(
+            '/api/expiry?'.http_build_query([
+                'expiry_window' => '90',
+                'status' => 'Active',
+                'document_type' => 'MOA',
+                'partnership_scope' => 'International',
+                'department' => 'SCS',
+            ]),
+            $this->authHeaders($iro)
+        )
+            ->assertOk()
+            ->assertJsonCount(1, 'data.records')
+            ->assertJsonPath('data.records.0.id', $matching->id);
+
+        $this->getJson(
+            '/api/expiry?status=Invalid',
+            $this->authHeaders($iro)
+        )->assertUnprocessable();
     }
 
     public function test_expiry_notifications_are_not_duplicated(): void

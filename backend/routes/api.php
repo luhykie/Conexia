@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DepartmentDocumentController;
 use App\Http\Controllers\Api\DocumentFileController;
+use App\Http\Controllers\Api\DocumentMessageController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\IroDocumentController;
 use App\Http\Controllers\Api\LegalCounselController;
@@ -207,6 +208,21 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
             });
 
         Route::middleware(
+            EnsureRole::class.':'.Profile::ROLE_IRO_STAFF
+        )
+            ->group(function (): void {
+                Route::patch(
+                    '/iro/documents/{id}/forward-to-admin',
+                    [IroDocumentController::class, 'forwardToAdmin']
+                );
+
+                Route::patch(
+                    '/iro/documents/{id}/return-for-correction',
+                    [IroDocumentController::class, 'returnForCorrection']
+                );
+            });
+
+        Route::middleware(
             EnsureRole::class
                 .':'
                 .Profile::ROLE_DEPARTMENT_STAFF
@@ -250,6 +266,21 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
             });
 
         Route::middleware(
+            EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
+        )
+            ->group(function (): void {
+                Route::get(
+                    '/documents/{document}/messages',
+                    [DocumentMessageController::class, 'index']
+                );
+
+                Route::post(
+                    '/documents/{document}/messages',
+                    [DocumentMessageController::class, 'store']
+                );
+            });
+
+        Route::middleware(
             EnsureRole::class
                 .':'
                 .Profile::ROLE_DEPARTMENT_STAFF
@@ -259,6 +290,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 .Profile::ROLE_LEGAL_COUNSEL
         )
             ->group(function (): void {
+
                 Route::patch(
                     '/expiry/documents/{id}/renewal-request',
                     [
@@ -332,12 +364,37 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     '/iro/documents/status',
                     [IroDocumentController::class, 'status']
                 );
+
+                Route::get(
+                    '/iro/documents/{id}',
+                    [IroDocumentController::class, 'show']
+                );
             });
 
         Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )
             ->group(function (): void {
+                Route::get(
+                    '/documents/{document}/files/{file}/annotations',
+                    [DocumentFileController::class, 'annotations']
+                );
+
+                Route::post(
+                    '/documents/{document}/files/{file}/annotations',
+                    [DocumentFileController::class, 'annotate']
+                );
+
+                Route::patch(
+                    '/documents/{document}/files/{file}/annotations/{annotation}',
+                    [DocumentFileController::class, 'updateAnnotation']
+                );
+
+                Route::delete(
+                    '/documents/{document}/files/{file}/annotations/{annotation}',
+                    [DocumentFileController::class, 'removeAnnotation']
+                );
+
                 Route::post(
                     '/iro/documents',
                     [IroDocumentController::class, 'store']
@@ -351,6 +408,16 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 Route::patch(
                     '/iro/documents/{id}/assign-legal',
                     [IroDocumentController::class, 'assignLegal']
+                );
+
+                Route::patch(
+                    '/iro/documents/{id}/admin-review/return',
+                    [IroDocumentController::class, 'returnFromAdminReview']
+                );
+
+                Route::patch(
+                    '/iro/documents/{id}/admin-review/validate',
+                    [IroDocumentController::class, 'validateAndRouteToLegal']
                 );
 
                 Route::patch(

@@ -9,6 +9,7 @@ use App\Services\WorkflowSummaryService;
 use App\Support\Pagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class WorkflowSummaryController extends Controller
 {
@@ -23,7 +24,7 @@ class WorkflowSummaryController extends Controller
             'Expiry records loaded successfully.',
             $this->summaries->expiry(
                 $this->profile($request),
-                $this->options($request, ['expiry_date', 'updated_at', 'tracking_number'])
+                $this->expiryOptions($request)
             )
         );
     }
@@ -114,6 +115,42 @@ class WorkflowSummaryController extends Controller
             'department' => $extra['department'] ?? null,
             'date_from' => $extra['date_from'] ?? null,
             'date_to' => $extra['date_to'] ?? null,
+            'partnership_scope' => $extra['partnership_scope'] ?? null,
+        ];
+    }
+
+    private function expiryOptions(Request $request): array
+    {
+        $options = Pagination::options(
+            $request,
+            ['expiry_date', 'updated_at', 'tracking_number'],
+            'expiry_date'
+        );
+
+        $extra = $request->validate([
+            'status' => [
+                'nullable',
+                Rule::in(['Active', 'Renewal Required', 'Renewed', 'Expired']),
+            ],
+            'expiry_window' => [
+                'nullable',
+                Rule::in(['120', '90', '60', '30', 'expired']),
+            ],
+            'document_type' => ['nullable', Rule::in(['MOA', 'MOU', 'MOF'])],
+            'department' => ['nullable', 'string', 'max:100'],
+            'partnership_scope' => [
+                'nullable',
+                Rule::in(['Departmental', 'Local', 'International']),
+            ],
+        ]);
+
+        return [
+            ...$options,
+            'status' => null,
+            'renewal_filter' => $extra['status'] ?? null,
+            'expiry_window' => $extra['expiry_window'] ?? null,
+            'document_type' => $extra['document_type'] ?? null,
+            'department' => $extra['department'] ?? null,
             'partnership_scope' => $extra['partnership_scope'] ?? null,
         ];
     }

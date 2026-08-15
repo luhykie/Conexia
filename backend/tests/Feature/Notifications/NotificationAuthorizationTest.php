@@ -7,6 +7,51 @@ use Tests\Feature\Support\SecurityTestCase;
 
 class NotificationAuthorizationTest extends SecurityTestCase
 {
+    public function test_iro_roles_receive_and_update_their_own_unread_count(): void
+    {
+        foreach ([Profile::ROLE_IRO_ADMIN, Profile::ROLE_IRO_STAFF] as $role) {
+            $profile = $this->profile($role);
+            $otherProfile = $this->profile($role);
+            $unread = $this->notification(['user_id' => $profile->id]);
+            $this->notification([
+                'user_id' => $profile->id,
+                'is_read' => true,
+                'read_at' => now(),
+            ]);
+            $this->notification(['user_id' => $otherProfile->id]);
+
+            $this->getJson(
+                '/api/notifications/unread-count',
+                $this->authHeaders($profile)
+            )->assertOk()->assertJsonPath('count', 1);
+
+            $this->patchJson(
+                "/api/notifications/{$unread->id}/read",
+                [],
+                $this->authHeaders($profile)
+            )
+                ->assertOk()
+                ->assertJsonPath('notification.is_read', true);
+
+            $this->getJson(
+                '/api/notifications/unread-count',
+                $this->authHeaders($profile)
+            )->assertOk()->assertJsonPath('count', 0);
+
+            $this->notification(['user_id' => $profile->id]);
+            $this->patchJson(
+                '/api/notifications/read-all',
+                [],
+                $this->authHeaders($profile)
+            )->assertOk();
+
+            $this->getJson(
+                '/api/notifications/unread-count',
+                $this->authHeaders($profile)
+            )->assertOk()->assertJsonPath('count', 0);
+        }
+    }
+
     public function test_user_reads_only_their_own_notifications(): void
     {
         $user = $this->profile(Profile::ROLE_LEGAL_COUNSEL);

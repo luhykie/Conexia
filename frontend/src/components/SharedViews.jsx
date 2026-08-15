@@ -151,7 +151,9 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
 
   const activityRows = (dashboard?.recent_activity ?? []).map((item) => [
     item.tracking_number || "-",
-    item.entity_name || item.department?.code || "-",
+    roleKey === "staff"
+      ? item.department?.code || item.department?.name || item.entity_name || "-"
+      : item.entity_name || item.department?.code || "-",
     item.type || "-",
     formatDateTime(item.timestamp),
     item.status || "-",
@@ -170,7 +172,13 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
           )}
           {!loading && !error && activityRows.length > 0 && (
             <DataTable
-              headers={["Submission ID", "Entity Name", "Type", "Timestamp", "Status"]}
+              headers={[
+                "Submission ID",
+                roleKey === "staff" ? "Submitting Office" : "Entity Name",
+                "Type",
+                "Timestamp",
+                "Status",
+              ]}
               rows={activityRows}
             />
           )}
@@ -249,6 +257,10 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
             filters.expiryWindow === "all" ? undefined : filters.expiryWindow,
           document_type:
             filters.agreementType === "all" ? undefined : filters.agreementType,
+          partnership_scope:
+            filters.partnershipScope === "all"
+              ? undefined
+              : filters.partnershipScope,
           department:
             filters.department === "all" ? undefined : filters.department,
         });
@@ -296,7 +308,21 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
     try {
       await requestDocumentRenewal(record.id);
       setSuccess("Renewal request recorded.");
-      const response = await getExpirySummary({ page });
+      const response = await getExpirySummary({
+        page,
+        search: filters.search || undefined,
+        status: filters.status === "all" ? undefined : filters.status,
+        expiry_window:
+          filters.expiryWindow === "all" ? undefined : filters.expiryWindow,
+        document_type:
+          filters.agreementType === "all" ? undefined : filters.agreementType,
+        partnership_scope:
+          filters.partnershipScope === "all"
+            ? undefined
+            : filters.partnershipScope,
+        department:
+          filters.department === "all" ? undefined : filters.department,
+      });
           setSummary(response.data ?? {});
           setMeta(response.meta ?? null);
     } catch (requestError) {
@@ -444,7 +470,12 @@ function ExpiryFilters({ filters, updateFilter }) {
       </label>
       <label>
         Partnership Scope
-        <select value={filters.partnershipScope} disabled>
+        <select
+          value={filters.partnershipScope}
+          onChange={(event) =>
+            updateFilter("partnershipScope", event.target.value)
+          }
+        >
           <option value="all">All</option>
           <option value="Departmental">Departmental</option>
           <option value="Local">Local</option>

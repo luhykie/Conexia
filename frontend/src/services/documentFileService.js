@@ -2,7 +2,9 @@ import {
   apiDelete,
   apiGet,
   apiGetBlob,
+  apiPatch,
   apiPostForm,
+  apiPost,
   withQuery,
 } from "../api/apiClient";
 
@@ -64,6 +66,38 @@ export async function previewDocumentFile(
 export function deleteDocumentFile(documentId, fileId) {
   return apiDelete(
     `/documents/${documentId}/files/${fileId}`
+  );
+}
+
+export async function getDocumentPreviewBlob(documentId, fileId) {
+  const { blob } = await apiGetBlob(
+    `/documents/${documentId}/files/${fileId}/preview`
+  );
+
+  return blob;
+}
+
+export function getDocumentAnnotations(documentId, fileId) {
+  return apiGet(`/documents/${documentId}/files/${fileId}/annotations`);
+}
+
+export function createDocumentAnnotation(documentId, fileId, annotation) {
+  return apiPost(
+    `/documents/${documentId}/files/${fileId}/annotations`,
+    annotation,
+  );
+}
+
+export function updateDocumentAnnotation(documentId, fileId, annotationId, comment) {
+  return apiPatch(
+    `/documents/${documentId}/files/${fileId}/annotations/${annotationId}`,
+    { comment },
+  );
+}
+
+export function removeDocumentAnnotation(documentId, fileId, annotationId) {
+  return apiDelete(
+    `/documents/${documentId}/files/${fileId}/annotations/${annotationId}`,
   );
 }
 

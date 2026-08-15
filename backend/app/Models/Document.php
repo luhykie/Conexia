@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Document extends Model
 {
@@ -153,13 +154,30 @@ class Document extends Model
         return $this->belongsTo(Profile::class, 'assigned_legal_counsel');
     }
 
+    public function latestReassignment(): HasOne
+    {
+        return $this->hasOne(AuditLog::class)
+            ->where('action', 'iro_admin.document.reassigned')
+            ->latest('created_at');
+    }
+
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(DocumentFile::class);
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(DocumentMessage::class);
     }
 }

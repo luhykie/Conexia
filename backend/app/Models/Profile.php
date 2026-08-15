@@ -57,4 +57,9 @@ class Profile extends Model
     {
         return $this->hasMany(Notification::class, 'user_id');
     }
+
+    public function documentMessages(): HasMany
+    {
+        return $this->hasMany(DocumentMessage::class, 'sender_id');
+    }
 }

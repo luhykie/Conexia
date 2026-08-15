@@ -42,21 +42,28 @@
   gap: 12px;
 }
 
-.engagement-steps span {
+.engagement-steps button {
+  width: 100%;
   padding: 12px 14px;
   border-radius: 8px;
   border: 1px solid #d7dfd9;
   background: #f8fbfa;
   color: #647075;
   font-size: 0.95rem;
+  font-weight: 400;
   text-align: center;
+  cursor: pointer;
 }
 
-.engagement-steps span.active {
+.engagement-steps button.active {
   border-color: #256349;
   background: #e7f7ed;
   color: #164b34;
   font-weight: 700;
+}
+
+.engagement-steps button:disabled {
+  cursor: not-allowed;
 }
 
 .engagement-form {
@@ -89,6 +96,25 @@
   resize: vertical;
 }
 
+.engagement-form .contact-number-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .engagement-form .contact-number-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.engagement-form .field-error {
+  color: #b42318;
+  font-size: 0.875rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .engagement-modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -108,6 +134,8 @@
 
 .engagement-modal .auth-error {
   margin: 0;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .engagement-modal .success-message {

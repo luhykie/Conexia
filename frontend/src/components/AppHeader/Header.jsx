@@ -38,6 +38,9 @@ export function Header({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [processingId, setProcessingId] = React.useState(null);
+  const isIroNotificationBadge = ["admin", "staff"].includes(
+    account?.roleKey,
+  );
 
   const initials = getInitials(
     account?.fullName ||
@@ -97,10 +100,30 @@ export function Header({
   }, [account?.id]);
 
   React.useEffect(() => {
+    if (!isIroNotificationBadge) return undefined;
+
+    const refreshUnreadCount = () => loadUnreadCount();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshUnreadCount();
+    };
+    const timer = window.setInterval(refreshUnreadCount, 30000);
+
+    window.addEventListener("focus", refreshUnreadCount);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshUnreadCount);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [account?.id, isIroNotificationBadge]);
+
+  React.useEffect(() => {
     if (isNotificationsOpen) {
       loadNotifications();
+      if (isIroNotificationBadge) loadUnreadCount();
     }
-  }, [isNotificationsOpen]);
+  }, [isNotificationsOpen, isIroNotificationBadge]);
 
   React.useEffect(() => {
     if (!isNotificationsOpen) return undefined;
@@ -174,7 +197,11 @@ export function Header({
           read_at: notification.read_at || readAt,
         })),
       );
-      setUnreadCount(0);
+      if (isIroNotificationBadge) {
+        await loadUnreadCount();
+      } else {
+        setUnreadCount(0);
+      }
     } catch (requestError) {
       reportClientError("Unable to mark all notifications as read:", requestError);
       setError(requestError.message);

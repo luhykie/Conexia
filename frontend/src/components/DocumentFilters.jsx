@@ -12,6 +12,7 @@ export function DocumentFilters({
   statusOptions = [],
   showAgreementType = true,
   showPartnershipScope = true,
+  partnershipScopeOptions = partnershipScopes,
   showDateRange = true,
   showExpiryWindow = false,
   showDepartment = false,
@@ -72,7 +73,7 @@ export function DocumentFilters({
             value={filters.partnership_scope || ""}
             disabled={unsupported.partnership_scope}
             onChange={(value) => onChange("partnership_scope", value)}
-            options={partnershipScopes}
+            options={partnershipScopeOptions}
           />
         )}
 
@@ -86,15 +87,11 @@ export function DocumentFilters({
           />
         )}
 
-        <button
-          type="button"
-          className="outline document-filters__clear"
-          onClick={onClear}
-          disabled={activeFilters.length === 0}
-        >
-          <X size={15} />
-          Clear
-        </button>
+        {activeFilters.length > 0 && (
+          <button type="button" className="outline document-filters__clear" onClick={onClear}>
+            <X size={15} /> Clear
+          </button>
+        )}
       </div>
 
       {(showDateRange ||

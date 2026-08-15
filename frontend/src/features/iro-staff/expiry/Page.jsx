@@ -42,6 +42,10 @@ export default function IroStaffExpiryPage() {
           filters.expiryWindow === "all" ? undefined : filters.expiryWindow,
         document_type:
           filters.agreementType === "all" ? undefined : filters.agreementType,
+        partnership_scope:
+          filters.partnershipScope === "all"
+            ? undefined
+            : filters.partnershipScope,
         department:
           filters.department === "all" ? undefined : filters.department,
       });
@@ -205,7 +209,12 @@ function ExpiryFilters({ filters, updateFilter }) {
       </label>
       <label>
         Partnership Scope
-        <select value={filters.partnershipScope} disabled>
+        <select
+          value={filters.partnershipScope}
+          onChange={(event) =>
+            updateFilter("partnershipScope", event.target.value)
+          }
+        >
           <option value="all">All</option>
           <option value="Departmental">Departmental</option>
           <option value="Local">Local</option>
@@ -280,7 +289,11 @@ const expiryMilestones = [
 ];
 
 function departmentName(record) {
-  return record.department?.code || record.department?.name || "-";
+  const department = record.department;
+  if (!department) return "PAIR/IRO";
+  return department.code && department.name
+    ? `${department.code} - ${department.name}`
+    : department.code || department.name || "PAIR/IRO";
 }
 
 function formatDate(value) {

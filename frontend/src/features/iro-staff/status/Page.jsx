@@ -19,11 +19,12 @@ import "./Page.css";
 
 export default function IroStaffStatusPage() {
   const [documents, setDocuments] = React.useState([]);
-  const [selectedDocument, setSelectedDocument] = React.useState(null);
+  const [selectedDocumentId, setSelectedDocumentId] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
+  const [statistics, setStatistics] = React.useState(null);
   const {
     filters,
     queryParams,
@@ -49,20 +50,20 @@ export default function IroStaffStatusPage() {
 
       setDocuments(loadedDocuments);
       setMeta(response.meta ?? null);
-      setSelectedDocument((currentDocument) => {
-        if (!loadedDocuments.length) return null;
+      setStatistics(response.statistics ?? null);
+      setSelectedDocumentId((currentId) => {
+        if (!currentId) return null;
 
-        return (
-          loadedDocuments.find(
-            (document) => document.id === currentDocument?.id,
-          ) || loadedDocuments[0]
-        );
+        return loadedDocuments.some((document) => document.id === currentId)
+          ? currentId
+          : null;
       });
     } catch (requestError) {
       reportClientError("Unable to load status tracker:", requestError);
       setError(requestError.message);
       setDocuments([]);
-      setSelectedDocument(null);
+      setSelectedDocumentId(null);
+      setStatistics(null);
     } finally {
       setLoading(false);
     }
@@ -72,20 +73,12 @@ export default function IroStaffStatusPage() {
     loadStatusTracker();
   }, [page, queryParams]);
 
-  const activeCount = documents.filter(
-    (document) => document.status !== "Archived",
-  ).length;
-  const needsFollowUpCount = documents.filter((document) =>
-    [
-      "Submitted",
-      "Logged",
-      "Under Legal Review",
-      "Corrections Needed",
-    ].includes(document.status),
-  ).length;
-  const agingCount = documents.filter((document) =>
-    isOlderThan(document.updated_at || document.submitted_at, 3),
-  ).length;
+  const activeCount = statistics?.active ?? 0;
+  const needsFollowUpCount = statistics?.pending ?? 0;
+  const agingCount = statistics?.status_older_than_three_days ?? 0;
+  const selectedDocument = documents.find(
+    (document) => document.id === selectedDocumentId,
+  ) ?? null;
 
   const rows = documents.map((document) => [
     document.tracking_number,
@@ -98,14 +91,19 @@ export default function IroStaffStatusPage() {
       key={`view-${document.id}`}
       type="button"
       className="table-action"
-      onClick={() => setSelectedDocument(document)}
+      aria-pressed={selectedDocumentId === document.id}
+      onClick={() => setSelectedDocumentId(document.id)}
     >
-      Reminder View
+      View Reminder
     </button>,
   ]);
 
   return (
-    <section className="page split-page iro-staff-page iro-staff-status-page">
+    <section
+      className={`page iro-staff-page iro-staff-status-page${
+        selectedDocument ? " split-page" : ""
+      }`}
+    >
       <div>
         <PageTitle
           title="Status Tracker"
@@ -153,11 +151,6 @@ export default function IroStaffStatusPage() {
             ]}
             showAgreementType={false}
             showDepartment={false}
-            unsupported={{
-              partnership_scope: true,
-              date_from: true,
-              date_to: true,
-            }}
           />
           {loading && <p>Loading submission statuses...</p>}
           {error && <p className="auth-error">{error}</p>}
@@ -185,12 +178,18 @@ export default function IroStaffStatusPage() {
         </Panel>
       </div>
 
-      <aside className="detail-drawer">
-        <h2>Reminder Details</h2>
+      {selectedDocument && (
+        <aside className="detail-drawer">
+          <button
+            type="button"
+            aria-label="Close Reminder Details"
+            title="Close Reminder Details"
+            onClick={() => setSelectedDocumentId(null)}
+          >
+            ×
+          </button>
+          <h2>Reminder Details</h2>
 
-        {!selectedDocument ? (
-          <p>Select a submission to view reminder-level status.</p>
-        ) : (
           <>
             {statusBadge(selectedDocument)}
 
@@ -221,14 +220,18 @@ export default function IroStaffStatusPage() {
               </p>
             </div>
           </>
-        )}
-      </aside>
+        </aside>
+      )}
     </section>
   );
 }
 
 function departmentName(document) {
-  return document.department?.code || document.department?.name || "-";
+  const department = document.department;
+  if (!department) return "PAIR/IRO";
+  return department.code && department.name
+    ? `${department.code} - ${department.name}`
+    : department.code || department.name || "PAIR/IRO";
 }
 
 function formatDate(value) {
@@ -250,13 +253,6 @@ function ageLabel(value) {
   const hours = totalHours % 24;
 
   return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
-}
-
-function isOlderThan(value, days) {
-  if (!value) return false;
-
-  return Date.now() - new Date(value).getTime() >
-    days * 24 * 60 * 60 * 1000;
 }
 
 function statusBadge(document) {

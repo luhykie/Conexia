@@ -70,6 +70,7 @@ class DashboardRepository
             'tracking_number',
             'document_type',
             'partner_institution',
+            'partnership_scope',
             'department_id',
             'assigned_legal_counsel',
             'status',

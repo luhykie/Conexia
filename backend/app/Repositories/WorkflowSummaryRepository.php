@@ -68,6 +68,43 @@ class WorkflowSummaryRepository
                 $options['status'] ?? null,
                 fn ($query) => $query->where('status', $options['status'])
             )
+            ->when(
+                $options['partnership_scope'] ?? null,
+                fn ($query) => $query->where(
+                    'partnership_scope',
+                    $options['partnership_scope']
+                )
+            )
+            ->when(
+                $options['document_type'] ?? null,
+                fn ($query) => $query->where(
+                    'document_type',
+                    $options['document_type']
+                )
+            )
+            ->when(
+                $options['department'] ?? null,
+                fn ($query) => $query->whereHas(
+                    'department',
+                    fn ($departmentQuery) => $departmentQuery
+                        ->where('code', $options['department'])
+                        ->orWhere('name', $options['department'])
+                )
+            )
+            ->when(
+                $options['renewal_filter'] ?? null,
+                fn ($query) => $this->applyRenewalFilter(
+                    $query,
+                    $options['renewal_filter']
+                )
+            )
+            ->when(
+                $options['expiry_window'] ?? null,
+                fn ($query) => $this->applyExpiryWindow(
+                    $query,
+                    $options['expiry_window']
+                )
+            )
             ->orderBy(
                 $options['sort'] ?? 'updated_at',
                 $options['direction'] ?? 'desc'
@@ -139,6 +176,13 @@ class WorkflowSummaryRepository
                     'archived_at',
                     '<=',
                     $options['date_to']
+                )
+            )
+            ->when(
+                $options['partnership_scope'] ?? null,
+                fn ($query) => $query->where(
+                    'partnership_scope',
+                    $options['partnership_scope']
                 )
             )
             ->orderBy(
@@ -215,6 +259,13 @@ class WorkflowSummaryRepository
                 $options['status'] ?? null,
                 fn ($query) => $query->where('status', $options['status'])
             )
+            ->when(
+                $options['partnership_scope'] ?? null,
+                fn ($query) => $query->where(
+                    'partnership_scope',
+                    $options['partnership_scope']
+                )
+            )
             ->orderBy(
                 $options['sort'] ?? 'updated_at',
                 $options['direction'] ?? 'desc'
@@ -238,6 +289,62 @@ class WorkflowSummaryRepository
             ->with('department')
             ->whereNotNull('expiry_date')
             ->get();
+    }
+
+    private function applyRenewalFilter($query, string $filter): void
+    {
+        if ($filter === 'Renewal Required') {
+            $query->whereIn('renewal_status', [
+                Document::RENEWAL_DUE,
+                Document::RENEWAL_REQUESTED,
+            ]);
+
+            return;
+        }
+
+        if ($filter === 'Expired') {
+            $query->where(function ($builder) {
+                $builder
+                    ->where('renewal_status', Document::RENEWAL_EXPIRED)
+                    ->orWhereDate('expiry_date', '<', now()->toDateString());
+            });
+
+            return;
+        }
+
+        $renewalStatus = [
+            'Active' => Document::RENEWAL_ACTIVE,
+            'Renewed' => Document::RENEWAL_RENEWED,
+        ][$filter] ?? null;
+
+        if ($renewalStatus) {
+            $query->where('renewal_status', $renewalStatus);
+
+            if ($filter === 'Active') {
+                $query->whereDate(
+                    'expiry_date',
+                    '>=',
+                    now()->toDateString()
+                );
+            }
+        }
+    }
+
+    private function applyExpiryWindow($query, string $window): void
+    {
+        if ($window === 'expired') {
+            $query->whereDate('expiry_date', '<', now()->toDateString());
+
+            return;
+        }
+
+        $query
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate(
+                'expiry_date',
+                '<=',
+                now()->addDays((int) $window)->toDateString()
+            );
     }
 
     public function findVisibleDocumentForUpdate(
