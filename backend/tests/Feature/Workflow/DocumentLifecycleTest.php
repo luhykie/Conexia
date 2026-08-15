@@ -31,6 +31,7 @@ class DocumentLifecycleTest extends SecurityTestCase
             [
                 'title' => 'E2E Partnership MOA',
                 'document_type' => 'MOA',
+                'partnership_scope' => 'Local',
                 'partner_institution' => 'E2E Partner',
                 'partner_email' => 'partner@example.test',
                 'description' => 'Lifecycle validation.',

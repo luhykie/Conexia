@@ -87,7 +87,8 @@ class DashboardService
             ],
             'recent_activity' => $this->recentActivity(
                 $queueDocuments,
-                $profile->role === Profile::ROLE_IRO_STAFF
+                $profile->role === Profile::ROLE_IRO_STAFF,
+                $profile->role === Profile::ROLE_IRO_ADMIN
             ),
             'notifications' => $this->statusNotices($queueDocuments),
             'status_distribution' => $this->statusDistribution($documents),
@@ -178,12 +179,16 @@ class DashboardService
 
     private function recentActivity(
         Collection $documents,
-        bool $reminderOnly = false
+        bool $reminderOnly = false,
+        bool $includePartnershipScope = false
     ): array
     {
         return $documents
             ->take(5)
-            ->map(function (Document $document) use ($reminderOnly): array {
+            ->map(function (Document $document) use (
+                $reminderOnly,
+                $includePartnershipScope
+            ): array {
                 $department = $document->department
                     ? [
                         'code' => $document->department->code,
@@ -200,12 +205,17 @@ class DashboardService
                     'department' => $department,
                 ];
 
+                if ($includePartnershipScope) {
+                    $payload['partnership_scope'] =
+                        $document->partnership_scope;
+                }
+
                 if ($reminderOnly) {
                     return [
                         ...$payload,
                         'entity_name' =>
-                            $department['code'] ?? $department['name'] ?? '-',
-                        'type' => 'Reminder',
+                            $department['code'] ?? $department['name'] ?? 'PAIR/IRO',
+                        'type' => $document->document_type ?? '-',
                     ];
                 }
 

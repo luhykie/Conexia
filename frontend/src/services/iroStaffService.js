@@ -9,6 +9,25 @@ export function getIncomingDocuments(params = {}) {
   return apiGet(withQuery("/iro/documents/incoming", params));
 }
 
+export function getIroDocument(documentId) {
+  return apiGet(`/iro/documents/${documentId}`);
+}
+
+export function submitDocumentToIroAdmin(
+  documentId,
+  remarks = "",
+) {
+  return apiPatch(`/iro/documents/${documentId}/forward-to-admin`, {
+    remarks,
+  });
+}
+
+export function returnDocumentForCorrection(documentId, remarks) {
+  return apiPatch(`/iro/documents/${documentId}/return-for-correction`, {
+    remarks,
+  });
+}
+
 export function markDocumentAsLogged(documentId) {
   return apiPatch(
     `/iro/documents/${documentId}/log`,
@@ -26,6 +45,17 @@ export function assignDocumentToLegal(
       legal_counsel_id: legalCounselId,
     }
   );
+}
+
+export function returnAdminReviewForRevision(documentId, reason) {
+  return apiPatch(`/iro/documents/${documentId}/admin-review/return`, { reason });
+}
+
+export function validateAdminReview(documentId, legalCounselId, comments = "") {
+  return apiPatch(`/iro/documents/${documentId}/admin-review/validate`, {
+    legal_counsel_id: legalCounselId,
+    comments,
+  });
 }
 
 export function reassignDocumentToLegal(

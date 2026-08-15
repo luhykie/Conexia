@@ -128,6 +128,42 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
             );
     }
 
+    public function test_archive_and_reports_filter_by_actual_partnership_scope(): void
+    {
+        $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
+
+        $this->document([
+            'tracking_number' => 'ARCH-LOCAL',
+            'status' => Document::STATUS_ARCHIVED,
+            'partnership_scope' => 'Local',
+            'archived_at' => now(),
+        ]);
+        $this->document([
+            'tracking_number' => 'ARCH-INTERNATIONAL',
+            'status' => Document::STATUS_ARCHIVED,
+            'partnership_scope' => 'International',
+            'archived_at' => now(),
+        ]);
+
+        $this->getJson(
+            '/api/iro/archive?partnership_scope=International',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertOk()
+            ->assertJsonCount(1, 'data.records')
+            ->assertJsonPath(
+                'data.records.0.tracking_number',
+                'ARCH-INTERNATIONAL'
+            );
+
+        $this->getJson(
+            '/api/iro/reports?partnership_scope=Local',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertOk()
+            ->assertJsonPath('data.stats.total_reviewed', 1);
+    }
+
     public function test_reports_endpoint_denies_wrong_role(): void
     {
         $departmentStaff = $this->profile(

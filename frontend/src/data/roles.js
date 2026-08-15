@@ -97,7 +97,6 @@ export const navItems = {
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["log-review", "Log & Review Form", FileText],
-    ["validation", "Validation Queue", ClipboardCheck],
     ["reassign", "Reassign Submissions", RefreshCw],
     ["reports", "Performance Reports", Gauge],
     ["archive", "Archive", Archive],

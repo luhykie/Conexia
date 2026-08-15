@@ -49,6 +49,11 @@ class WorkflowSummaryService
             )
             ->values();
 
+        $displayRecords = ($options['expiry_window'] ?? null) ||
+            ($options['renewal_filter'] ?? null)
+                ? $records
+                : $renewalRequired;
+
         return [
             'stats' => [
                 'total_expiring_soon' => $upcoming->count(),
@@ -63,7 +68,7 @@ class WorkflowSummaryService
                     )
                     ->count(),
             ],
-            'records' => $renewalRequired->all(),
+            'records' => $displayRecords->all(),
             'upcoming' => $upcoming->all(),
             'expired' => $expired->all(),
             'renewal_required' => $renewalRequired->all(),

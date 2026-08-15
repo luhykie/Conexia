@@ -109,10 +109,32 @@ class DashboardAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('data.stats.archived', 1)
             ->assertJsonFragment([
                 'entity_name' => 'SCS',
-                'type' => 'Reminder',
+                'type' => 'MOA',
             ])
             ->assertJsonMissingPath('data.recent_activity.0.partner_institution')
             ->assertJsonMissingPath('data.recent_activity.0.document_type');
+    }
+
+    public function test_iro_admin_recent_activity_includes_stored_partnership_scope(): void
+    {
+        $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $document = $this->document([
+            'partnership_scope' => 'International',
+        ]);
+
+        $this->getJson(
+            '/api/iro/dashboard',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'data.recent_activity.0.tracking_number',
+                $document->tracking_number
+            )
+            ->assertJsonPath(
+                'data.recent_activity.0.partnership_scope',
+                'International'
+            );
     }
 
     public function test_legal_dashboard_is_scoped_to_assigned_counsel(): void

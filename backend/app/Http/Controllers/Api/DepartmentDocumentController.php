@@ -80,6 +80,10 @@ class DepartmentDocumentController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'document_type' => ['required', 'string', 'max:100'],
+            'partnership_scope' => [
+                'required',
+                Rule::in(['Departmental', 'Local', 'International']),
+            ],
             'partner_institution' => ['required', 'string', 'max:255'],
             'partner_email' => ['nullable', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],

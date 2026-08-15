@@ -161,6 +161,20 @@ function App() {
         }
       />
 
+      <Route
+        path="/app/:page/:documentId"
+        element={
+          account
+            ? (
+              <WorkspaceRoute
+                account={account}
+                onLogout={handleLogout}
+              />
+            )
+            : <Navigate to="/login" replace />
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -198,7 +212,7 @@ function LoginRoute({ onLogin }) {
 
 function WorkspaceRoute({ account, onLogout }) {
   const navigate = useNavigate();
-  const { page = "dashboard" } = useParams();
+  const { page = "dashboard", documentId = null } = useParams();
 
   const safePage = canAccessPage(account.roleKey, page)
     ? page
@@ -238,6 +252,7 @@ function WorkspaceRoute({ account, onLogout }) {
           roleKey={account.roleKey}
           page={safePage}
           account={account}
+          documentId={documentId}
         />
       </React.Suspense>
     </AppLayout>
@@ -502,10 +517,10 @@ function LoginScreen({ onBack, onLogin }) {
 }
 
 // Selects the correct role module after RBAC has allowed the page.
-function RolePage({ roleKey, page, account }) {
+function RolePage({ roleKey, page, account, documentId }) {
   if (roleKey === "super") return <SuperAdmin page={page} account={account} />;
-  if (roleKey === "admin") return <IroAdmin page={page} account={account} />;
-  if (roleKey === "staff") return <IroStaff page={page} account={account} />;
+  if (roleKey === "admin") return <IroAdmin page={page} account={account} documentId={documentId} />;
+  if (roleKey === "staff") return <IroStaff page={page} account={account} documentId={documentId} />;
   if (roleKey === "legal") return <LegalCounsel page={page} account={account} />;
   return <DepartmentStaff page={page} account={account} />;
 }

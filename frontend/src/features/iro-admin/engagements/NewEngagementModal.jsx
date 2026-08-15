@@ -1,4 +1,8 @@
 import React from "react";
+import {
+  parsePhoneNumberFromString,
+  validatePhoneNumberLength,
+} from "libphonenumber-js/max";
 
 import { Dropzone } from "../../../components/SharedViews";
 import { createIroDocument } from "../../../services/iroStaffService";
@@ -18,10 +22,43 @@ const initialForm = {
   contact_person: "",
   contact_position: "",
   contact_email: "",
+  contact_country: "PH",
   contact_number: "",
   urgency: "Normal",
   requested_completion_date: "",
 };
+
+const countries = [
+  { name: "Philippines", code: "+63", iso: "PH" },
+  { name: "Australia", code: "+61", iso: "AU" },
+  { name: "Canada", code: "+1", iso: "CA" },
+  { name: "China", code: "+86", iso: "CN" },
+  { name: "France", code: "+33", iso: "FR" },
+  { name: "Germany", code: "+49", iso: "DE" },
+  { name: "Hong Kong", code: "+852", iso: "HK" },
+  { name: "India", code: "+91", iso: "IN" },
+  { name: "Indonesia", code: "+62", iso: "ID" },
+  { name: "Japan", code: "+81", iso: "JP" },
+  { name: "Malaysia", code: "+60", iso: "MY" },
+  { name: "New Zealand", code: "+64", iso: "NZ" },
+  { name: "Singapore", code: "+65", iso: "SG" },
+  { name: "South Korea", code: "+82", iso: "KR" },
+  { name: "Taiwan", code: "+886", iso: "TW" },
+  { name: "Thailand", code: "+66", iso: "TH" },
+  { name: "United Arab Emirates", code: "+971", iso: "AE" },
+  { name: "United Kingdom", code: "+44", iso: "GB" },
+  { name: "United States", code: "+1", iso: "US" },
+  { name: "Vietnam", code: "+84", iso: "VN" },
+];
+
+function getPhoneNumber(number, country) {
+  if (!/^\d+$/.test(number) || (country === "PH" && number.length !== 10)) {
+    return null;
+  }
+
+  const phoneNumber = parsePhoneNumberFromString(number, country);
+  return phoneNumber?.isValid() ? phoneNumber : null;
+}
 
 export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [modalStep, setModalStep] = React.useState(1);
@@ -30,6 +67,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [departments, setDepartments] = React.useState([]);
   const [loadingDepartments, setLoadingDepartments] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+  const [fieldErrors, setFieldErrors] = React.useState({});
   const [modalError, setModalError] = React.useState("");
   const [modalSuccess, setModalSuccess] = React.useState("");
   const mountedRef = React.useRef(true);
@@ -47,6 +85,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     setForm(initialForm);
     setSelectedFile(null);
     setSubmitting(false);
+    setFieldErrors({});
     setModalError("");
     setModalSuccess("");
     loadDepartments();
@@ -68,6 +107,27 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
 
   function updateForm(event) {
     const { name, value } = event.target;
+    const trimmedValue = value.trim();
+
+    if (name === "contact_number" && !/^\d*$/.test(value)) {
+      setModalError("");
+      setModalSuccess("");
+      setFieldErrors((current) => ({
+        ...current,
+        contact_number: "Please enter a valid contact number.",
+      }));
+      return;
+    }
+
+    if (
+      name === "contact_number"
+      && value
+      && (form.contact_country === "PH"
+        ? value.length > 10
+        : validatePhoneNumberLength(value, form.contact_country) === "TOO_LONG")
+    ) {
+      return;
+    }
 
     setForm((current) => {
       const nextForm = {
@@ -75,75 +135,157 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
         [name]: value,
       };
 
-      if (name === "partnership_scope" && value !== "Departmental") {
-        nextForm.department_id = "";
-      }
-
       return nextForm;
     });
 
     setModalError("");
     setModalSuccess("");
+    setFieldErrors((current) => {
+      const isValid = name === "contact_email"
+        ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedValue)
+        : name === "contact_number"
+          ? Boolean(getPhoneNumber(value, form.contact_country))
+          : Boolean(trimmedValue);
+      const nextErrors = { ...current };
+      if (name === "contact_country" && getPhoneNumber(form.contact_number, value)) {
+        delete nextErrors.contact_number;
+        delete nextErrors._form;
+      } else if (name === "contact_country" && form.contact_number) {
+        nextErrors.contact_number = "Please enter a valid contact number.";
+      }
+      if (name === "contact_number" && getPhoneNumber(value, form.contact_country)) {
+        delete nextErrors.contact_number;
+        delete nextErrors._form;
+      }
+      if (isValid) delete nextErrors[name];
+      if (isValid) delete nextErrors._form;
+      return nextErrors;
+    });
   }
 
   function validateStep(currentStep) {
+    const errors = {};
+    let requiredValues = [];
+
     if (currentStep === 1) {
+      requiredValues = [form.document_type, form.partnership_type, form.partnership_scope];
       if (!form.document_type) {
-        return "Select a document classification.";
+        errors.document_type = "Please select an agreement type.";
       }
       if (!form.partnership_type) {
-        return "Select a partnership status.";
+        errors.partnership_type = "Please select a partnership type.";
       }
       if (!form.partnership_scope) {
-        return "Select a partnership scope.";
+        errors.partnership_scope = "Please select a partnership scope.";
       }
     }
 
     if (currentStep === 2) {
+      requiredValues = [form.title, form.partner_institution, form.description, form.department_id];
       if (!form.title.trim()) {
-        return "Enter a document title.";
+        errors.title = "Agreement title is required.";
       }
-      if (form.partnership_scope === "Departmental" && !form.department_id) {
-        return "Select a partner department.";
+      if (!form.department_id) {
+        errors.department_id = "Please select a responsible office.";
       }
       if (!form.partner_institution.trim()) {
-        return "Enter a partner organization / institution.";
+        errors.partner_institution = "Partner organization is required.";
+      }
+      if (!form.description.trim()) {
+        errors.description = "Description or purpose is required.";
       }
     }
 
     if (currentStep === 3) {
+      requiredValues = [
+        form.contact_person,
+        form.contact_position,
+        form.contact_email,
+        form.contact_number,
+      ];
       if (!form.contact_person.trim()) {
-        return "Enter a contact person.";
+        errors.contact_person = "Contact person is required.";
+      }
+      if (!form.contact_position.trim()) {
+        errors.contact_position = "Contact position is required.";
       }
       if (!form.contact_email.trim()) {
-        return "Enter a contact email.";
+        errors.contact_email = "Contact email is required.";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) {
+        errors.contact_email = "Please enter a valid contact email.";
+      }
+      if (!form.contact_number.trim()) {
+        errors.contact_number = "Contact number is required.";
+      } else if (!getPhoneNumber(form.contact_number, form.contact_country)) {
+        errors.contact_number = "Please enter a valid contact number.";
       }
     }
 
     if (currentStep === 4) {
+      requiredValues = [selectedFile, form.requested_completion_date, form.urgency];
       if (!selectedFile) {
-        return "Attach the draft MOA/MOU/MOF file.";
+        errors.attachment = "Draft MOA/MOU/MOF file is required.";
+      }
+      if (!form.requested_completion_date) {
+        errors.requested_completion_date = "Requested completion date is required.";
+      }
+      if (!form.urgency) {
+        errors.urgency = "Please select an urgency level.";
       }
     }
 
-    return "";
+    const allRequiredFieldsEmpty = requiredValues.length > 0
+      && requiredValues.every((value) => !value || (typeof value === "string" && !value.trim()));
+
+    if (allRequiredFieldsEmpty) {
+      return { _form: "All required fields must be filled out." };
+    }
+
+    return errors;
   }
 
   function advanceStep() {
-    const validationMessage = validateStep(modalStep);
+    const errors = validateStep(modalStep);
 
-    if (validationMessage) {
-      setModalError(validationMessage);
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
       return;
     }
 
+    setFieldErrors({});
     setModalError("");
     setModalStep((current) => Math.min(current + 1, 4));
   }
 
   function previousStep() {
+    setFieldErrors({});
     setModalError("");
     setModalStep((current) => Math.max(current - 1, 1));
+  }
+
+  function navigateToStep(targetStep) {
+    if (submitting || targetStep === modalStep) return;
+
+    if (targetStep < modalStep) {
+      setFieldErrors({});
+      setModalError("");
+      setModalStep(targetStep);
+      return;
+    }
+
+    for (let step = 1; step < targetStep; step += 1) {
+      const errors = validateStep(step);
+      if (Object.keys(errors).length) {
+        setFieldErrors(errors);
+        setModalError("");
+        setModalStep(step);
+        return;
+      }
+    }
+
+    setFieldErrors({});
+    setModalError("");
+    setModalStep(targetStep);
   }
 
   function closeModal() {
@@ -151,6 +293,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     setModalStep(1);
     setForm(initialForm);
     setSelectedFile(null);
+    setFieldErrors({});
     setModalError("");
     setModalSuccess("");
     onClose?.();
@@ -168,9 +311,9 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   async function submitNewEngagement(event) {
     event.preventDefault();
 
-    const validationMessage = validateStep(4);
-    if (validationMessage) {
-      setModalError(validationMessage);
+    const errors = validateStep(4);
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -183,10 +326,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
         title: form.title.trim(),
         document_type: form.document_type,
         partner_institution: form.partner_institution.trim(),
-        department_id:
-          form.partnership_scope === "Departmental"
-            ? form.department_id
-            : null,
+        department_id: form.department_id === "pair_iro" ? null : form.department_id,
         partner_email: null,
         description: form.description.trim() || null,
         partnership_type: form.partnership_type,
@@ -194,7 +334,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
         contact_person: form.contact_person.trim(),
         contact_position: form.contact_position.trim() || null,
         contact_email: form.contact_email.trim(),
-        contact_number: form.contact_number.trim() || null,
+        contact_number: getPhoneNumber(form.contact_number, form.contact_country).number,
         urgency: form.urgency,
         requested_completion_date: form.requested_completion_date || null,
       });
@@ -205,7 +345,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
       }
 
       await uploadDocumentFile(document.id, selectedFile);
-      setModalSuccess("New engagement created and document attached successfully.");
+      setModalSuccess("New engagement created and agreement attached successfully.");
       if (mountedRef.current) {
         setSubmitting(false);
       }
@@ -245,22 +385,34 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
         </header>
 
         <div className="engagement-steps">
-          <span className={modalStep >= 1 ? "active" : ""}>1. Classification</span>
-          <span className={modalStep >= 2 ? "active" : ""}>2. Details</span>
-          <span className={modalStep >= 3 ? "active" : ""}>3. Contact</span>
-          <span className={modalStep >= 4 ? "active" : ""}>4. Attachments</span>
+          {["Classification", "Details", "Contact", "Attachments"].map((label, index) => {
+            const step = index + 1;
+            return (
+              <button
+                key={label}
+                type="button"
+                className={modalStep >= step ? "active" : ""}
+                aria-current={modalStep === step ? "step" : undefined}
+                onClick={() => navigateToStep(step)}
+                disabled={submitting}
+              >
+                {step}. {label}
+              </button>
+            );
+          })}
         </div>
 
         <form className="engagement-form" onSubmit={submitNewEngagement}>
           {modalStep === 1 && (
             <div className="form-step">
               <label>
-                Document Type
+                Agreement Type
                 <select name="document_type" value={form.document_type} onChange={updateForm}>
                   <option value="MOA">MOA</option>
                   <option value="MOU">MOU</option>
                   <option value="MOF">MOF</option>
                 </select>
+                {fieldErrors.document_type && <span className="field-error">{fieldErrors.document_type}</span>}
               </label>
 
               <label>
@@ -269,15 +421,17 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   <option value="New Partnership">New Partnership</option>
                   <option value="Renewal">Renewal</option>
                 </select>
+                {fieldErrors.partnership_type && <span className="field-error">{fieldErrors.partnership_type}</span>}
               </label>
 
               <label>
                 Partnership Scope
                 <select name="partnership_scope" value={form.partnership_scope} onChange={updateForm}>
+                  <option value="Departmental">Departmental</option>
                   <option value="Local">Local</option>
                   <option value="International">International</option>
-                  <option value="Departmental">Departmental</option>
                 </select>
+                {fieldErrors.partnership_scope && <span className="field-error">{fieldErrors.partnership_scope}</span>}
               </label>
             </div>
           )}
@@ -292,11 +446,11 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   onChange={updateForm}
                   placeholder="Agreement title"
                 />
+                {fieldErrors.title && <span className="field-error">{fieldErrors.title}</span>}
               </label>
 
-              {form.partnership_scope === "Departmental" && (
-                <label>
-                  Partner Department
+              <label>
+                  Responsible Office
                   <select
                     name="department_id"
                     value={form.department_id}
@@ -307,16 +461,17 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                     <option value="">
                       {loadingDepartments
                         ? "Loading departments..."
-                        : "Select Department"}
+                        : "Select responsible office"}
                     </option>
+                    <option value="pair_iro">PAIR/IRO (no department applies)</option>
                     {departments.map((department) => (
                       <option key={department.id} value={department.id}>
                         {department.code} - {department.name}
                       </option>
                     ))}
                   </select>
+                  {fieldErrors.department_id && <span className="field-error">{fieldErrors.department_id}</span>}
                 </label>
-              )}
 
               <label>
                 Partner Organization / Institution
@@ -326,6 +481,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   onChange={updateForm}
                   placeholder="Partner organization name"
                 />
+                {fieldErrors.partner_institution && <span className="field-error">{fieldErrors.partner_institution}</span>}
               </label>
 
               <label>
@@ -337,6 +493,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   rows={4}
                   placeholder="Describe the engagement purpose."
                 />
+                {fieldErrors.description && <span className="field-error">{fieldErrors.description}</span>}
               </label>
             </div>
           )}
@@ -351,6 +508,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   onChange={updateForm}
                   placeholder="Contact person name"
                 />
+                {fieldErrors.contact_person && <span className="field-error">{fieldErrors.contact_person}</span>}
               </label>
 
               <label>
@@ -361,6 +519,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   onChange={updateForm}
                   placeholder="Contact position"
                 />
+                {fieldErrors.contact_position && <span className="field-error">{fieldErrors.contact_position}</span>}
               </label>
 
               <label>
@@ -372,16 +531,35 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   onChange={updateForm}
                   placeholder="Contact email"
                 />
+                {fieldErrors.contact_email && <span className="field-error">{fieldErrors.contact_email}</span>}
               </label>
 
               <label>
                 Contact Number
-                <input
-                  name="contact_number"
-                  value={form.contact_number}
-                  onChange={updateForm}
-                  placeholder="Contact phone or mobile"
-                />
+                <div className="contact-number-fields">
+                  <select
+                    name="contact_country"
+                    value={form.contact_country}
+                    onChange={updateForm}
+                    aria-label="Country calling code"
+                  >
+                    {countries.map((country) => (
+                      <option key={country.iso} value={country.iso}>
+                        {country.name} ({country.code})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    name="contact_number"
+                    value={form.contact_number}
+                    onChange={updateForm}
+                    placeholder="Contact phone or mobile"
+                  />
+                </div>
+                {fieldErrors.contact_number && <span className="field-error">{fieldErrors.contact_number}</span>}
               </label>
             </div>
           )}
@@ -393,9 +571,20 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                 <Dropzone
                   selectedFile={selectedFile}
                   detail={selectedFile ? formatFileSize(selectedFile.size) : "PDF, DOCX, ODT - required"}
-                  onFileSelect={(file) => setSelectedFile(file)}
+                  onFileSelect={(file) => {
+                    setSelectedFile(file);
+                    if (file) {
+                      setFieldErrors((current) => {
+                        const nextErrors = { ...current };
+                        delete nextErrors.attachment;
+                        delete nextErrors._form;
+                        return nextErrors;
+                      });
+                    }
+                  }}
                   onRemove={() => setSelectedFile(null)}
                 />
+                {fieldErrors.attachment && <span className="field-error">{fieldErrors.attachment}</span>}
               </label>
 
               <label>
@@ -406,6 +595,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   value={form.requested_completion_date}
                   onChange={updateForm}
                 />
+                {fieldErrors.requested_completion_date && <span className="field-error">{fieldErrors.requested_completion_date}</span>}
               </label>
 
               <label>
@@ -415,11 +605,13 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                   <option value="Urgent">Urgent</option>
                   <option value="Highly Urgent">Highly Urgent</option>
                 </select>
+                {fieldErrors.urgency && <span className="field-error">{fieldErrors.urgency}</span>}
               </label>
             </div>
           )}
 
           {modalError && <p className="auth-error">{modalError}</p>}
+          {fieldErrors._form && <p className="auth-error">{fieldErrors._form}</p>}
           {modalSuccess && <p className="success-message">{modalSuccess}</p>}
 
           <div className="engagement-modal-actions">
@@ -438,7 +630,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                 Continue
               </button>
             ) : (
-              <button type="submit" disabled={submitting || !selectedFile}>
+              <button type="submit" disabled={submitting}>
                 {submitting ? "Creating..." : "Create Engagement"}
               </button>
             )}

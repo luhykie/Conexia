@@ -87,6 +87,15 @@ abstract class SecurityTestCase extends TestCase
                 $overrides['renewal_notice_days'] ?? null,
             'renewal_status' => $overrides['renewal_status'] ??
                 Document::RENEWAL_NOT_REQUIRED,
+            'partnership_type' => $overrides['partnership_type'] ?? null,
+            'partnership_scope' => $overrides['partnership_scope'] ?? null,
+            'contact_person' => $overrides['contact_person'] ?? null,
+            'contact_position' => $overrides['contact_position'] ?? null,
+            'contact_email' => $overrides['contact_email'] ?? null,
+            'contact_number' => $overrides['contact_number'] ?? null,
+            'urgency' => $overrides['urgency'] ?? null,
+            'requested_completion_date' =>
+                $overrides['requested_completion_date'] ?? null,
         ]);
     }
 
@@ -171,6 +180,7 @@ abstract class SecurityTestCase extends TestCase
 
     private function setUpSecurityTables(): void
     {
+        Schema::dropIfExists('document_messages');
         Schema::dropIfExists('audit_logs');
         Schema::dropIfExists('role_permissions');
         Schema::dropIfExists('document_files');
@@ -218,6 +228,14 @@ abstract class SecurityTestCase extends TestCase
             $table->unsignedInteger('renewal_notice_days')->nullable();
             $table->string('renewal_status')
                 ->default(Document::RENEWAL_NOT_REQUIRED);
+            $table->string('partnership_type')->nullable();
+            $table->string('partnership_scope')->nullable();
+            $table->string('contact_person')->nullable();
+            $table->string('contact_position')->nullable();
+            $table->string('contact_email')->nullable();
+            $table->string('contact_number')->nullable();
+            $table->string('urgency')->nullable();
+            $table->date('requested_completion_date')->nullable();
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('updated_at')->nullable();
         });
@@ -232,6 +250,18 @@ abstract class SecurityTestCase extends TestCase
             $table->boolean('is_read')->default(false);
             $table->timestamp('read_at')->nullable();
             $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('document_messages', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('document_id');
+            $table->uuid('sender_id');
+            $table->string('sender_role');
+            $table->uuid('reply_to_message_id')->nullable();
+            $table->text('message');
+            $table->boolean('is_read')->default(false);
+            $table->timestamp('read_at')->nullable();
+            $table->timestamps();
         });
 
         Schema::create('document_files', function (Blueprint $table) {

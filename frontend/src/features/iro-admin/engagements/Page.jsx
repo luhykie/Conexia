@@ -79,7 +79,7 @@ export default function IroAdminEngagementsPage() {
   const rows = documents.map((document) => [
     document.partner_institution || "-",
     `${document.document_type || "-"} / ${
-      document.department?.code || document.department?.name || "-"
+      document.department?.code || document.department?.name || "PAIR/IRO"
     }`,
     document.expiry_date || document.expected_duration || "-",
     document.status || "-",
@@ -120,13 +120,6 @@ export default function IroAdminEngagementsPage() {
               "Archived",
             ]}
             showDepartment
-            unsupported={{
-              document_type: true,
-              partnership_scope: true,
-              date_from: true,
-              date_to: true,
-              department: true,
-            }}
           />
           {loading && <p>Loading engagement records...</p>}
           {error && <p className="auth-error">{error}</p>}

@@ -150,9 +150,6 @@ export default function IroAdminReportsPage() {
             "Archived",
           ]}
           showDepartment
-          unsupported={{
-            partnership_scope: true,
-          }}
         />
         {loading && <p>Loading report data...</p>}
         {error && <p className="auth-error">{error}</p>}

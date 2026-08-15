@@ -22,7 +22,9 @@ class DocumentFileAuthorizationTest extends SecurityTestCase
     {
         $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
         $uploader = $this->profile(Profile::ROLE_IRO_ADMIN);
-        $document = $this->document();
+        $document = $this->document([
+            'status' => Document::STATUS_LOGGED,
+        ]);
         $file = $this->documentFile([
             'document_id' => $document->id,
             'uploaded_by' => $uploader->id,
@@ -229,6 +231,207 @@ class DocumentFileAuthorizationTest extends SecurityTestCase
             'action' => 'document_file.previewed',
             'document_file_id' => $file->id,
         ]);
+    }
+
+    public function test_only_iro_admin_can_add_and_view_file_annotations(): void
+    {
+        $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'status' => Document::STATUS_LOGGED,
+        ]);
+        Storage::disk('local')->put('documents/test/annotate.pdf', 'review');
+        $file = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $iroAdmin->id,
+            'storage_path' => 'documents/test/annotate.pdf',
+        ]);
+        $url = "/api/documents/{$document->id}/files/{$file->id}/annotations";
+
+        $this->postJson(
+            $url,
+            [
+                'highlight' => 'Section 4.2, page 3',
+                'comment' => 'Confirm the renewal notice period.',
+                'geometry' => [
+                    'page' => 3,
+                    'rects' => [[
+                        'x' => 0.1,
+                        'y' => 0.2,
+                        'width' => 0.3,
+                        'height' => 0.1,
+                    ]],
+                ],
+            ],
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertCreated()
+            ->assertJsonPath('annotation.highlight', 'Section 4.2, page 3')
+            ->assertJsonPath(
+                'annotation.comment',
+                'Confirm the renewal notice period.'
+            )
+            ->assertJsonPath('annotation.version', $file->version)
+            ->assertJsonPath('annotation.geometry.page', 3)
+            ->assertJsonPath('annotation.geometry.rects.0.x', 0.1);
+
+        $this->getJson($url, $this->authHeaders($iroAdmin))
+            ->assertOk()
+            ->assertJsonCount(1, 'annotations')
+            ->assertJsonPath('annotations.0.author', $iroAdmin->full_name)
+            ->assertJsonPath('annotations.0.reviewer_id', $iroAdmin->id)
+            ->assertJsonPath('annotations.0.document_id', $document->id)
+            ->assertJsonPath('annotations.0.document_file_id', $file->id)
+            ->assertJsonPath(
+                'annotations.0.comment',
+                'Confirm the renewal notice period.'
+            );
+
+        $this->getJson($url, $this->authHeaders($legal))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_id' => $iroAdmin->id,
+            'document_id' => $document->id,
+            'document_file_id' => $file->id,
+            'action' => 'document_file.annotated',
+        ]);
+    }
+
+    public function test_iro_admin_cannot_annotate_document_outside_logged_review_stage(): void
+    {
+        $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $document = $this->document([
+            'status' => Document::STATUS_SUBMITTED,
+        ]);
+        Storage::disk('local')->put('documents/test/ineligible.pdf', 'review');
+        $file = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $iroAdmin->id,
+            'storage_path' => 'documents/test/ineligible.pdf',
+        ]);
+
+        $this->postJson(
+            "/api/documents/{$document->id}/files/{$file->id}/annotations",
+            [
+                'highlight' => 'Area highlight',
+                'comment' => 'This must not be saved.',
+                'geometry' => [
+                    'page' => 1,
+                    'rects' => [[
+                        'x' => 0.1,
+                        'y' => 0.1,
+                        'width' => 0.2,
+                        'height' => 0.2,
+                    ]],
+                ],
+            ],
+            $this->authHeaders($iroAdmin)
+        )->assertNotFound();
+
+        $this->assertDatabaseMissing('audit_logs', [
+            'document_id' => $document->id,
+            'action' => 'document_file.annotated',
+        ]);
+    }
+
+    public function test_iro_admin_can_edit_and_remove_annotations_only_during_active_review(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $document = $this->document(['status' => Document::STATUS_LOGGED]);
+        Storage::disk('local')->put('documents/test/manage-annotation.pdf', 'review');
+        $file = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $admin->id,
+            'storage_path' => 'documents/test/manage-annotation.pdf',
+        ]);
+        $url = "/api/documents/{$document->id}/files/{$file->id}/annotations";
+
+        $createdResponse = $this->postJson($url, [
+            'highlight' => 'Selected agreement text',
+            'comment' => 'Original comment.',
+            'geometry' => [
+                'page' => 1,
+                'rects' => [['x' => .1, 'y' => .2, 'width' => .3, 'height' => .03]],
+            ],
+        ], $this->authHeaders($admin))->assertCreated();
+        $annotationId = $createdResponse->json('annotation.id');
+        $createdAt = $createdResponse->json('annotation.created_at');
+
+        $managementUrl = "{$url}/{$annotationId}";
+        $this->patchJson(
+            $managementUrl,
+            ['comment' => 'Corrected persistent comment.'],
+            $this->authHeaders($admin)
+        )->assertOk()
+            ->assertJsonPath('annotation.comment', 'Corrected persistent comment.')
+            ->assertJsonPath('annotation.id', $annotationId)
+            ->assertJsonPath('annotation.updated_at', fn ($value) => is_string($value));
+
+        $this->getJson($url, $this->authHeaders($admin))
+            ->assertOk()
+            ->assertJsonCount(1, 'annotations')
+            ->assertJsonPath('annotations.0.id', $annotationId)
+            ->assertJsonPath('annotations.0.comment', 'Corrected persistent comment.')
+            ->assertJsonPath('annotations.0.created_at', $createdAt)
+            ->assertJsonPath('annotations.0.updated_at', fn ($value) => is_string($value))
+            ->assertJsonPath('annotations.0.geometry.page', 1);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'document_id' => $document->id,
+            'document_file_id' => $file->id,
+            'action' => 'document_file.annotation_comment_updated',
+        ]);
+
+        $this->deleteJson($managementUrl, [], $this->authHeaders($admin))
+            ->assertOk()
+            ->assertJsonPath('annotation.id', $annotationId);
+
+        $this->getJson($url, $this->authHeaders($admin))
+            ->assertOk()
+            ->assertJsonCount(0, 'annotations');
+        $this->assertDatabaseHas('audit_logs', ['id' => $annotationId, 'action' => 'document_file.annotated']);
+        $this->assertDatabaseHas('audit_logs', [
+            'document_id' => $document->id,
+            'action' => 'document_file.annotation_removed',
+        ]);
+        $this->patchJson(
+            $managementUrl,
+            ['comment' => 'Removed annotations cannot be changed.'],
+            $this->authHeaders($admin)
+        )->assertNotFound();
+    }
+
+    public function test_annotation_management_is_locked_after_admin_review(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        foreach ([Document::STATUS_CORRECTIONS_NEEDED, Document::STATUS_UNDER_LEGAL_REVIEW] as $status) {
+            $document = $this->document(['status' => $status]);
+            Storage::disk('local')->put("documents/test/locked-{$document->id}.pdf", 'review');
+            $file = $this->documentFile([
+                'document_id' => $document->id,
+                'uploaded_by' => $admin->id,
+                'storage_path' => "documents/test/locked-{$document->id}.pdf",
+            ]);
+            $annotation = AuditLog::query()->create([
+                'actor_id' => $admin->id,
+                'document_id' => $document->id,
+                'document_file_id' => $file->id,
+                'action' => 'document_file.annotated',
+                'metadata' => [
+                    'highlight' => 'Locked selection',
+                    'comment' => 'Historical comment.',
+                    'version' => 1,
+                    'geometry' => ['page' => 1, 'rects' => [['x' => .1, 'y' => .1, 'width' => .2, 'height' => .03]]],
+                ],
+            ]);
+            $url = "/api/documents/{$document->id}/files/{$file->id}/annotations/{$annotation->id}";
+
+            $this->patchJson($url, ['comment' => 'Forbidden edit.'], $this->authHeaders($admin))
+                ->assertNotFound();
+            $this->deleteJson($url, [], $this->authHeaders($admin))
+                ->assertNotFound();
+        }
     }
 
     public function test_delete_requires_permission_workflow_and_logs_deletion(): void

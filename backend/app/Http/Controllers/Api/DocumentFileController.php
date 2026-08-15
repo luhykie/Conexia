@@ -136,6 +136,99 @@ class DocumentFileController extends Controller
         });
     }
 
+    public function annotations(
+        Request $request,
+        Document $document,
+        string $file
+    ): JsonResponse {
+        return $this->runJson(function () use ($request, $document, $file) {
+            $annotations = $this->files->annotations(
+                $document,
+                $this->profile($request),
+                $file
+            );
+
+            return $this->success(
+                'Document annotations loaded successfully.',
+                $annotations,
+                ['annotations' => $annotations]
+            );
+        });
+    }
+
+    public function annotate(
+        Request $request,
+        Document $document,
+        string $file
+    ): JsonResponse {
+        return $this->runJson(function () use ($request, $document, $file) {
+            $validated = $request->validate([
+                'highlight' => ['required', 'string', 'max:2000'],
+                'comment' => ['required', 'string', 'max:2000'],
+                'geometry' => ['required', 'array'],
+                'geometry.page' => ['required', 'integer', 'min:1'],
+                'geometry.rects' => ['required', 'array', 'min:1', 'max:100'],
+                'geometry.rects.*.x' => ['required', 'numeric', 'between:0,1'],
+                'geometry.rects.*.y' => ['required', 'numeric', 'between:0,1'],
+                'geometry.rects.*.width' => ['required', 'numeric', 'gt:0', 'max:1'],
+                'geometry.rects.*.height' => ['required', 'numeric', 'gt:0', 'max:1'],
+            ]);
+            $annotation = $this->files->annotate(
+                $document,
+                $this->profile($request),
+                $file,
+                $validated
+            );
+
+            return $this->success(
+                'Document annotation saved successfully.',
+                $annotation,
+                ['annotation' => $annotation],
+                201
+            );
+        });
+    }
+
+    public function updateAnnotation(
+        Request $request,
+        Document $document,
+        string $file,
+        string $annotation
+    ): JsonResponse {
+        return $this->runJson(function () use ($request, $document, $file, $annotation) {
+            $validated = $request->validate([
+                'comment' => ['required', 'string', 'max:2000'],
+            ]);
+            $updated = $this->files->updateAnnotationComment(
+                $document,
+                $this->profile($request),
+                $file,
+                $annotation,
+                $validated['comment']
+            );
+
+            return $this->success('Annotation comment updated successfully.', $updated, ['annotation' => $updated]);
+        });
+    }
+
+    public function removeAnnotation(
+        Request $request,
+        Document $document,
+        string $file,
+        string $annotation
+    ): JsonResponse {
+        return $this->runJson(function () use ($request, $document, $file, $annotation) {
+            $removed = $this->files->removeAnnotation(
+                $document,
+                $this->profile($request),
+                $file,
+                $annotation
+            );
+
+            return $this->success('Annotation removed successfully.', $removed, ['annotation' => $removed]);
+        });
+    }
+
     public function delete(
         Request $request,
         Document $document,

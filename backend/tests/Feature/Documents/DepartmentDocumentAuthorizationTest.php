@@ -9,6 +9,36 @@ use Tests\Feature\Support\SecurityTestCase;
 
 class DepartmentDocumentAuthorizationTest extends SecurityTestCase
 {
+    public function test_department_submission_scope_is_returned_to_iro_admin(): void
+    {
+        $department = $this->department();
+        $staff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF, [
+            'department_id' => $department->id,
+        ]);
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+
+        $documentId = $this->postJson(
+            '/api/department/documents',
+            $this->validPayload('Scoped Partner'),
+            $this->authHeaders($staff)
+        )
+            ->assertOk()
+            ->assertJsonPath('document.partnership_scope', 'Local')
+            ->json('document.id');
+
+        Document::query()->whereKey($documentId)->update([
+            'status' => Document::STATUS_LOGGED,
+        ]);
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.id', $documentId)
+            ->assertJsonPath('documents.0.partnership_scope', 'Local');
+    }
+
     public function test_department_staff_sees_only_own_department_documents(): void
     {
         $ownDepartment = $this->department(['code' => 'OWN']);
@@ -201,6 +231,7 @@ class DepartmentDocumentAuthorizationTest extends SecurityTestCase
         return [
             'title' => "{$partner} MOA",
             'document_type' => 'MOA',
+            'partnership_scope' => 'Local',
             'partner_institution' => $partner,
             'partner_email' => 'partner@example.test',
             'description' => 'Generated tracking number test.',

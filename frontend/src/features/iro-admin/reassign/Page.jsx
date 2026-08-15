@@ -97,7 +97,7 @@ export default function IroAdminReassignPage() {
 
   const rows = documents.map((document) => [
     document.tracking_number,
-    document.department?.code || document.department?.name || "-",
+    document.department?.code || document.department?.name || "PAIR/IRO",
     getAssignmentName(document),
     document.status || "-",
     isTerminal(document) ? (
