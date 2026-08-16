@@ -1,7 +1,8 @@
 import React from "react";
 import { getDocumentFiles, getDocumentPreviewUrl } from "../services/documentFileService";
-import { GlobalWorkerOptions, getDocument, renderTextLayer } from "pdfjs-dist/build/pdf";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.js?url";
+import { GlobalWorkerOptions, getDocument } from "pdfjs-dist/build/pdf";
+import { TextLayer } from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -63,7 +64,13 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], o
       if (!container) return null;
       container.replaceChildren();
       container.style.setProperty("--scale-factor", String(page.scale));
-      return renderTextLayer({ textContent: page.textContent, container, viewport: page.viewport, textDivs: [] });
+      const textLayer = new TextLayer({
+        textContentSource: page.textContent,
+        container,
+        viewport: page.viewport,
+      });
+
+      return textLayer.render();
     }).filter(Boolean);
 
     return () => tasks.forEach((task) => task.cancel?.());
