@@ -1,5 +1,6 @@
 import React from "react";
 import { ArrowLeft, ArrowRight, FilePlus2, X } from "lucide-react";
+import { apiGet } from "../api/apiClient";
 import "./PreSubmissionModal.css";
 
 const initialAnswers = {
@@ -18,21 +19,11 @@ const initialAnswers = {
   urgencyLevel: "normal",
 };
 
-const collaboratingDepartments = [
-  "School of Engineering and Architecture",
-  "School of Computer Science",
-  "School of Education",
-  "School of Business and Management",
-  "School of Law",
-  "School of Arts and Sciences",
-  "Expanded Tertiary Education Equivalency and Accreditation Program (ETEEAP)",
-  "School of Allied Medical Sciences",
-];
-
 export function PreSubmissionModal({ open, onClose, onConfirm, account, loading = false }) {
   const [step, setStep] = React.useState(1);
   const [answers, setAnswers] = React.useState(initialAnswers);
   const [error, setError] = React.useState("");
+  const [departments, setDepartments] = React.useState([]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -49,17 +40,18 @@ export function PreSubmissionModal({ open, onClose, onConfirm, account, loading 
   }
 
   function chooseDepartment(value) {
+    const department = departments.find((item) => item.id === value);
     setAnswers((current) => ({
       ...current,
       partnerDepartmentId: value,
-      partnerInstitution: value,
+      partnerInstitution: department?.name || "",
     }));
     setError("");
   }
 
   function next() {
     if (step === 2 && !answers.partnerInstitution.trim()) {
-      setError(answers.partnerClassification === "interdepartmental" ? "Please select a partner department." : "Please enter the partner institution name.");
+      setError(answers.partnerClassification === "Departmental" ? "Please select a partner department." : "Please enter the partner institution name.");
       return;
     }
     if (step === 3 && (!answers.requestingOffice.trim() || !answers.contactPerson.trim() || !answers.position.trim() || !answers.emailAddress.trim() || !answers.contactNumber.trim())) {
@@ -112,11 +104,11 @@ export function PreSubmissionModal({ open, onClose, onConfirm, account, loading 
           {step === 1 && <>
             <fieldset className="pre-submission-field"><legend>What type of agreement are you initiating?</legend><OptionGroup name="agreementType" value={answers.agreementType} onChange={update} options={[["MOA", "MOA", "Memorandum of Agreement"], ["MOU", "MOU", "Memorandum of Understanding"], ["MOF", "MOF", "Memorandum of Friendship"]]} disabled={loading} /></fieldset>
             <fieldset className="pre-submission-field"><legend>Is this a new partnership or a renewal of an existing one?</legend><OptionGroup name="submissionType" value={answers.submissionType} onChange={update} options={[["new", "New Partnership"], ["renewal", "Renewal"]]} disabled={loading} /></fieldset>
-            <fieldset className="pre-submission-field"><legend>Is the partner institution local, international, or interdepartmental?</legend><OptionGroup name="partnerClassification" value={answers.partnerClassification} onChange={update} options={[["local", "Local"], ["international", "International"], ["interdepartmental", "Interdepartmental"]]} disabled={loading} /></fieldset>
+            <fieldset className="pre-submission-field"><legend>Is the partner institution local, international, or Departmental?</legend><OptionGroup name="partnerClassification" value={answers.partnerClassification} onChange={update} options={[["local", "Local"], ["international", "International"], ["Departmental", "Departmental"]]} disabled={loading} /></fieldset>
           </>}
 
           {step === 2 && <fieldset className="pre-submission-field"><legend>Partner / engagement information</legend>
-            {answers.partnerClassification === "interdepartmental" ? <label className="pre-submission-input">Which department are you collaborating with?<select value={answers.partnerDepartmentId} onChange={(event) => chooseDepartment(event.target.value)} disabled={loading}><option value="">Select department or program</option>{collaboratingDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label> : <label className="pre-submission-input">Partner Institution / Organization Name<input value={answers.partnerInstitution} onChange={(event) => update("partnerInstitution", event.target.value)} disabled={loading} placeholder="e.g. Global Tech University" /></label>}
+            {answers.partnerClassification === "Departmental" ? <label className="pre-submission-input">Which department are you collaborating with?<select value={answers.partnerDepartmentId} onChange={(event) => chooseDepartment(event.target.value)} disabled={loading}><option value="">Select partner department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.code ? `${department.code} — ` : ""}{department.name}</option>)}</select></label> : <label className="pre-submission-input">Partner Institution / Organization Name<input value={answers.partnerInstitution} onChange={(event) => update("partnerInstitution", event.target.value)} disabled={loading} placeholder="e.g. Global Tech University" /></label>}
           </fieldset>}
 
           {step === 3 && <fieldset className="pre-submission-field"><legend>Requesting Office Information</legend>

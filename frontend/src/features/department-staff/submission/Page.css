@@ -3,6 +3,28 @@
   gap: 24px;
 }
 
+.pre-submission-info-banner {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #e8f1ff;
+  border: 1px solid #c9d8f0;
+  border-radius: 6px;
+}
+
+.pre-submission-info-banner p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f1e31;
+}
+
+.pre-submission-info-banner b {
+  font-weight: 600;
+  color: #0f1e31;
+}
+
 .department-submission-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -72,6 +94,16 @@
 .department-summary-card button:disabled {
   color: #667085;
   background: #e5e7eb;
+}
+
+.segmented-cards button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.segmented-cards button:disabled:hover {
+  filter: none;
 }
 
 @media (max-width: 1000px) {
