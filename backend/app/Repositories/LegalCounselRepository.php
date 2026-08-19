@@ -53,14 +53,18 @@ class LegalCounselRepository
     ): LengthAwarePaginator
     {
         return $this->assignedDocuments($legalCounsel)
-            ->whereIn('status', [
-                Document::STATUS_CORRECTIONS_NEEDED,
-                Document::STATUS_APPROVED,
-                Document::STATUS_PENDING_NOTARIZATION,
-                Document::STATUS_NOTARIZED,
-                Document::STATUS_ARCHIVED,
-            ])
-            ->tap(fn ($query) => $this->applyListOptions($query, $options))
+            ->with('latestLegalCorrection')
+            ->where(function ($query) {
+                $query->whereIn('status', [
+                    Document::STATUS_CORRECTION_REQUIRED,
+                    Document::STATUS_CORRECTIONS_NEEDED,
+                    Document::STATUS_APPROVED,
+                    Document::STATUS_PENDING_NOTARIZATION,
+                    Document::STATUS_NOTARIZED,
+                    Document::STATUS_ARCHIVED,
+                ])->orWhereHas('latestLegalCorrection');
+            })
+            ->tap(fn ($query) => $this->applyListOptions($query, $options, true))
             ->paginate(
                 $options['per_page'],
                 ['*'],
@@ -147,7 +151,11 @@ class LegalCounselRepository
             ->orderByDesc('updated_at');
     }
 
-    private function applyListOptions($query, array $options): void
+    private function applyListOptions(
+        $query,
+        array $options,
+        bool $persistentCorrectionHistory = false
+    ): void
     {
         if (($options['search'] ?? '') !== '') {
             $search = $options['search'];
@@ -162,7 +170,17 @@ class LegalCounselRepository
         }
 
         if (!empty($options['status'])) {
-            $query->where('status', $options['status']);
+            if (
+                $persistentCorrectionHistory &&
+                in_array($options['status'], [
+                    Document::STATUS_CORRECTION_REQUIRED,
+                    Document::STATUS_CORRECTIONS_NEEDED,
+                ], true)
+            ) {
+                $query->whereHas('latestLegalCorrection');
+            } else {
+                $query->where('status', $options['status']);
+            }
         }
 
         $query->reorder(

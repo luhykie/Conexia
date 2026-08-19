@@ -359,6 +359,7 @@ function SubmissionPage({ account }) {
         await createDepartmentDocument({
           title: form.agreementTitle.trim() || `${partnerName} ${form.agreementType}`,
           document_type: form.agreementType,
+          partnership_scope: form.partnershipType,
           partner_institution: partnerName,
           partner_email:
             form.partnerEmail.trim() || null,

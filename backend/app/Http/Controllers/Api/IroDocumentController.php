@@ -11,13 +11,19 @@ use App\Services\TrackingNumberService;
 use App\Support\DocumentPayload;
 use App\Support\Pagination;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class IroDocumentController extends Controller
 {
+    private ?Collection $activeLegalCounsel = null;
+
+    private ?Collection $departments = null;
+
     public function incoming(Request $request): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -26,7 +32,37 @@ class IroDocumentController extends Controller
             'Incoming documents loaded successfully.',
             $request,
             'submitted_at',
-            [
+            $profile->role === Profile::ROLE_IRO_ADMIN
+                ? [
+                    Document::STATUS_LOGGED,
+                    Document::STATUS_CORRECTION_REQUIRED,
+                ]
+                : [
+                    Document::STATUS_SUBMITTED,
+                    Document::STATUS_LOGGED,
+                    Document::STATUS_UNDER_LEGAL_REVIEW,
+                    Document::STATUS_CORRECTIONS_NEEDED,
+                    Document::STATUS_APPROVED,
+                    Document::STATUS_PENDING_NOTARIZATION,
+                    Document::STATUS_NOTARIZED,
+                ],
+            $profile,
+            $profile->role === Profile::ROLE_IRO_ADMIN
+        );
+    }
+
+    public function show(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->ensureIro($request);
+
+        $document = Document::query()
+            ->with(['department', 'submitter'])
+            ->whereKey($id)
+            ->firstOrFail();
+
+        if (
+            $profile->role === Profile::ROLE_IRO_STAFF &&
+            !in_array($document->status, [
                 Document::STATUS_SUBMITTED,
                 Document::STATUS_LOGGED,
                 Document::STATUS_UNDER_LEGAL_REVIEW,
@@ -34,8 +70,32 @@ class IroDocumentController extends Controller
                 Document::STATUS_APPROVED,
                 Document::STATUS_PENDING_NOTARIZATION,
                 Document::STATUS_NOTARIZED,
-            ],
-            $profile
+            ], true)
+        ) {
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+
+        $payload = [
+            ...DocumentPayload::make($document),
+            'created_by' => $document->submitter
+                ? [
+                    'id' => $document->submitter->id,
+                    'full_name' => $document->submitter->full_name,
+                    'email' => $document->submitter->email,
+                    'role' => $document->submitter->role,
+                ]
+                : null,
+            'current_assignment' => $this->currentAssignment($document),
+            'reassignment_destinations' =>
+                $this->reassignmentDestinations($document),
+        ];
+
+        return $this->success(
+            'Document loaded successfully.',
+            $payload,
+            ['document' => $payload]
         );
     }
 
@@ -63,12 +123,15 @@ class IroDocumentController extends Controller
                 'string',
                 'in:MOA,MOU,MOF',
             ],
-            'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
+            'department_id' => ['present', 'nullable', 'uuid', 'exists:departments,id'],
             'partner_institution' => ['required', 'string', 'max:255'],
             'partner_email' => ['nullable', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'partnership_type' => ['required', 'string', 'max:255'],
-            'partnership_scope' => ['required', 'string', 'max:255'],
+            'partnership_scope' => [
+                'required',
+                Rule::in(['Departmental', 'Local', 'International']),
+            ],
             'contact_person' => ['required', 'string', 'max:255'],
             'contact_position' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['required', 'email', 'max:255'],
@@ -174,6 +237,123 @@ class IroDocumentController extends Controller
         );
     }
 
+    public function forwardToAdmin(
+        Request $request,
+        string $id
+    ): JsonResponse {
+        $profile = $this->ensureIro($request);
+        $validated = $request->validate([
+            'remarks' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $document = DB::transaction(function () use ($id, $profile, $validated) {
+            $document = $this->lockedDocument($id);
+
+            if ($document->status !== Document::STATUS_SUBMITTED) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only submitted documents can be forwarded to IRO Admin.',
+                ]);
+            }
+
+            $previousStatus = $document->status;
+            $document->update(['status' => Document::STATUS_LOGGED]);
+
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'iro_staff.document.forwarded_to_admin',
+                'metadata' => [
+                    'remarks' => $validated['remarks'] ?? null,
+                    'previous_status' => $previousStatus,
+                    'new_status' => Document::STATUS_LOGGED,
+                    'actor' => [
+                        'id' => $profile->id,
+                        'role' => $profile->role,
+                    ],
+                    'ownership' => $this->ownershipMetadata($document),
+                    'destination' => [
+                        'type' => 'iro_admin_validation_queue',
+                    ],
+                ],
+            ]);
+
+            return $document->refresh();
+        });
+
+        return $this->documentResponse(
+            'Document submitted to IRO Admin successfully.',
+            $document
+        );
+    }
+
+    public function returnForCorrection(
+        Request $request,
+        string $id
+    ): JsonResponse {
+        $profile = $this->ensureIro($request);
+        $validated = $request->validate([
+            'remarks' => ['required', 'string', 'min:1', 'max:2000'],
+        ]);
+
+        $document = DB::transaction(function () use ($id, $profile, $validated) {
+            $document = $this->lockedDocument($id);
+
+            if ($document->status !== Document::STATUS_SUBMITTED) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only submitted documents can be returned for correction.',
+                ]);
+            }
+
+            $previousStatus = $document->status;
+            $document->update([
+                'status' => Document::STATUS_CORRECTIONS_NEEDED,
+            ]);
+
+            $ownership = $this->ownershipMetadata($document);
+
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'iro_staff.document.returned_for_correction',
+                'metadata' => [
+                    'remarks' => trim($validated['remarks']),
+                    'previous_status' => $previousStatus,
+                    'new_status' => Document::STATUS_CORRECTIONS_NEEDED,
+                    'actor' => [
+                        'id' => $profile->id,
+                        'role' => $profile->role,
+                    ],
+                    'ownership' => $ownership,
+                    'destination' => $ownership,
+                ],
+            ]);
+
+            return $document->refresh();
+        });
+
+        return $this->documentResponse(
+            'Document returned for correction successfully.',
+            $document
+        );
+    }
+
+    private function ownershipMetadata(Document $document): array
+    {
+        $document->loadMissing('department');
+
+        return [
+            'submitted_by' => $document->submitted_by,
+            'department_id' => $document->department_id,
+            'department' => $document->department
+                ? [
+                    'id' => $document->department->id,
+                    'code' => $document->department->code,
+                    'name' => $document->department->name,
+                ]
+                : null,
+        ];
+    }
+
     public function assignLegal(
         Request $request,
         string $id
@@ -225,6 +405,150 @@ class IroDocumentController extends Controller
             'Document assigned to Legal Counsel.',
             $document
         );
+    }
+
+    public function returnFromAdminReview(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->ensureIroAdmin($request);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:2000'],
+        ]);
+
+        $document = DB::transaction(function () use ($id, $profile, $validated) {
+            $document = $this->lockedDocument($id);
+            $this->requireLoggedAdminReview($document);
+            $previousStatus = $document->status;
+            $document->update([
+                'status' => Document::STATUS_CORRECTIONS_NEEDED,
+                'assigned_legal_counsel' => null,
+            ]);
+            $this->logAdminReviewDecision(
+                $document,
+                $profile,
+                'iro_admin.review.returned_for_revision',
+                $previousStatus,
+                Document::STATUS_CORRECTIONS_NEEDED,
+                ['reason' => trim($validated['reason']), 'destination' => $this->ownershipMetadata($document)]
+            );
+            return $document->refresh();
+        });
+
+        return $this->documentResponse('Document returned for revision.', $document);
+    }
+
+    public function validateAndRouteToLegal(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->ensureIroAdmin($request);
+        $validated = $request->validate([
+            'legal_counsel_id' => ['required', 'uuid', 'exists:profiles,id'],
+            'comments' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $legalCounsel = Profile::query()
+            ->whereKey($validated['legal_counsel_id'])
+            ->where('role', Profile::ROLE_LEGAL_COUNSEL)
+            ->where('is_active', true)
+            ->first();
+        if (!$legalCounsel) {
+            throw ValidationException::withMessages(['legal_counsel_id' => 'Select an active Legal Counsel user.']);
+        }
+
+        $document = DB::transaction(function () use ($id, $profile, $validated, $legalCounsel) {
+            $document = $this->lockedDocument($id);
+            $this->requireLoggedAdminReview($document);
+            $previousStatus = $document->status;
+            $document->update([
+                'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+                'assigned_legal_counsel' => $legalCounsel->id,
+                'legal_notes' => null,
+            ]);
+            $this->logAdminReviewDecision(
+                $document,
+                $profile,
+                'iro_admin.review.validated_and_routed_to_legal',
+                $previousStatus,
+                Document::STATUS_UNDER_LEGAL_REVIEW,
+                [
+                    'comments' => isset($validated['comments']) ? trim($validated['comments']) : null,
+                    'destination' => ['type' => 'legal_counsel', 'id' => $legalCounsel->id, 'name' => $legalCounsel->full_name],
+                ]
+            );
+            return $document->refresh();
+        });
+
+        return $this->documentResponse('IRO Admin review validated and routed to Legal Counsel.', $document);
+    }
+
+    public function routeLegalCorrectionToDepartment(
+        Request $request,
+        string $id
+    ): JsonResponse {
+        $profile = $this->ensureIroAdmin($request);
+
+        $document = DB::transaction(function () use ($id, $profile) {
+            $document = $this->lockedDocument($id);
+
+            if ($document->status !== Document::STATUS_CORRECTION_REQUIRED) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only legal correction requests awaiting IRO Admin can be routed to the department.',
+                ]);
+            }
+
+            $previousStatus = $document->status;
+            $document->update([
+                'status' => Document::STATUS_CORRECTIONS_NEEDED,
+            ]);
+
+            $this->logAdminReviewDecision(
+                $document,
+                $profile,
+                'iro_admin.legal_correction.routed_to_department',
+                $previousStatus,
+                Document::STATUS_CORRECTIONS_NEEDED,
+                ['destination' => $this->ownershipMetadata($document)]
+            );
+
+            return $document->refresh();
+        });
+
+        return $this->documentResponse(
+            'Legal correction request routed to the department.',
+            $document
+        );
+    }
+
+    private function requireLoggedAdminReview(Document $document): void
+    {
+        if ($document->status !== Document::STATUS_LOGGED) {
+            throw ValidationException::withMessages([
+                'status' => 'Only logged documents awaiting IRO Admin review can be processed.',
+            ]);
+        }
+    }
+
+    private function logAdminReviewDecision(
+        Document $document,
+        Profile $profile,
+        string $action,
+        string $previousStatus,
+        string $newStatus,
+        array $metadata
+    ): void {
+        $latestFile = $document->files()->whereNull('deleted_at')->latest('version')->first();
+        AuditLog::query()->create([
+            'actor_id' => $profile->id,
+            'document_id' => $document->id,
+            'document_file_id' => $latestFile?->id,
+            'action' => $action,
+            'metadata' => [
+                ...$metadata,
+                'previous_status' => $previousStatus,
+                'new_status' => $newStatus,
+                'reviewer' => ['id' => $profile->id, 'name' => $profile->full_name, 'role' => $profile->role],
+                'document_version' => $latestFile?->version,
+                'annotation_count' => AuditLog::query()->where('document_id', $document->id)->where('action', 'document_file.annotated')->count(),
+                'decided_at' => now()->toISOString(),
+            ],
+        ]);
     }
 
     public function reassignLegal(
@@ -288,6 +612,11 @@ class IroDocumentController extends Controller
                 $document->update([
                     'assigned_legal_counsel' => $destination['id'],
                     'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+                ]);
+            } else {
+                $document->update([
+                    'assigned_legal_counsel' => null,
+                    'status' => Document::STATUS_CORRECTIONS_NEEDED,
                 ]);
             }
 
@@ -386,19 +715,52 @@ class IroDocumentController extends Controller
         Request $request,
         string $orderColumn,
         ?array $statuses = null,
-        ?Profile $profile = null
+        ?Profile $profile = null,
+        bool $adminReviewQueue = false
     ): JsonResponse {
         $profile ??= $this->ensureIro($request);
         $options = Pagination::options(
             $request,
             ['submitted_at', 'updated_at', 'tracking_number', 'status'],
             $orderColumn,
-            Document::workflowStatuses()
+            $adminReviewQueue
+                ? [...Document::workflowStatuses(), 'Revised']
+                : Document::workflowStatuses()
         );
+        $filters = $request->validate([
+            'document_type' => [
+                'nullable',
+                Rule::in(['MOA', 'MOU', 'MOF']),
+            ],
+            'department' => ['nullable', 'string', 'max:100'],
+            'partnership_scope' => [
+                'nullable',
+                Rule::in(['Local', 'International', 'Departmental']),
+            ],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
         $operator = Pagination::searchOperator();
 
         $query = Document::query()
             ->with('department')
+            ->when(
+                $profile->role === Profile::ROLE_IRO_ADMIN,
+                fn ($query) => $query->with([
+                    'legalCounsel',
+                    'latestReassignment',
+                ])
+            )
+            ->when(
+                $adminReviewQueue,
+                fn ($query) => $query->withExists([
+                    'auditLogs as has_admin_revision' => fn ($auditQuery) =>
+                        $auditQuery->where(
+                            'action',
+                            'iro_admin.review.returned_for_revision'
+                        ),
+                ])
+            )
             ->when(
                 $options['search'] !== '',
                 function ($query) use ($options, $operator, $profile) {
@@ -425,14 +787,102 @@ class IroDocumentController extends Controller
                 }
             )
             ->when(
-                $options['status'],
+                $options['status'] && (
+                    !$adminReviewQueue ||
+                    !in_array($options['status'], [
+                        Document::STATUS_LOGGED,
+                        'Revised',
+                    ], true)
+                ),
                 fn ($query) => $query->where('status', $options['status'])
+            )
+            ->when(
+                $adminReviewQueue && $options['status'] === 'Revised',
+                fn ($query) => $query->whereHas(
+                    'auditLogs',
+                    fn ($auditQuery) => $auditQuery->where(
+                        'action',
+                        'iro_admin.review.returned_for_revision'
+                    )
+                )
+            )
+            ->when(
+                $adminReviewQueue && $options['status'] === Document::STATUS_LOGGED,
+                fn ($query) => $query->whereDoesntHave(
+                    'auditLogs',
+                    fn ($auditQuery) => $auditQuery->where(
+                        'action',
+                        'iro_admin.review.returned_for_revision'
+                    )
+                )
+            )
+            ->when(
+                $filters['partnership_scope'] ?? null,
+                fn ($query) => $query->where(
+                    'partnership_scope',
+                    $filters['partnership_scope']
+                )
+            )
+            ->when(
+                $filters['document_type'] ?? null,
+                fn ($query) => $query->where(
+                    'document_type',
+                    $filters['document_type']
+                )
+            )
+            ->when(
+                $filters['department'] ?? null,
+                fn ($query) => $query->whereHas(
+                    'department',
+                    fn ($departmentQuery) => $departmentQuery
+                        ->where('code', $filters['department'])
+                        ->orWhere('name', $filters['department'])
+                )
+            )
+            ->when(
+                $filters['date_from'] ?? null,
+                fn ($query) => $query->whereDate(
+                    'submitted_at',
+                    '>=',
+                    $filters['date_from']
+                )
+            )
+            ->when(
+                $filters['date_to'] ?? null,
+                fn ($query) => $query->whereDate(
+                    'submitted_at',
+                    '<=',
+                    $filters['date_to']
+                )
             )
             ->orderBy($options['sort'], $options['direction']);
 
         if ($statuses !== null) {
             $query->whereIn('status', $statuses);
         }
+
+        $statistics = [
+            'active' => (clone $query)
+                ->where('status', '!=', Document::STATUS_ARCHIVED)
+                ->count(),
+            'submitted' => (clone $query)
+                ->where('status', Document::STATUS_SUBMITTED)
+                ->count(),
+            'pending' => (clone $query)
+                ->whereIn('status', [
+                    Document::STATUS_SUBMITTED,
+                    Document::STATUS_LOGGED,
+                    Document::STATUS_UNDER_LEGAL_REVIEW,
+                    Document::STATUS_CORRECTIONS_NEEDED,
+                ])
+                ->count(),
+            'older_than_three_days' => (clone $query)
+                ->where('submitted_at', '<', now()->subDays(3))
+                ->count(),
+            'status_older_than_three_days' => (clone $query)
+                ->where('updated_at', '<', now()->subDays(3))
+                ->count(),
+        ];
 
         $documents = $query->paginate(
             $options['per_page'],
@@ -454,7 +904,7 @@ class IroDocumentController extends Controller
 
         $items = $documents
             ->map(fn (Document $document): array =>
-                $this->payloadFor($profile, $document)
+                $this->payloadFor($profile, $document, $adminReviewQueue)
             )
             ->values();
 
@@ -464,15 +914,25 @@ class IroDocumentController extends Controller
             [
                 'documents' => $items,
                 'meta' => Pagination::meta($documents),
+                'statistics' => $statistics,
             ]
         );
     }
 
-    private function payloadFor(Profile $profile, Document $document): array
+    private function payloadFor(
+        Profile $profile,
+        Document $document,
+        bool $adminReviewQueue = false
+    ): array
     {
         if ($profile->role !== Profile::ROLE_IRO_STAFF) {
             return [
                 ...DocumentPayload::make($document),
+                ...($adminReviewQueue ? [
+                    'review_status' => $document->has_admin_revision
+                        ? 'Revised'
+                        : Document::STATUS_LOGGED,
+                ] : []),
                 'current_assignment' => $this->currentAssignment($document),
                 'reassignment_destinations' =>
                     $this->reassignmentDestinations($document),
@@ -574,11 +1034,7 @@ class IroDocumentController extends Controller
             ];
         }
 
-        Profile::query()
-            ->where('role', Profile::ROLE_LEGAL_COUNSEL)
-            ->where('is_active', true)
-            ->orderBy('full_name')
-            ->get()
+        $this->activeLegalCounsel()
             ->each(function (Profile $legalCounsel) use (&$destinations) {
                 $destinations[] = [
                     'key' => 'legal_counsel:'.$legalCounsel->id,
@@ -615,11 +1071,8 @@ class IroDocumentController extends Controller
 
     private function currentAssignment(Document $document): array
     {
-        $latestReassignment = AuditLog::query()
-            ->where('document_id', $document->id)
-            ->where('action', 'iro_admin.document.reassigned')
-            ->latest('created_at')
-            ->first();
+        $document->loadMissing(['legalCounsel', 'latestReassignment']);
+        $latestReassignment = $document->latestReassignment;
 
         $destination = $latestReassignment?->metadata['new_destination'] ?? null;
 
@@ -628,9 +1081,7 @@ class IroDocumentController extends Controller
         }
 
         if ($document->assigned_legal_counsel) {
-            $legalCounsel = Profile::query()
-                ->whereKey($document->assigned_legal_counsel)
-                ->first();
+            $legalCounsel = $document->legalCounsel;
 
             return [
                 'key' => 'legal_counsel:'.$document->assigned_legal_counsel,
@@ -657,14 +1108,27 @@ class IroDocumentController extends Controller
             return null;
         }
 
-        return Department::query()
-            ->get()
+        return $this->departments()
             ->first(function (Department $department) use ($document): bool {
                 $partner = strtolower($document->partner_institution);
 
                 return str_contains($partner, strtolower($department->code)) ||
                     str_contains($partner, strtolower($department->name));
             });
+    }
+
+    private function activeLegalCounsel(): Collection
+    {
+        return $this->activeLegalCounsel ??= Profile::query()
+            ->where('role', Profile::ROLE_LEGAL_COUNSEL)
+            ->where('is_active', true)
+            ->orderBy('full_name')
+            ->get();
+    }
+
+    private function departments(): Collection
+    {
+        return $this->departments ??= Department::query()->get();
     }
 
     private function departmentLabel(Department $department): string
@@ -691,6 +1155,17 @@ class IroDocumentController extends Controller
 
         if (!$profile) {
             abort(403, 'IRO Staff access is required.');
+        }
+
+        return $profile;
+    }
+
+    private function ensureIroAdmin(Request $request): Profile
+    {
+        $profile = $this->ensureIro($request);
+
+        if ($profile->role !== Profile::ROLE_IRO_ADMIN) {
+            abort(403, 'IRO Admin access is required.');
         }
 
         return $profile;

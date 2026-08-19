@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\DocumentFile;
+use App\Models\AuditLog;
 use App\Models\Profile;
 use App\Repositories\DocumentFileRepository;
 use App\Support\Pagination;
@@ -198,6 +199,214 @@ class DocumentFileService
         return $file;
     }
 
+    public function annotations(
+        Document $document,
+        Profile $actor,
+        string $fileId
+    ): array {
+        $this->authorizeAnnotationView($actor);
+        $this->authorizeAnnotationViewStage($document);
+        $file = $this->fileForAccess($document, $actor, $fileId);
+
+        $events = AuditLog::query()
+            ->with('actor')
+            ->where('document_id', $document->id)
+            ->where('document_file_id', $file->id)
+            ->whereIn('action', [
+                'document_file.annotated',
+                'document_file.annotation_comment_updated',
+                'document_file.annotation_removed',
+            ])
+            ->oldest('created_at')
+            ->get();
+
+        $changes = $events
+            ->whereIn('action', [
+                'document_file.annotation_comment_updated',
+                'document_file.annotation_removed',
+            ])
+            ->groupBy(fn (AuditLog $event) => $event->metadata['annotation_id'] ?? '');
+
+        return $events
+            ->where('action', 'document_file.annotated')
+            ->reject(function (AuditLog $annotation) use ($changes): bool {
+                return $changes->get($annotation->id)?->contains(
+                    fn (AuditLog $event) => $event->action === 'document_file.annotation_removed'
+                ) ?? false;
+            })
+            ->map(function (AuditLog $annotation) use ($changes, $document, $file): array {
+                $latestUpdate = $changes->get($annotation->id)?->last(
+                    fn (AuditLog $event) => $event->action === 'document_file.annotation_comment_updated'
+                );
+
+                return [
+                'id' => $annotation->id,
+                'highlight' => $annotation->metadata['highlight'] ?? '',
+                'comment' => $latestUpdate?->metadata['new_comment']
+                    ?? $annotation->metadata['comment']
+                    ?? '',
+                'geometry' => $annotation->metadata['geometry'] ?? null,
+                'reviewer_id' => $annotation->actor_id,
+                'document_id' => $document->id,
+                'document_file_id' => $file->id,
+                'version' => $annotation->metadata['version'] ?? $file->version,
+                'created_at' => $annotation->created_at?->toISOString(),
+                'updated_at' => $latestUpdate?->created_at?->toISOString(),
+                'author' => $annotation->actor?->full_name ?: $annotation->actor?->email,
+                ];
+            })
+            ->sortByDesc('created_at')
+            ->values()
+            ->all();
+    }
+
+    public function annotate(
+        Document $document,
+        Profile $actor,
+        string $fileId,
+        array $data
+    ): array {
+        $this->authorizeAnnotation($actor);
+        $this->authorizeReviewStage($document);
+        $file = $this->fileForAccess($document, $actor, $fileId);
+
+        $annotation = $this->files->log(
+            'document_file.annotated',
+            $actor,
+            $document,
+            $file,
+            [
+                'highlight' => trim($data['highlight']),
+                'comment' => trim($data['comment']),
+                'geometry' => $data['geometry'],
+                'version' => $file->version,
+            ]
+        );
+
+        return [
+            'id' => $annotation->id,
+            'highlight' => $annotation->metadata['highlight'],
+            'comment' => $annotation->metadata['comment'],
+            'geometry' => $annotation->metadata['geometry'],
+            'version' => $annotation->metadata['version'],
+            'created_at' => $annotation->created_at?->toISOString(),
+            'author' => $actor->full_name ?: $actor->email,
+        ];
+    }
+
+    public function updateAnnotationComment(
+        Document $document,
+        Profile $actor,
+        string $fileId,
+        string $annotationId,
+        string $comment
+    ): array {
+        $this->authorizeAnnotation($actor);
+
+        return DB::transaction(function () use ($document, $actor, $fileId, $annotationId, $comment): array {
+            $lockedDocument = Document::query()->lockForUpdate()->findOrFail($document->id);
+            $this->authorizeReviewStage($lockedDocument);
+            $file = $this->fileForAccess($lockedDocument, $actor, $fileId);
+            $annotation = $this->activeAnnotation($lockedDocument, $file, $annotationId);
+            $currentComment = $this->resolvedAnnotationComment($annotation);
+            $newComment = trim($comment);
+
+            $event = $this->files->log(
+                'document_file.annotation_comment_updated',
+                $actor,
+                $lockedDocument,
+                $file,
+                [
+                    'annotation_id' => $annotation->id,
+                    'previous_comment' => $currentComment,
+                    'new_comment' => $newComment,
+                ]
+            );
+
+            return [
+                'id' => $annotation->id,
+                'comment' => $newComment,
+                'updated_at' => $event->created_at?->toISOString(),
+                'updated_by' => $actor->full_name ?: $actor->email,
+            ];
+        });
+    }
+
+    public function removeAnnotation(
+        Document $document,
+        Profile $actor,
+        string $fileId,
+        string $annotationId
+    ): array {
+        $this->authorizeAnnotation($actor);
+
+        return DB::transaction(function () use ($document, $actor, $fileId, $annotationId): array {
+            $lockedDocument = Document::query()->lockForUpdate()->findOrFail($document->id);
+            $this->authorizeReviewStage($lockedDocument);
+            $file = $this->fileForAccess($lockedDocument, $actor, $fileId);
+            $annotation = $this->activeAnnotation($lockedDocument, $file, $annotationId);
+
+            $event = $this->files->log(
+                'document_file.annotation_removed',
+                $actor,
+                $lockedDocument,
+                $file,
+                [
+                    'annotation_id' => $annotation->id,
+                    'highlight' => $annotation->metadata['highlight'] ?? '',
+                    'comment' => $this->resolvedAnnotationComment($annotation),
+                    'geometry' => $annotation->metadata['geometry'] ?? null,
+                    'removed_at' => now()->toISOString(),
+                ]
+            );
+
+            return [
+                'id' => $annotation->id,
+                'removed_at' => $event->created_at?->toISOString(),
+                'removed_by' => $actor->full_name ?: $actor->email,
+            ];
+        });
+    }
+
+    private function activeAnnotation(
+        Document $document,
+        DocumentFile $file,
+        string $annotationId
+    ): AuditLog {
+        $annotation = AuditLog::query()
+            ->whereKey($annotationId)
+            ->where('document_id', $document->id)
+            ->where('document_file_id', $file->id)
+            ->where('action', 'document_file.annotated')
+            ->first();
+
+        $removed = $annotation && AuditLog::query()
+            ->where('document_id', $document->id)
+            ->where('document_file_id', $file->id)
+            ->where('action', 'document_file.annotation_removed')
+            ->where('metadata->annotation_id', $annotation->id)
+            ->exists();
+
+        if (!$annotation || $removed) {
+            throw new NotFoundHttpException('The requested annotation could not be found.');
+        }
+
+        return $annotation;
+    }
+
+    private function resolvedAnnotationComment(AuditLog $annotation): string
+    {
+        return (string) (AuditLog::query()
+            ->where('document_id', $annotation->document_id)
+            ->where('document_file_id', $annotation->document_file_id)
+            ->where('action', 'document_file.annotation_comment_updated')
+            ->where('metadata->annotation_id', $annotation->id)
+            ->latest('created_at')
+            ->value('metadata->new_comment')
+            ?? $annotation->metadata['comment']
+            ?? '');
+    }
+
     public function delete(
         Document $document,
         Profile $actor,
@@ -335,6 +544,55 @@ class DocumentFileService
             throw ValidationException::withMessages([
                 'document' => 'Archived documents cannot be modified.',
             ]);
+        }
+    }
+
+    private function authorizeAnnotation(Profile $actor): void
+    {
+        if (!in_array($actor->role, [
+            Profile::ROLE_IRO_ADMIN,
+            Profile::ROLE_LEGAL_COUNSEL,
+        ], true)) {
+            throw new NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+    }
+
+    private function authorizeAnnotationView(Profile $actor): void
+    {
+        if (!in_array($actor->role, [
+            Profile::ROLE_IRO_ADMIN,
+            Profile::ROLE_LEGAL_COUNSEL,
+        ], true)) {
+            throw new NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+    }
+
+    private function authorizeReviewStage(Document $document): void
+    {
+        if (!in_array($document->status, [
+            Document::STATUS_LOGGED,
+            Document::STATUS_UNDER_LEGAL_REVIEW,
+        ], true)) {
+            throw new NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+    }
+
+    private function authorizeAnnotationViewStage(Document $document): void
+    {
+        if (!in_array($document->status, [
+            Document::STATUS_LOGGED,
+            Document::STATUS_CORRECTIONS_NEEDED,
+            Document::STATUS_UNDER_LEGAL_REVIEW,
+        ], true)) {
+            throw new NotFoundHttpException(
+                'The requested document is not available for administrative review.'
+            );
         }
     }
 

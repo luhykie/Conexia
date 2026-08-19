@@ -7,17 +7,21 @@ import {
 } from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
+import { useNavigate } from "react-router-dom";
+import { DocumentReviewPage } from "../../../components/DocumentReviewPanel";
 import {
-  Dropzone,
-} from "../../../components/SharedViews";
-import { getIncomingDocuments } from "../../../services/iroStaffService";
+  getIncomingDocuments,
+  routeLegalCorrectionToDepartment,
+} from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-export default function IroAdminLogReviewPage() {
+export default function IroAdminLogReviewPage({ documentId }) {
+  const navigate = useNavigate();
   const [documents, setDocuments] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [routingId, setRoutingId] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
   const {
@@ -32,8 +36,27 @@ export default function IroAdminLogReviewPage() {
     setPage(1);
   }
 
+  async function routeCorrection(document) {
+    setRoutingId(document.id);
+    setError("");
+
+    try {
+      await routeLegalCorrectionToDepartment(document.id);
+      setDocuments((current) => current.filter((item) => item.id !== document.id));
+    } catch (requestError) {
+      reportClientError("Unable to route legal correction:", requestError);
+      setError(requestError.message);
+    } finally {
+      setRoutingId("");
+    }
+  }
+
   React.useEffect(() => {
     let active = true;
+
+    if (documentId) {
+      return () => { active = false; };
+    }
 
     async function loadIncoming() {
       setLoading(true);
@@ -46,7 +69,8 @@ export default function IroAdminLogReviewPage() {
           });
 
         if (active) {
-          setDocuments(response.documents ?? response.data ?? []);
+          const loadedDocuments = response.documents ?? response.data ?? [];
+          setDocuments(loadedDocuments);
           setMeta(response.meta ?? null);
         }
       } catch (requestError) {
@@ -66,25 +90,48 @@ export default function IroAdminLogReviewPage() {
     return () => {
       active = false;
     };
-  }, [page, queryParams]);
+  }, [documentId, page, queryParams]);
 
   const rows = documents.map((document) => [
     document.tracking_number,
-    document.department?.code || document.department?.name || "-",
+    partnershipScope(document),
     document.partner_institution || "-",
     document.document_type || "-",
-    document.status || "-",
+    document.review_status || document.status || "-",
+    document.status === "Correction Required" ? (
+      <button
+        type="button"
+        className="table-action"
+        key={document.id}
+        disabled={routingId === document.id}
+        onClick={() => routeCorrection(document)}
+      >
+        {routingId === document.id ? "Routing..." : "Route to Department"}
+      </button>
+    ) : (
+      <button
+        type="button"
+        className="table-action"
+        key={document.id}
+        onClick={() => navigate(`/app/log-review/${document.id}`)}
+      >
+        Review
+      </button>
+    ),
   ]);
+
+  if (documentId) {
+    return <DocumentReviewPage documentId={documentId} />;
+  }
 
   return (
     <section className="page iro-admin-page iro-admin-log-review-page">
       <PageTitle
-        title="Log & Review Form"
-        subtitle="Monitor incoming agreements and administrative review readiness."
+        title="Log & Review"
+        subtitle="Review documents processed and routed by IRO Staff."
       />
 
-      <div className="two-col">
-        <Panel title="Incoming Queue">
+      <Panel title="Logged Documents">
           <DocumentFilters
             filters={filters}
             onChange={changeFilter}
@@ -92,77 +139,38 @@ export default function IroAdminLogReviewPage() {
               clearFilters();
               setPage(1);
             }}
-            statusOptions={["Submitted", "Logged"]}
+            statusOptions={["Logged", "Revised", "Correction Required"]}
+            partnershipScopeOptions={["Local", "Departmental", "International"]}
             showDepartment
-            unsupported={{
-              document_type: true,
-              partnership_scope: true,
-              date_from: true,
-              date_to: true,
-              department: true,
-            }}
           />
           {loading && <p>Loading incoming documents...</p>}
           {error && <p className="auth-error">{error}</p>}
           {!loading && !error && rows.length === 0 && (
-            <p>No incoming records are available.</p>
+            <p>No logged documents are awaiting IRO Admin review.</p>
           )}
           {!loading && !error && rows.length > 0 && (
             <DataTable
               headers={[
                 "Tracking #",
-                "Department",
+                "Partnership Scope",
                 "Partner",
                 "Document Type",
                 "Status",
+                "Action",
               ]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
             />
           )}
-        </Panel>
-
-        <aside className="review-panel">
-          <h2>Administrative Review</h2>
-          {[
-            "Signatures Present",
-            "Terms Defined",
-            "Attachments Included",
-            "GDPR Compliance",
-          ].map((item) => (
-            <label className="checkline" key={item}>
-              <input type="checkbox" disabled /> {item}
-            </label>
-          ))}
-
-          <label>
-            Route To
-            <select disabled>
-              <option>Use IRO Staff assignment workflow</option>
-            </select>
-          </label>
-
-          <label>
-            Staff Remarks
-            <textarea
-              placeholder="Standalone admin review submission is unavailable."
-              disabled
-            />
-          </label>
-
-          <Panel title="Document Upload">
-            <Dropzone detail="Use the document file panel on a routed record." />
-          </Panel>
-
-          <button type="button" disabled>
-            Submit & Route unavailable
-          </button>
-          <button type="button" className="outline" disabled>
-            Save Draft unavailable
-          </button>
-        </aside>
-      </div>
+      </Panel>
     </section>
   );
+}
+
+function partnershipScope(document) {
+  const scope = document.partnership_scope || document.partnership_type;
+  return ["Departmental", "Local", "International"].includes(scope)
+    ? scope
+    : "-";
 }

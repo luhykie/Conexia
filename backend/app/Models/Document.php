@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Document extends Model
 {
@@ -16,6 +17,7 @@ class Document extends Model
     public const STATUS_PARTNER_REVIEW_COMPLETE = 'Partner Review Complete';
     public const STATUS_LOGGED = 'Logged';
     public const STATUS_UNDER_LEGAL_REVIEW = 'Under Legal Review';
+    public const STATUS_CORRECTION_REQUIRED = 'Correction Required';
     public const STATUS_CORRECTIONS_NEEDED = 'Corrections Needed';
     public const STATUS_APPROVED = 'Approved';
     public const STATUS_PENDING_NOTARIZATION = 'Pending Notarization';
@@ -108,6 +110,7 @@ class Document extends Model
             self::STATUS_PARTNER_REVIEW_COMPLETE,
             self::STATUS_LOGGED,
             self::STATUS_UNDER_LEGAL_REVIEW,
+            self::STATUS_CORRECTION_REQUIRED,
             self::STATUS_CORRECTIONS_NEEDED,
             self::STATUS_APPROVED,
             self::STATUS_PENDING_NOTARIZATION,
@@ -176,13 +179,37 @@ class Document extends Model
         return $this->belongsTo(Profile::class, 'assigned_legal_counsel');
     }
 
+    public function latestReassignment(): HasOne
+    {
+        return $this->hasOne(AuditLog::class)
+            ->where('action', 'iro_admin.document.reassigned')
+            ->latest('created_at');
+    }
+
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
     }
 
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    public function latestLegalCorrection(): HasOne
+    {
+        return $this->hasOne(AuditLog::class)
+            ->where('action', 'legal.review.correction_requested')
+            ->latest('created_at');
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(DocumentFile::class);
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(DocumentMessage::class);
     }
 }
