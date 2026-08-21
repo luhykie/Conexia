@@ -58,6 +58,13 @@ export function validateAdminReview(documentId, legalCounselId, comments = "") {
   });
 }
 
+export function routeLegalCorrectionToDepartment(documentId) {
+  return apiPatch(
+    `/iro/documents/${documentId}/legal-correction/route-to-department`,
+    {},
+  );
+}
+
 export function reassignDocumentToLegal(
   documentId,
   destination,

@@ -121,6 +121,7 @@ export default function LegalCounselHistoryPage() {
               setPage(1);
             }}
             statusOptions={[
+              "Correction Required",
               "Corrections Needed",
               "Approved",
               "Pending Notarization",

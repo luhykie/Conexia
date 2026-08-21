@@ -16,12 +16,15 @@ export function DocumentChat({ documentId, variant = "compact" }) {
   const listRef = React.useRef(null);
   const inputRef = React.useRef(null);
   const pointerRef = React.useRef(null);
+  const activeDocumentIdRef = React.useRef(documentId);
+  activeDocumentIdRef.current = documentId;
 
   const loadMessages = React.useCallback(async ({ quiet = false } = {}) => {
     if (!documentId) return;
     if (!quiet) setLoading(true);
     try {
       const response = await getDocumentMessages(documentId);
+      if (activeDocumentIdRef.current !== documentId) return;
       setMessages(response.messages ?? response.data ?? []);
       setError("");
     } catch (requestError) {
@@ -29,6 +32,13 @@ export function DocumentChat({ documentId, variant = "compact" }) {
     } finally {
       if (!quiet) setLoading(false);
     }
+  }, [documentId]);
+
+  React.useEffect(() => {
+    setMessages([]);
+    setDraft("");
+    setReplyTo(null);
+    setError("");
   }, [documentId]);
 
   React.useEffect(() => {
@@ -60,22 +70,29 @@ export function DocumentChat({ documentId, variant = "compact" }) {
     }
   }
 
+  function handleComposerKeyDown(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  }
+
   function selectReply(message) {
     setReplyTo(message);
     window.requestAnimationFrame(() => inputRef.current?.focus());
   }
 
   function startDrag(event, message) {
-    if (event.target.closet("button, textarea, input ,a")) {
+    if (event.target.closest("button, textarea, input, a")) {
       return;
     }
     pointerRef.current = { 
-      id: event.pointerID,
+      id: event.pointerId,
       message,
       startX: event.clientX,
       startY: event.clientY,
     };
-    event.currentTarget.setPointerCApture?.(event.pointerId); 
+    event.currentTarget.setPointerCapture?.(event.pointerId);
 }
 
 
@@ -116,7 +133,7 @@ export function DocumentChat({ documentId, variant = "compact" }) {
           {loading && <p>Loading messages...</p>}
           {!loading && messages.length === 0 && <p className="document-chat-empty">No messages yet. Start the document conversation.</p>}
           {messages.map((item) => <article
-            className="document-chat-message" key={item.id}
+            className={`document-chat-message ${item.is_mine ? "document-chat-message--sent" : "document-chat-message--received"}`} key={item.id}
             onPointerDown={(event) => startDrag(event, item)} onPointerMove={moveDrag} onPointerUp={endDrag}
             onPointerCancel={() => { pointerRef.current = null; setDragging(null); }}
             style={dragging?.id === item.id ? { transform: `translateX(${dragging.offset}px)` } : undefined}
@@ -126,7 +143,7 @@ export function DocumentChat({ documentId, variant = "compact" }) {
             <p>{item.message}</p>
             <footer>
               <small>{item.timestamp ? new Date(item.timestamp).toLocaleString() : ""}{item.is_read ? " · Read" : ""}</small>
-              <button type="button" onPointerDown={(event) => event.stopProgpagation()} onClick={(event) => { event.stopPropagation(); setReplyTo(item); }} aria-label={`Reply to ${item.sender || "message sender"}`}><Reply size={14} /> Reply</button>
+              <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setReplyTo(item); }} aria-label={`Reply to ${item.sender || "message sender"}`}><Reply size={14} /> Reply</button>
             </footer>
           </article>)}
         </div>
@@ -134,7 +151,7 @@ export function DocumentChat({ documentId, variant = "compact" }) {
         <form onSubmit={submit}>
           {replyTo && <div className="document-chat-reply-preview"><QuotedMessage message={replyTo} /><button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X size={16} /></button></div>}
           <div className="document-chat-compose-row">
-            <textarea ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Message document participants" maxLength={2000} rows={2} aria-label="Document chat message" />
+            <textarea ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder="Type a message..." maxLength={2000} rows={2} aria-label="Document chat message" />
             <button type="submit" disabled={sending || !draft.trim()} aria-label="Send message"><Send size={18} /></button>
           </div>
         </form>

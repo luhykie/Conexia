@@ -39,7 +39,7 @@ class DocumentFileService
         $records = $this->files
             ->filesForDocument($document, $options);
 
-        $items = $records
+        $items = collect($records->items())
             ->map(fn (DocumentFile $file): array =>
                 $this->payload($file)
             )
@@ -205,6 +205,7 @@ class DocumentFileService
         string $fileId
     ): array {
         $this->authorizeAnnotation($actor);
+        $this->authorizeAnnotationView($actor);
         $this->authorizeAnnotationViewStage($document);
         $file = $this->fileForAccess($document, $actor, $fileId);
 
@@ -549,7 +550,22 @@ class DocumentFileService
 
     private function authorizeAnnotation(Profile $actor): void
     {
-        if ($actor->role !== Profile::ROLE_IRO_ADMIN) {
+        if (!in_array($actor->role, [
+            Profile::ROLE_IRO_ADMIN,
+            Profile::ROLE_LEGAL_COUNSEL,
+        ], true)) {
+            throw new NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+    }
+
+    private function authorizeAnnotationView(Profile $actor): void
+    {
+        if (!in_array($actor->role, [
+            Profile::ROLE_IRO_ADMIN,
+            Profile::ROLE_LEGAL_COUNSEL,
+        ], true)) {
             throw new NotFoundHttpException(
                 'The requested document could not be found.'
             );
@@ -558,7 +574,10 @@ class DocumentFileService
 
     private function authorizeReviewStage(Document $document): void
     {
-        if ($document->status !== Document::STATUS_LOGGED) {
+        if (!in_array($document->status, [
+            Document::STATUS_LOGGED,
+            Document::STATUS_UNDER_LEGAL_REVIEW,
+        ], true)) {
             throw new NotFoundHttpException(
                 'The requested document could not be found.'
             );

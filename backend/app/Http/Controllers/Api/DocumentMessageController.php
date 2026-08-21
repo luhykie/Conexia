@@ -31,7 +31,7 @@ class DocumentMessageController extends Controller
             ->limit(200)
             ->get()
             ->reverse()
-            ->map(fn (DocumentMessage $message): array => $this->payload($message))
+            ->map(fn (DocumentMessage $message): array => $this->payload($message, $profile))
             ->values();
 
         return response()->json([
@@ -93,7 +93,7 @@ class DocumentMessageController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Message sent successfully.',
-            'document_message' => $this->payload($message),
+            'document_message' => $this->payload($message, $profile),
         ], 201);
     }
 
@@ -103,8 +103,19 @@ class DocumentMessageController extends Controller
 
         if (
             !$profile ||
-            $profile->role !== Profile::ROLE_IRO_ADMIN ||
+            !in_array($profile->role, [
+                Profile::ROLE_IRO_ADMIN,
+                Profile::ROLE_LEGAL_COUNSEL,
+                Profile::ROLE_DEPARTMENT_STAFF,
+            ], true) ||
             Gate::forUser($profile)->denies('view-document-metadata', $document)
+        ) {
+            throw new NotFoundHttpException('The requested document could not be found.');
+        }
+
+        if (
+            $profile->role === Profile::ROLE_DEPARTMENT_STAFF &&
+            $document->submitted_by !== $profile->id
         ) {
             throw new NotFoundHttpException('The requested document could not be found.');
         }
@@ -112,12 +123,16 @@ class DocumentMessageController extends Controller
         return $profile;
     }
 
-    private function payload(DocumentMessage $message): array
+    private function payload(
+        DocumentMessage $message,
+        Profile $currentProfile
+    ): array
     {
         return [
             'id' => $message->id,
             'document_id' => $message->document_id,
             'sender_id' => $message->sender_id,
+            'is_mine' => $message->sender_id === $currentProfile->id,
             'sender' => $message->sender?->full_name ?: $message->sender?->email,
             'role' => $message->sender_role,
             'message' => $message->message,

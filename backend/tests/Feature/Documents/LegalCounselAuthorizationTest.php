@@ -74,4 +74,49 @@ class LegalCounselAuthorizationTest extends SecurityTestCase
             $this->authHeaders($legal)
         )->assertUnprocessable();
     }
+
+    public function test_legal_correction_returns_to_iro_admin_before_department(): void
+    {
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'assigned_legal_counsel' => $legal->id,
+            'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+        ]);
+
+        $this->patchJson(
+            "/api/legal/documents/{$document->id}/decision",
+            [
+                'status' => Document::STATUS_CORRECTIONS_NEEDED,
+                'legal_notes' => 'Revise the termination provision.',
+            ],
+            $this->authHeaders($legal)
+        )->assertOk()
+            ->assertJsonPath('document.status', Document::STATUS_CORRECTION_REQUIRED);
+
+        $this->assertDatabaseHas('documents', [
+            'id' => $document->id,
+            'status' => Document::STATUS_CORRECTION_REQUIRED,
+        ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_id' => $legal->id,
+            'document_id' => $document->id,
+            'action' => 'legal.review.correction_requested',
+        ]);
+
+        // The correction remains in Legal history after later workflow
+        // transitions clear the document's current correction fields.
+        $document->update([
+            'status' => Document::STATUS_SUBMITTED,
+            'legal_notes' => null,
+        ]);
+
+        $this->getJson('/api/legal/history', $this->authHeaders($legal))
+            ->assertOk()
+            ->assertJsonFragment([
+                'document_id' => $document->id,
+                'status' => 'Correction',
+                'detail' => 'Revise the termination provision.',
+            ]);
+    }
 }

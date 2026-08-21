@@ -33,7 +33,10 @@ class IroDocumentController extends Controller
             $request,
             'submitted_at',
             $profile->role === Profile::ROLE_IRO_ADMIN
-                ? [Document::STATUS_LOGGED]
+                ? [
+                    Document::STATUS_LOGGED,
+                    Document::STATUS_CORRECTION_REQUIRED,
+                ]
                 : [
                     Document::STATUS_SUBMITTED,
                     Document::STATUS_LOGGED,
@@ -473,6 +476,44 @@ class IroDocumentController extends Controller
         });
 
         return $this->documentResponse('IRO Admin review validated and routed to Legal Counsel.', $document);
+    }
+
+    public function routeLegalCorrectionToDepartment(
+        Request $request,
+        string $id
+    ): JsonResponse {
+        $profile = $this->ensureIroAdmin($request);
+
+        $document = DB::transaction(function () use ($id, $profile) {
+            $document = $this->lockedDocument($id);
+
+            if ($document->status !== Document::STATUS_CORRECTION_REQUIRED) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only legal correction requests awaiting IRO Admin can be routed to the department.',
+                ]);
+            }
+
+            $previousStatus = $document->status;
+            $document->update([
+                'status' => Document::STATUS_CORRECTIONS_NEEDED,
+            ]);
+
+            $this->logAdminReviewDecision(
+                $document,
+                $profile,
+                'iro_admin.legal_correction.routed_to_department',
+                $previousStatus,
+                Document::STATUS_CORRECTIONS_NEEDED,
+                ['destination' => $this->ownershipMetadata($document)]
+            );
+
+            return $document->refresh();
+        });
+
+        return $this->documentResponse(
+            'Legal correction request routed to the department.',
+            $document
+        );
     }
 
     private function requireLoggedAdminReview(Document $document): void

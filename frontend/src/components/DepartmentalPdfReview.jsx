@@ -6,13 +6,14 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export function DepartmentalPdfReview({ documentId, fileId = null, items = [], onCreateItem, onUpdateHighlight, canAnnotate = false }) {
+export function DepartmentalPdfReview({ documentId, fileId = null, items = [], annotations = null, onCreateItem, onUpdateHighlight, onCreateAnnotation, onUpdateAnnotation, onRemoveAnnotation, canAnnotate = false }) {
   const [pages, setPages] = React.useState([]);
   const [error, setError] = React.useState("");
   const [selection, setSelection] = React.useState(null);
   const [colorOpen, setColorOpen] = React.useState(false);
   const [commentOpen, setCommentOpen] = React.useState(false);
   const [comment, setComment] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
   const [activeHighlight, setActiveHighlight] = React.useState(null);
   const viewerRef = React.useRef(null);
   const textLayerRefs = React.useRef({});
@@ -83,19 +84,33 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], o
     if (!text || !viewerRef.current?.contains(browserSelection.anchorNode)) return;
     const page = event.currentTarget;
     const pageBounds = page.getBoundingClientRect();
-    const rects = Array.from(browserSelection.getRangeAt(0).getClientRects())
+    const capturedRects = Array.from(browserSelection.getRangeAt(0).getClientRects())
       .map((rect) => ({ x: rect.left - pageBounds.left, y: rect.top - pageBounds.top, width: rect.width, height: rect.height }))
       .filter((rect) => rect.width > 0 && rect.height > 0);
+    const rects = capturedRects.filter((rect, index) => !capturedRects.slice(0, index).some((previous) =>
+      Math.abs(previous.x - rect.x) < 0.5
+      && Math.abs(previous.y - rect.y) < 0.5
+      && Math.abs(previous.width - rect.width) < 0.5
+      && Math.abs(previous.height - rect.height) < 0.5
+    ));
     if (!rects.length) return;
     setSelection({ text, anchor: { page: Number(page.dataset.page), rects }, position: { left: event.clientX, top: event.clientY } });
     setColorOpen(false); setCommentOpen(false); setComment("");
   }
 
   async function add(type, color = null, parentId = null) {
-    if (!selection) return;
+    if (!selection || saving) return;
     if (!comment.trim()) { setError("Please add a comment for this highlighted section."); return; }
-    await onCreateItem({ type, selected_text: selection.text, selection_anchor: selection.anchor, highlight_color: color, comment: comment.trim(), parent_id: parentId });
-    window.getSelection()?.removeAllRanges(); setSelection(null); setColorOpen(false); setCommentOpen(false); setComment("");
+    setSaving(true);
+    try {
+      if (annotations) {
+        const page = pages.find((entry) => entry.number === selection.anchor.page);
+        await onCreateAnnotation({ highlight: selection.text, comment: comment.trim(), geometry: { page: selection.anchor.page, rects: selection.anchor.rects.map((rect) => ({ x: rect.x / page.width, y: rect.y / page.height, width: rect.width / page.width, height: rect.height / page.height })) } });
+      } else {
+        await onCreateItem({ type, selected_text: selection.text, selection_anchor: selection.anchor, highlight_color: color, comment: comment.trim(), parent_id: parentId });
+      }
+      window.getSelection()?.removeAllRanges(); setSelection(null); setColorOpen(false); setCommentOpen(false); setComment("");
+    } finally { setSaving(false); }
   }
 
   async function removeActiveHighlight(event) {
@@ -103,7 +118,8 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], o
     event.stopPropagation();
     if (!activeHighlight) return;
     try {
-      await onUpdateHighlight(activeHighlight.item.id, { highlight_color: null });
+      if (annotations) await onRemoveAnnotation(activeHighlight.item.id);
+      else await onUpdateHighlight(activeHighlight.item.id, { highlight_color: null });
       setActiveHighlight(null);
     } catch (updateError) {
       setError(updateError.message || "Unable to remove this highlight.");
@@ -116,9 +132,9 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], o
     {pages.map((page) => <div className="departmental-pdf-page" data-page={page.number} key={page.number} style={{ width: page.width, height: page.height }} onMouseUp={captureSelection}>
       <img src={page.image} alt={`Document page ${page.number}`} draggable="false" />
       <div ref={(element) => { textLayerRefs.current[page.number] = element; }} className="departmental-pdf-text-layer textLayer" aria-label={`Selectable text for page ${page.number}`} />
-      {(items || []).filter((item) => item.type === "highlight" && item.highlight_color && !item.highlight_removed_at && item.selection_anchor?.page === page.number).flatMap((item) => (item.selection_anchor.rects || []).map((rect, index) => { const marker = item.display_number || "?"; return <button type="button" className={`departmental-pdf-highlight departmental-pdf-highlight--${item.highlight_color}`} key={`${item.id}-${index}`} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} title={`Highlight #${marker}: ${item.selected_text || ""}`} onClick={(event) => { event.stopPropagation(); setSelection(null); setActiveHighlight({ item, position: { left: event.clientX, top: event.clientY } }); setColorOpen(false); setCommentOpen(false); setComment(""); }}>{index === 0 && <span className="departmental-pdf-highlight__marker">{marker}</span>}</button>; }))}
+      {(annotations ? annotations.map((annotation, index) => ({ id: annotation.id, type: "highlight", highlight_color: "yellow", display_number: index + 1, selected_text: annotation.highlight, selection_anchor: { page: annotation.geometry?.page, rects: (annotation.geometry?.rects || []).map((rect) => ({ x: rect.x * page.width, y: rect.y * page.height, width: rect.width * page.width, height: rect.height * page.height })) } })) : items).filter((item) => item.type === "highlight" && item.highlight_color && !item.highlight_removed_at && item.selection_anchor?.page === page.number).flatMap((item) => (item.selection_anchor.rects || []).map((rect, index) => { const marker = item.display_number || "?"; return <button type="button" className={`departmental-pdf-highlight departmental-pdf-highlight--${item.highlight_color}`} key={`${item.id}-${index}`} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} title={`Highlight #${marker}: ${item.selected_text || ""}`} onClick={(event) => { event.stopPropagation(); setSelection(null); setActiveHighlight({ item, position: { left: event.clientX, top: event.clientY } }); setColorOpen(false); setCommentOpen(false); setComment(""); }}>{index === 0 && <span className="departmental-pdf-highlight__marker">{marker}</span>}</button>; }))}
     </div>)}
-    {selection && canAnnotate && <div className="departmental-pdf-toolbar" style={{ left: selection.position.left, top: selection.position.top }}><button type="button" onClick={() => { setCommentOpen(true); setError(""); }}>Highlight</button>{commentOpen && <div className="departmental-pdf-comment"><textarea autoFocus value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add a required review comment" /><button type="button" disabled={!comment.trim()} onClick={() => add("highlight")}>Save Annotation</button></div>}</div>}
+    {selection && canAnnotate && <div className="departmental-pdf-toolbar" style={{ left: selection.position.left, top: selection.position.top }}><button type="button" onClick={() => { setCommentOpen(true); setError(""); }}>Highlight</button>{commentOpen && <div className="departmental-pdf-comment"><textarea autoFocus value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add a required review comment" /><button type="button" disabled={saving || !comment.trim()} onClick={() => add("highlight")}>{saving ? "Saving..." : "Save Annotation"}</button></div>}</div>}
     {activeHighlight && canAnnotate && <div className="departmental-pdf-toolbar" onMouseDown={(event) => event.stopPropagation()} style={{ left: activeHighlight.position.left, top: activeHighlight.position.top }}><span className="departmental-pdf-toolbar__color">Department color</span><button type="button" className="departmental-pdf-toolbar__remove" onMouseDown={removeActiveHighlight} onClick={(event) => event.preventDefault()}>Remove Highlight</button></div>}
   </section>;
 }

@@ -1016,6 +1016,31 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    public function test_iro_admin_routes_legal_correction_to_originating_department(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'status' => Document::STATUS_CORRECTION_REQUIRED,
+            'assigned_legal_counsel' => $legal->id,
+            'legal_notes' => 'Revise the termination provision.',
+        ]);
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/legal-correction/route-to-department",
+            [],
+            $this->authHeaders($admin)
+        )->assertOk()
+            ->assertJsonPath('document.status', Document::STATUS_CORRECTIONS_NEEDED)
+            ->assertJsonPath('document.assigned_legal_counsel', $legal->id);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_id' => $admin->id,
+            'document_id' => $document->id,
+            'action' => 'iro_admin.legal_correction.routed_to_department',
+        ]);
+    }
+
     public function test_iro_staff_cannot_make_iro_admin_review_decisions(): void
     {
         $staff = $this->profile(Profile::ROLE_IRO_STAFF);

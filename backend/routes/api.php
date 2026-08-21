@@ -286,6 +286,27 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
         Route::middleware(
             EnsureRole::class
                 .':'
+                .Profile::ROLE_IRO_ADMIN
+                .','
+                .Profile::ROLE_LEGAL_COUNSEL
+                .','
+                .Profile::ROLE_DEPARTMENT_STAFF
+        )
+            ->group(function (): void {
+                Route::get(
+                    '/documents/{document}/messages',
+                    [DocumentMessageController::class, 'index']
+                );
+
+                Route::post(
+                    '/documents/{document}/messages',
+                    [DocumentMessageController::class, 'store']
+                );
+            });
+
+        Route::middleware(
+            EnsureRole::class
+                .':'
                 .Profile::ROLE_DEPARTMENT_STAFF
                 .','
                 .Profile::ROLE_IRO_ADMIN
@@ -387,6 +408,44 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
             });
 
         Route::middleware(
+            EnsureRole::class
+                .':'
+                .Profile::ROLE_IRO_ADMIN
+                .','
+                .Profile::ROLE_LEGAL_COUNSEL
+        )
+            ->group(function (): void {
+                Route::get(
+                    '/documents/{document}/files/{file}/annotations',
+                    [DocumentFileController::class, 'annotations']
+                );
+            });
+
+        Route::middleware(
+            EnsureRole::class
+                .':'
+                .Profile::ROLE_IRO_ADMIN
+                .','
+                .Profile::ROLE_LEGAL_COUNSEL
+        )
+            ->group(function (): void {
+                Route::post(
+                    '/documents/{document}/files/{file}/annotations',
+                    [DocumentFileController::class, 'annotate']
+                );
+
+                Route::patch(
+                    '/documents/{document}/files/{file}/annotations/{annotation}',
+                    [DocumentFileController::class, 'updateAnnotation']
+                );
+
+                Route::delete(
+                    '/documents/{document}/files/{file}/annotations/{annotation}',
+                    [DocumentFileController::class, 'removeAnnotation']
+                );
+            });
+
+        Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )
             ->group(function (): void {
@@ -433,6 +492,11 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 Route::patch(
                     '/iro/documents/{id}/admin-review/validate',
                     [IroDocumentController::class, 'validateAndRouteToLegal']
+                );
+
+                Route::patch(
+                    '/iro/documents/{id}/legal-correction/route-to-department',
+                    [IroDocumentController::class, 'routeLegalCorrectionToDepartment']
                 );
 
                 Route::patch(

@@ -9,7 +9,10 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { useNavigate } from "react-router-dom";
 import { DocumentReviewPage } from "../../../components/DocumentReviewPanel";
-import { getIncomingDocuments } from "../../../services/iroStaffService";
+import {
+  getIncomingDocuments,
+  routeLegalCorrectionToDepartment,
+} from "../../../services/iroStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -18,6 +21,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
   const [documents, setDocuments] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [routingId, setRoutingId] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
   const {
@@ -30,6 +34,21 @@ export default function IroAdminLogReviewPage({ documentId }) {
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
+  }
+
+  async function routeCorrection(document) {
+    setRoutingId(document.id);
+    setError("");
+
+    try {
+      await routeLegalCorrectionToDepartment(document.id);
+      setDocuments((current) => current.filter((item) => item.id !== document.id));
+    } catch (requestError) {
+      reportClientError("Unable to route legal correction:", requestError);
+      setError(requestError.message);
+    } finally {
+      setRoutingId("");
+    }
   }
 
   React.useEffect(() => {
@@ -79,14 +98,26 @@ export default function IroAdminLogReviewPage({ documentId }) {
     document.partner_institution || "-",
     document.document_type || "-",
     document.review_status || document.status || "-",
-    <button
-      type="button"
-      className="table-action"
-      key={document.id}
-      onClick={() => navigate(`/app/log-review/${document.id}`)}
-    >
-      Review
-    </button>,
+    document.status === "Correction Required" ? (
+      <button
+        type="button"
+        className="table-action"
+        key={document.id}
+        disabled={routingId === document.id}
+        onClick={() => routeCorrection(document)}
+      >
+        {routingId === document.id ? "Routing..." : "Route to Department"}
+      </button>
+    ) : (
+      <button
+        type="button"
+        className="table-action"
+        key={document.id}
+        onClick={() => navigate(`/app/log-review/${document.id}`)}
+      >
+        Review
+      </button>
+    ),
   ]);
 
   if (documentId) {
@@ -108,7 +139,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
               clearFilters();
               setPage(1);
             }}
-            statusOptions={["Logged", "Revised"]}
+            statusOptions={["Logged", "Revised", "Correction Required"]}
             partnershipScopeOptions={["Local", "Departmental", "International"]}
             showDepartment
           />

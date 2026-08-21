@@ -28,6 +28,7 @@ class DocumentMessageAuthorizationTest extends SecurityTestCase
         $this->getJson($url, $this->authHeaders($reader))
             ->assertOk()
             ->assertJsonPath('messages.0.id', $messageId)
+            ->assertJsonPath('messages.0.is_mine', false)
             ->assertJsonPath('messages.0.message', 'Please review the latest agreement version.')
             ->assertJsonPath('messages.0.is_read', true);
 
@@ -40,7 +41,7 @@ class DocumentMessageAuthorizationTest extends SecurityTestCase
         ]);
     }
 
-    public function test_department_staff_and_legal_counsel_cannot_access_document_chat(): void
+    public function test_assigned_legal_and_originating_department_can_access_document_chat(): void
     {
         $department = $this->department();
         $staff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF, [
@@ -49,19 +50,39 @@ class DocumentMessageAuthorizationTest extends SecurityTestCase
         $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
         $document = $this->document([
             'department_id' => $department->id,
+            'submitted_by' => $staff->id,
             'assigned_legal_counsel' => $legal->id,
         ]);
         $url = "/api/documents/{$document->id}/messages";
 
         foreach ([$staff, $legal] as $profile) {
-            $this->getJson($url, $this->authHeaders($profile))->assertForbidden();
             $this->postJson(
                 $url,
-                ['message' => 'Unauthorized'],
+                ['message' => 'Submission-specific review message.'],
                 $this->authHeaders($profile)
-            )->assertForbidden();
+            )->assertCreated()
+                ->assertJsonPath('document_message.is_mine', true);
         }
-        $this->assertSame(0, DocumentMessage::query()->count());
+        $this->assertSame(2, DocumentMessage::query()->count());
+    }
+
+    public function test_unassigned_legal_and_unrelated_department_cannot_access_chat(): void
+    {
+        $document = $this->document([
+            'assigned_legal_counsel' => $this->profile(Profile::ROLE_LEGAL_COUNSEL)->id,
+            'department_id' => $this->department()->id,
+        ]);
+        $unassignedLegal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $unrelatedStaff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF, [
+            'department_id' => $this->department()->id,
+        ]);
+        $url = "/api/documents/{$document->id}/messages";
+
+        foreach ([$unassignedLegal, $unrelatedStaff] as $profile) {
+            $this->getJson($url, $this->authHeaders($profile))->assertNotFound();
+            $this->postJson($url, ['message' => 'Unauthorized'], $this->authHeaders($profile))
+                ->assertNotFound();
+        }
     }
 
     public function test_iro_admin_can_reply_to_a_message_in_the_same_document(): void

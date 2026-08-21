@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Document;
+use App\Models\AuditLog;
 use App\Models\Profile;
 use App\Repositories\LegalCounselRepository;
 use App\Support\Pagination;
@@ -60,12 +61,34 @@ class LegalCounselService
                 ]);
             }
 
-            $document->status = $data['status'];
+            // A correction decision must return to IRO Admin first. IRO Admin
+            // explicitly releases it to the originating department.
+            $previousStatus = $document->status;
+            $correctionRequested =
+                $data['status'] === Document::STATUS_CORRECTIONS_NEEDED;
+            $document->status = $correctionRequested
+                ? Document::STATUS_CORRECTION_REQUIRED
+                : $data['status'];
             $document->legal_notes =
                 $data['legal_notes'] ?? null;
 
+            $document = $this->documents->save($document);
+
+            if ($correctionRequested) {
+                AuditLog::query()->create([
+                    'actor_id' => $legalCounsel->id,
+                    'document_id' => $document->id,
+                    'action' => 'legal.review.correction_requested',
+                    'metadata' => [
+                        'legal_notes' => $document->legal_notes,
+                        'previous_status' => $previousStatus,
+                        'new_status' => Document::STATUS_CORRECTION_REQUIRED,
+                    ],
+                ]);
+            }
+
             return $this->documents->toArray(
-                $this->documents->save($document)
+                $document
             );
         });
     }
@@ -208,6 +231,19 @@ class LegalCounselService
     {
         $trackingNumber =
             $document->tracking_number ?? 'Untracked document';
+        $correction = $document->latestLegalCorrection;
+
+        if ($correction) {
+            return [
+                'title' => "Correction Required #{$trackingNumber}",
+                'detail' => $correction->metadata['legal_notes']
+                    ?? 'Legal Counsel requested corrections.',
+                'status' => 'Correction',
+                'document_id' => $document->id,
+                'tracking_number' => $document->tracking_number,
+                'updated_at' => $correction->created_at?->toISOString(),
+            ];
+        }
 
         return [
             'title' => "{$document->status} #{$trackingNumber}",
@@ -224,6 +260,7 @@ class LegalCounselService
     private function historyBadge(string $status): string
     {
         return match ($status) {
+            Document::STATUS_CORRECTION_REQUIRED,
             Document::STATUS_CORRECTIONS_NEEDED => 'Correction',
             Document::STATUS_APPROVED => 'Verified',
             Document::STATUS_PENDING_NOTARIZATION => 'Pending',

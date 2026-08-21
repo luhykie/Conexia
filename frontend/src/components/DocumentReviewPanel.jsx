@@ -299,7 +299,7 @@ function confirmationContent(type, legalCounselName) {
   };
 }
 
-function PdfViewer({
+export function PdfViewer({
   url,
   annotations,
   onSelection,
@@ -522,6 +522,17 @@ function PdfViewer({
   }, [annotations, url, renderVersion, canManageAnnotations, onUpdateAnnotation, onRequestRemoveAnnotation]);
 
   return <>{renderError && <p className="auth-error">{renderError}</p>}<div ref={containerRef} className="pdf-document-viewer" onMouseUp={onSelection} /></>;
+}
+
+export function getPdfTextSelection() {
+  const browserSelection = window.getSelection();
+  if (!browserSelection || browserSelection.isCollapsed || !browserSelection.rangeCount) return null;
+  const range = browserSelection.getRangeAt(0);
+  const page = closestPdfPage(range.startContainer);
+  if (!page || !page.contains(range.endContainer)) return null;
+  const rects = normalizeSelectionRects([...range.getClientRects()], page.getBoundingClientRect());
+  const text = browserSelection.toString().trim();
+  return text && rects.length ? { text, page: Number(page.dataset.page), rects } : null;
 }
 
 function closestPdfPage(node) {

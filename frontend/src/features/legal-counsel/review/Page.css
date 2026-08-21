@@ -10,6 +10,8 @@
   align-items: start;
 }
 
+.legal-review-back { margin-bottom: 10px; }
+
 .legal-document-area .panel {
   margin-bottom: 0;
 }
@@ -70,6 +72,15 @@
 
 .legal-review-metadata dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .legal-review-metadata dd { margin: 5px 0 0; color: var(--ink); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+
+.legal-review-version { display: grid; gap: 5px; margin-bottom: 12px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.legal-review-version select { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); font: inherit; color: var(--ink); }
+.legal-review-annotations { display: grid; gap: 8px; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--line); }
+.legal-review-annotations h3 { margin: 0; color: var(--green-900); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+.legal-review-annotations article { padding: 9px; border: 1px solid #dbe5df; border-radius: 7px; background: #fbfdfc; }
+.legal-review-annotations article > b { color: var(--green-900); font-size: 12px; }
+.legal-review-annotations blockquote { margin: 6px 0; padding-left: 8px; border-left: 3px solid #d9c47a; color: var(--ink); font-size: 12px; }
+.legal-review-annotations p { margin: 0; color: var(--muted); font-size: 13px; }
 
 .embedded-document-preview__unsupported {
   min-height: 420px;
