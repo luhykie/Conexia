@@ -14,7 +14,7 @@ import {
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
-import { getIncomingDocuments } from "../../../services/iroStaffService";
+import { getIncomingDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 

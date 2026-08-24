@@ -4,9 +4,9 @@ import { DataTable } from "../../../components/DataTable";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import {
-  getIroStatusDocuments,
   reassignDocumentToLegal,
-} from "../../../services/iroStaffService";
+} from "../../../services/iroAdminService";
+import { getIroStatusDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 

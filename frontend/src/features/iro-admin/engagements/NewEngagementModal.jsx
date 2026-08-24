@@ -1,13 +1,16 @@
 import React from "react";
 import {
+  getCountryCallingCode,
+  isSupportedCountry,
   parsePhoneNumberFromString,
   validatePhoneNumberLength,
 } from "libphonenumber-js/max";
 
 import { Dropzone } from "../../../components/SharedViews";
-import { createIroDocument } from "../../../services/iroStaffService";
+import { createIroDocument } from "../../../services/iroAdminService";
 import { uploadDocumentFile } from "../../../services/documentFileService";
 import { getDepartments } from "../../../services/departmentService";
+import { getCountryDirectory } from "../../../services/countryService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -28,28 +31,11 @@ const initialForm = {
   requested_completion_date: "",
 };
 
-const countries = [
-  { name: "Philippines", code: "+63", iso: "PH" },
-  { name: "Australia", code: "+61", iso: "AU" },
-  { name: "Canada", code: "+1", iso: "CA" },
-  { name: "China", code: "+86", iso: "CN" },
-  { name: "France", code: "+33", iso: "FR" },
-  { name: "Germany", code: "+49", iso: "DE" },
-  { name: "Hong Kong", code: "+852", iso: "HK" },
-  { name: "India", code: "+91", iso: "IN" },
-  { name: "Indonesia", code: "+62", iso: "ID" },
-  { name: "Japan", code: "+81", iso: "JP" },
-  { name: "Malaysia", code: "+60", iso: "MY" },
-  { name: "New Zealand", code: "+64", iso: "NZ" },
-  { name: "Singapore", code: "+65", iso: "SG" },
-  { name: "South Korea", code: "+82", iso: "KR" },
-  { name: "Taiwan", code: "+886", iso: "TW" },
-  { name: "Thailand", code: "+66", iso: "TH" },
-  { name: "United Arab Emirates", code: "+971", iso: "AE" },
-  { name: "United Kingdom", code: "+44", iso: "GB" },
-  { name: "United States", code: "+1", iso: "US" },
-  { name: "Vietnam", code: "+84", iso: "VN" },
-];
+const philippinesFallback = {
+  name: "Philippines",
+  code: "+63",
+  iso: "PH",
+};
 
 function getPhoneNumber(number, country) {
   if (!/^\d+$/.test(number) || (country === "PH" && number.length !== 10)) {
@@ -65,6 +51,9 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [form, setForm] = React.useState(initialForm);
   const [selectedFile, setSelectedFile] = React.useState(null);
   const [departments, setDepartments] = React.useState([]);
+  const [countries, setCountries] = React.useState([philippinesFallback]);
+  const [countriesLoading, setCountriesLoading] = React.useState(true);
+  const [countriesError, setCountriesError] = React.useState("");
   const [loadingDepartments, setLoadingDepartments] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState({});
@@ -78,6 +67,48 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
       mountedRef.current = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    loadCountries();
+  }, []);
+
+  async function loadCountries() {
+    setCountriesLoading(true);
+    setCountriesError("");
+
+    try {
+      const directory = await getCountryDirectory();
+      const options = directory
+        .filter((country) => isSupportedCountry(country.iso))
+        .map((country) => ({
+          ...country,
+          name: country.iso === "PH" ? philippinesFallback.name : country.name,
+          code: `+${getCountryCallingCode(country.iso)}`,
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name, "en"));
+
+      if (!options.some((country) => country.iso === "PH")) {
+        options.push(philippinesFallback);
+        options.sort((left, right) => left.name.localeCompare(right.name, "en"));
+      }
+
+      if (!options.length) {
+        throw new Error("No supported countries were returned.");
+      }
+
+      if (mountedRef.current) setCountries(options);
+    } catch (requestError) {
+      reportClientError("Unable to load country directory:", requestError);
+      if (mountedRef.current) {
+        setCountries([philippinesFallback]);
+        setCountriesError(
+          "Country list unavailable. Philippines (+63) remains available.",
+        );
+      }
+    } finally {
+      if (mountedRef.current) setCountriesLoading(false);
+    }
+  }
 
   React.useEffect(() => {
     if (!open) return;
@@ -542,6 +573,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                     value={form.contact_country}
                     onChange={updateForm}
                     aria-label="Country calling code"
+                    disabled={countriesLoading}
                   >
                     {countries.map((country) => (
                       <option key={country.iso} value={country.iso}>
@@ -559,6 +591,17 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                     placeholder="Contact phone or mobile"
                   />
                 </div>
+                {countriesLoading && (
+                  <small className="country-list-status">Loading countries...</small>
+                )}
+                {countriesError && (
+                  <span className="country-list-error" role="alert">
+                    {countriesError}
+                    <button type="button" className="outline" onClick={loadCountries}>
+                      Retry
+                    </button>
+                  </span>
+                )}
                 {fieldErrors.contact_number && <span className="field-error">{fieldErrors.contact_number}</span>}
               </label>
             </div>

@@ -4,12 +4,77 @@ namespace Tests\Feature\Documents;
 
 use App\Models\AuditLog;
 use App\Models\Document;
+use App\Models\DocumentDepartmentReview;
 use App\Models\Profile;
 use Illuminate\Support\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Support\SecurityTestCase;
 
 class IroDocumentAuthorizationTest extends SecurityTestCase
 {
+    public function test_iro_admin_history_resolves_version_one_and_the_exact_approved_version(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $department = $this->department();
+        $document = $this->document([
+            'department_id' => $department->id,
+            'partner_department_id' => $this->department()->id,
+            'department_review_version' => 3,
+            'status' => Document::STATUS_LOGGED,
+        ]);
+        $versionOne = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $admin->id,
+            'original_filename' => 'original-v1.pdf',
+            'version' => 1,
+        ]);
+        $versionTwo = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $admin->id,
+            'original_filename' => 'approved-v2.pdf',
+            'version' => 2,
+        ]);
+        $versionThree = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $admin->id,
+            'original_filename' => 'latest-v3.pdf',
+            'version' => 3,
+        ]);
+        DocumentDepartmentReview::query()->create([
+            'document_id' => $document->id,
+            'department_id' => $department->id,
+            'version' => 2,
+            'approved_at' => now(),
+            'approved_by' => $admin->id,
+        ]);
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}/history",
+            $this->authHeaders($admin)
+        )->assertOk()
+            ->assertJsonPath('original.file.id', $versionOne->id)
+            ->assertJsonPath('original.file.version', 1)
+            ->assertJsonPath('original.file.filename', 'original-v1.pdf')
+            ->assertJsonPath('approved_document.file.id', $versionTwo->id)
+            ->assertJsonPath('approved_document.file.version', 2)
+            ->assertJsonPath('approved_document.file.filename', 'approved-v2.pdf')
+            ->assertJsonPath('approved_document.approved_version', 2);
+
+        $this->assertNotSame($versionThree->id, $versionTwo->id);
+    }
+
+    public function test_iro_document_history_remains_admin_only(): void
+    {
+        $staff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $document = $this->document();
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}/history",
+            $this->authHeaders($staff)
+        )->assertForbidden();
+    }
+
     public function test_iro_admin_must_submit_a_responsible_office_and_it_is_visible_to_iro_staff(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1051,5 +1116,150 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ['reason' => 'Unauthorized decision.'],
             $this->authHeaders($staff)
         )->assertForbidden();
+    }
+
+    public function test_iro_admin_can_edit_own_engagement_metadata_with_audit_history(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $department = $this->department(['code' => 'IRO']);
+        $document = $this->document([
+            'submitted_by' => $admin->id,
+            'department_id' => $department->id,
+            'status' => Document::STATUS_LOGGED,
+        ]);
+
+        $this->postJson(
+            "/api/iro/documents/{$document->id}/engagement-edit",
+            $this->engagementEditPayload($department->id),
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath('document.title', 'Updated Partnership Agreement')
+            ->assertJsonPath('document.partnership_scope', 'International')
+            ->assertJsonPath('document.can_edit_engagement', true);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_id' => $admin->id,
+            'document_id' => $document->id,
+            'action' => 'iro_admin.engagement.updated',
+        ]);
+        $log = AuditLog::query()
+            ->where('document_id', $document->id)
+            ->where('action', 'iro_admin.engagement.updated')
+            ->firstOrFail();
+        $this->assertSame(
+            'Updated Partnership Agreement',
+            $log->metadata['changes']['title']['to']
+        );
+    }
+
+    public function test_iro_admin_agreement_revision_creates_a_new_file_version(): void
+    {
+        Storage::fake('local');
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $department = $this->department();
+        $document = $this->document([
+            'submitted_by' => $admin->id,
+            'department_id' => $department->id,
+            'status' => Document::STATUS_CORRECTIONS_NEEDED,
+        ]);
+        $original = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $admin->id,
+            'version' => 1,
+            'original_filename' => 'original.pdf',
+        ]);
+
+        $response = $this->post(
+            "/api/iro/documents/{$document->id}/engagement-edit",
+            [
+                ...$this->engagementEditPayload($department->id),
+                'agreement_file' => UploadedFile::fake()->create(
+                    'revised.pdf',
+                    100,
+                    'application/pdf'
+                ),
+            ],
+            $this->authHeaders($admin)
+        );
+
+        $response->assertOk()->assertJsonPath('file.version', 2);
+        $this->assertDatabaseHas('document_files', [
+            'id' => $original->id,
+            'version' => 1,
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseHas('document_files', [
+            'document_id' => $document->id,
+            'original_filename' => 'revised.pdf',
+            'version' => 2,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_engagement_edit_rejects_locked_stages_and_non_iro_origin(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $departmentStaff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF);
+        $department = $this->department();
+
+        foreach ([
+            Document::STATUS_UNDER_LEGAL_REVIEW,
+            Document::STATUS_APPROVED,
+            Document::STATUS_PENDING_NOTARIZATION,
+            Document::STATUS_NOTARIZED,
+            Document::STATUS_ARCHIVED,
+        ] as $status) {
+            $document = $this->document([
+                'submitted_by' => $admin->id,
+                'department_id' => $department->id,
+                'status' => $status,
+            ]);
+            $this->postJson(
+                "/api/iro/documents/{$document->id}/engagement-edit",
+                $this->engagementEditPayload($department->id),
+                $this->authHeaders($admin)
+            )->assertUnprocessable();
+        }
+
+        $departmentDocument = $this->document([
+            'submitted_by' => $departmentStaff->id,
+            'department_id' => $department->id,
+            'status' => Document::STATUS_SUBMITTED,
+        ]);
+        $this->postJson(
+            "/api/iro/documents/{$departmentDocument->id}/engagement-edit",
+            $this->engagementEditPayload($department->id),
+            $this->authHeaders($admin)
+        )->assertUnprocessable();
+
+        $editableDocument = $this->document([
+            'submitted_by' => $admin->id,
+            'department_id' => $department->id,
+            'status' => Document::STATUS_SUBMITTED,
+        ]);
+        $this->postJson(
+            "/api/iro/documents/{$editableDocument->id}/engagement-edit",
+            $this->engagementEditPayload($department->id),
+            $this->authHeaders($iroStaff)
+        )->assertForbidden();
+    }
+
+    private function engagementEditPayload(string $departmentId): array
+    {
+        return [
+            'title' => 'Updated Partnership Agreement',
+            'document_type' => 'MOU',
+            'partnership_type' => 'Renewal',
+            'partnership_scope' => 'International',
+            'department_id' => $departmentId,
+            'partner_institution' => 'Updated Partner University',
+            'description' => 'Updated engagement purpose.',
+            'contact_person' => 'Jordan Partner',
+            'contact_position' => 'Director',
+            'contact_email' => 'jordan@example.test',
+            'contact_number' => '+639171234567',
+        ];
     }
 }

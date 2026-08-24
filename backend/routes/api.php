@@ -474,6 +474,16 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     [IroDocumentController::class, 'store']
                 );
 
+                Route::get(
+                    '/iro/documents/{id}/history',
+                    [IroDocumentController::class, 'history']
+                );
+
+                Route::post(
+                    '/iro/documents/{id}/engagement-edit',
+                    [IroDocumentController::class, 'updateEngagement']
+                );
+
                 Route::patch(
                     '/iro/documents/{id}/log',
                     [IroDocumentController::class, 'markLogged']

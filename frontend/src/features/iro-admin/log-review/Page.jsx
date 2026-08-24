@@ -10,9 +10,9 @@ import { Panel } from "../../../components/Panel";
 import { useNavigate } from "react-router-dom";
 import { DocumentReviewPage } from "../../../components/DocumentReviewPanel";
 import {
-  getIncomingDocuments,
   routeLegalCorrectionToDepartment,
-} from "../../../services/iroStaffService";
+} from "../../../services/iroAdminService";
+import { getIncomingDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 

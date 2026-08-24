@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Document;
+use App\Models\DocumentDepartmentReview;
+use App\Models\DocumentFile;
 use App\Models\Profile;
+use App\Services\DocumentFileService;
 use App\Services\TrackingNumberService;
 use App\Support\DocumentPayload;
 use App\Support\Pagination;
@@ -20,6 +23,11 @@ use Illuminate\Validation\Rule;
 
 class IroDocumentController extends Controller
 {
+    public function __construct(
+        private readonly DocumentFileService $documentFiles
+    ) {
+    }
+
     private ?Collection $activeLegalCounsel = null;
 
     private ?Collection $departments = null;
@@ -99,6 +107,42 @@ class IroDocumentController extends Controller
         );
     }
 
+    public function history(Request $request, string $id): JsonResponse
+    {
+        $this->ensureIroAdmin($request);
+
+        $document = Document::query()->whereKey($id)->firstOrFail();
+        $filesByVersion = DocumentFile::query()
+            ->where('document_id', $document->id)
+            ->whereNull('deleted_at')
+            ->orderBy('version')
+            ->get()
+            ->keyBy('version');
+
+        $originalFile = $filesByVersion->get(1);
+        $approvedReview = DocumentDepartmentReview::query()
+            ->where('document_id', $document->id)
+            ->whereNotNull('approved_at')
+            ->orderByDesc('approved_at')
+            ->first();
+        $approvedFile = $approvedReview
+            ? $filesByVersion->get($approvedReview->version)
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'IRO document history versions loaded successfully.',
+            'original' => $originalFile ? [
+                'file' => $this->documentFiles->payload($originalFile),
+            ] : null,
+            'approved_document' => $approvedFile ? [
+                'file' => $this->documentFiles->payload($approvedFile),
+                'approved_at' => $approvedReview->approved_at?->toISOString(),
+                'approved_version' => $approvedReview->version,
+            ] : null,
+        ]);
+    }
+
     public function status(Request $request): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -161,6 +205,117 @@ class IroDocumentController extends Controller
         return $this->documentResponse(
             'Document created successfully.',
             $document
+        );
+    }
+
+    public function updateEngagement(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->ensureIroAdmin($request);
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'document_type' => ['required', Rule::in(['MOA', 'MOU', 'MOF'])],
+            'partnership_type' => ['required', 'string', 'max:255'],
+            'partnership_scope' => [
+                'required',
+                Rule::in(['Departmental', 'Local', 'International']),
+            ],
+            'department_id' => ['present', 'nullable', 'uuid', 'exists:departments,id'],
+            'partner_institution' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'contact_person' => ['required', 'string', 'max:255'],
+            'contact_position' => ['nullable', 'string', 'max:255'],
+            'contact_email' => ['required', 'email', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:100'],
+            'agreement_file' => [
+                'nullable',
+                'file',
+                'min:1',
+                'max:25600',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text',
+            ],
+        ]);
+        $editable = [
+            'title',
+            'document_type',
+            'partnership_type',
+            'partnership_scope',
+            'department_id',
+            'partner_institution',
+            'description',
+            'contact_person',
+            'contact_position',
+            'contact_email',
+            'contact_number',
+        ];
+
+        $result = DB::transaction(function () use (
+            $id,
+            $profile,
+            $validated,
+            $editable,
+            $request
+        ): array {
+            $document = $this->lockedDocument($id);
+            $this->requireEditableAdminEngagement($document);
+            $before = collect($editable)
+                ->mapWithKeys(fn (string $field): array => [
+                    $field => $document->getAttribute($field),
+                ])
+                ->all();
+            $updates = collect($validated)->only($editable)->all();
+            $document->update($updates);
+
+            $file = $request->hasFile('agreement_file')
+                ? $this->documentFiles->upload(
+                    $document,
+                    $profile,
+                    $request->file('agreement_file')
+                )
+                : null;
+            $changes = collect($updates)
+                ->filter(fn (mixed $value, string $field): bool =>
+                    $before[$field] !== $value
+                )
+                ->mapWithKeys(fn (mixed $value, string $field): array => [
+                    $field => [
+                        'from' => $before[$field],
+                        'to' => $value,
+                    ],
+                ])
+                ->all();
+
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'document_file_id' => $file['id'] ?? null,
+                'action' => 'iro_admin.engagement.updated',
+                'metadata' => [
+                    'changes' => $changes,
+                    'document_version' => $file['version'] ?? null,
+                    'file_revised' => $file !== null,
+                ],
+            ]);
+
+            return [
+                'document' => $document->refresh(),
+                'file' => $file,
+            ];
+        });
+
+        $payload = [
+            ...DocumentPayload::make($result['document']),
+            'can_edit_engagement' => $this->canEditAdminEngagement(
+                $result['document']
+            ),
+        ];
+
+        return $this->success(
+            'Engagement updated successfully.',
+            $payload,
+            [
+                'document' => $payload,
+                'file' => $result['file'],
+            ]
         );
     }
 
@@ -749,6 +904,7 @@ class IroDocumentController extends Controller
                 fn ($query) => $query->with([
                     'legalCounsel',
                     'latestReassignment',
+                    'submitter',
                 ])
             )
             ->when(
@@ -928,6 +1084,9 @@ class IroDocumentController extends Controller
         if ($profile->role !== Profile::ROLE_IRO_STAFF) {
             return [
                 ...DocumentPayload::make($document),
+                'can_edit_engagement' =>
+                    $profile->role === Profile::ROLE_IRO_ADMIN &&
+                    $this->canEditAdminEngagement($document),
                 ...($adminReviewQueue ? [
                     'review_status' => $document->has_admin_revision
                         ? 'Revised'
@@ -966,6 +1125,27 @@ class IroDocumentController extends Controller
             ->whereKey($id)
             ->lockForUpdate()
             ->firstOrFail();
+    }
+
+    private function requireEditableAdminEngagement(Document $document): void
+    {
+        if (!$this->canEditAdminEngagement($document)) {
+            throw ValidationException::withMessages([
+                'status' => 'This engagement cannot be edited at its current workflow stage or was not created by IRO Admin.',
+            ]);
+        }
+    }
+
+    private function canEditAdminEngagement(Document $document): bool
+    {
+        $document->loadMissing('submitter');
+
+        return $document->submitter?->role === Profile::ROLE_IRO_ADMIN &&
+            in_array($document->status, [
+                Document::STATUS_SUBMITTED,
+                Document::STATUS_LOGGED,
+                Document::STATUS_CORRECTIONS_NEEDED,
+            ], true);
     }
 
     private function documentResponse(

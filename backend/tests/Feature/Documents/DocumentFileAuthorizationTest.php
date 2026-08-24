@@ -4,6 +4,7 @@ namespace Tests\Feature\Documents;
 
 use App\Models\AuditLog;
 use App\Models\Document;
+use App\Models\DocumentReviewItem;
 use App\Models\Profile;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -279,6 +280,7 @@ class DocumentFileAuthorizationTest extends SecurityTestCase
             ->assertOk()
             ->assertJsonCount(1, 'annotations')
             ->assertJsonPath('annotations.0.author', $iroAdmin->full_name)
+            ->assertJsonPath('annotations.0.actor_role', Profile::ROLE_IRO_ADMIN)
             ->assertJsonPath('annotations.0.reviewer_id', $iroAdmin->id)
             ->assertJsonPath('annotations.0.document_id', $document->id)
             ->assertJsonPath('annotations.0.document_file_id', $file->id)
@@ -333,6 +335,84 @@ class DocumentFileAuthorizationTest extends SecurityTestCase
             'document_id' => $document->id,
             'action' => 'document_file.annotated',
         ]);
+    }
+
+    public function test_iro_admin_sees_department_review_annotations_for_the_exact_document_file(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $department = $this->department();
+        $departmentStaff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF, [
+            'department_id' => $department->id,
+        ]);
+        $document = $this->document([
+            'status' => Document::STATUS_LOGGED,
+            'department_review_version' => 2,
+        ]);
+        Storage::disk('local')->put('documents/test/version-1.pdf', 'version one');
+        Storage::disk('local')->put('documents/test/version-2.pdf', 'version two');
+        $firstFile = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $departmentStaff->id,
+            'storage_path' => 'documents/test/version-1.pdf',
+            'version' => 1,
+        ]);
+        $secondFile = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $departmentStaff->id,
+            'storage_path' => 'documents/test/version-2.pdf',
+            'version' => 2,
+        ]);
+        $firstAnnotation = DocumentReviewItem::query()->create([
+            'document_id' => $document->id,
+            'review_version' => 1,
+            'document_file_id' => $firstFile->id,
+            'department_id' => $department->id,
+            'author_id' => $departmentStaff->id,
+            'type' => 'highlight',
+            'display_number' => 1,
+            'highlight_color' => 'blue',
+            'selected_text' => 'Department highlight one',
+            'selection_anchor' => [
+                'page' => 1,
+                'rects' => [['x' => 12, 'y' => 24, 'width' => 90, 'height' => 18]],
+            ],
+            'comment' => 'Department comment one.',
+        ]);
+        DocumentReviewItem::query()->create([
+            'document_id' => $document->id,
+            'review_version' => 2,
+            'document_file_id' => $secondFile->id,
+            'department_id' => $department->id,
+            'author_id' => $departmentStaff->id,
+            'type' => 'highlight',
+            'display_number' => 1,
+            'highlight_color' => 'blue',
+            'selected_text' => 'Department highlight two',
+            'selection_anchor' => [
+                'page' => 2,
+                'rects' => [['x' => 20, 'y' => 30, 'width' => 80, 'height' => 16]],
+            ],
+            'comment' => 'Department comment two.',
+        ]);
+
+        $this->getJson(
+            "/api/documents/{$document->id}/files/{$firstFile->id}/annotations",
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonCount(1, 'annotations')
+            ->assertJsonPath('annotations.0.id', $firstAnnotation->id)
+            ->assertJsonPath('annotations.0.document_id', $document->id)
+            ->assertJsonPath('annotations.0.document_file_id', $firstFile->id)
+            ->assertJsonPath('annotations.0.version', 1)
+            ->assertJsonPath('annotations.0.highlight', 'Department highlight one')
+            ->assertJsonPath('annotations.0.comment', 'Department comment one.')
+            ->assertJsonPath('annotations.0.geometry.page', 1)
+            ->assertJsonPath('annotations.0.author', $departmentStaff->full_name)
+            ->assertJsonPath('annotations.0.actor_role', Profile::ROLE_DEPARTMENT_STAFF)
+            ->assertJsonPath('annotations.0.source', 'department_review')
+            ->assertJsonPath('annotations.0.can_manage', false)
+            ->assertJsonMissing(['highlight' => 'Department highlight two']);
     }
 
     public function test_iro_admin_can_edit_and_remove_annotations_only_during_active_review(): void

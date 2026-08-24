@@ -66,6 +66,8 @@ abstract class SecurityTestCase extends TestCase
             'partner_email' => $overrides['partner_email'] ?? null,
             'description' => $overrides['description'] ?? null,
             'department_id' => $overrides['department_id'] ?? null,
+            'partner_department_id' => $overrides['partner_department_id'] ?? null,
+            'department_review_version' => $overrides['department_review_version'] ?? 1,
             'submitted_by' => $overrides['submitted_by'] ?? null,
             'assigned_legal_counsel' =>
                 $overrides['assigned_legal_counsel'] ?? null,
@@ -180,6 +182,8 @@ abstract class SecurityTestCase extends TestCase
 
     private function setUpSecurityTables(): void
     {
+        Schema::dropIfExists('document_review_items');
+        Schema::dropIfExists('document_department_reviews');
         Schema::dropIfExists('document_messages');
         Schema::dropIfExists('audit_logs');
         Schema::dropIfExists('role_permissions');
@@ -214,6 +218,9 @@ abstract class SecurityTestCase extends TestCase
             $table->string('partner_email')->nullable();
             $table->text('description')->nullable();
             $table->uuid('department_id')->nullable();
+            $table->uuid('partner_department_id')->nullable();
+            $table->unsignedInteger('department_review_version')->default(1);
+            $table->timestamp('department_review_routed_at')->nullable();
             $table->uuid('submitted_by')->nullable();
             $table->uuid('assigned_legal_counsel')->nullable();
             $table->string('status');
@@ -287,6 +294,35 @@ abstract class SecurityTestCase extends TestCase
             $table->string('action');
             $table->json('metadata')->nullable();
             $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('document_review_items', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('document_id');
+            $table->unsignedInteger('review_version')->default(1);
+            $table->uuid('document_file_id')->nullable();
+            $table->uuid('department_id');
+            $table->uuid('author_id');
+            $table->uuid('parent_id')->nullable();
+            $table->string('type', 20);
+            $table->unsignedInteger('display_number')->nullable();
+            $table->string('highlight_color', 32)->nullable();
+            $table->timestamp('highlight_removed_at')->nullable();
+            $table->timestamp('confirmed_at')->nullable();
+            $table->text('selected_text')->nullable();
+            $table->json('selection_anchor')->nullable();
+            $table->text('comment')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('document_department_reviews', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('document_id');
+            $table->uuid('department_id');
+            $table->unsignedInteger('version')->default(1);
+            $table->timestamp('approved_at')->nullable();
+            $table->uuid('approved_by')->nullable();
+            $table->timestamps();
         });
 
         Schema::create('role_permissions', function (Blueprint $table) {

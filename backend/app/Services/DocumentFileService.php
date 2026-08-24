@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\DocumentFile;
+use App\Models\DocumentReviewItem;
 use App\Models\AuditLog;
 use App\Models\Profile;
 use App\Repositories\DocumentFileRepository;
@@ -228,7 +229,7 @@ class DocumentFileService
             ])
             ->groupBy(fn (AuditLog $event) => $event->metadata['annotation_id'] ?? '');
 
-        return $events
+        $fileAnnotations = $events
             ->where('action', 'document_file.annotated')
             ->reject(function (AuditLog $annotation) use ($changes): bool {
                 return $changes->get($annotation->id)?->contains(
@@ -254,8 +255,51 @@ class DocumentFileService
                 'created_at' => $annotation->created_at?->toISOString(),
                 'updated_at' => $latestUpdate?->created_at?->toISOString(),
                 'author' => $annotation->actor?->full_name ?: $annotation->actor?->email,
+                'actor_role' => $annotation->actor?->role,
                 ];
             })
+            ->sortByDesc('created_at')
+            ->values();
+
+        $departmentAnnotations = $actor->role === Profile::ROLE_IRO_ADMIN
+            ? DocumentReviewItem::query()
+                ->with('author')
+                ->where('document_id', $document->id)
+                ->where(function ($query) use ($file): void {
+                    $query->where('document_file_id', $file->id)
+                        ->orWhere(function ($legacy) use ($file): void {
+                            $legacy->whereNull('document_file_id')
+                                ->where('review_version', $file->version);
+                        });
+                })
+                ->where('type', 'highlight')
+                ->whereNull('highlight_removed_at')
+                ->oldest('created_at')
+                ->get()
+                ->map(fn (DocumentReviewItem $item): array => [
+                'id' => $item->id,
+                'highlight' => $item->selected_text ?? '',
+                'comment' => $item->comment ?? '',
+                'geometry' => $item->selection_anchor,
+                'geometry_units' => 'department_review_pixels',
+                'reviewer_id' => $item->author_id,
+                'document_id' => $document->id,
+                'document_file_id' => $file->id,
+                'version' => $item->review_version,
+                'display_number' => $item->display_number,
+                'created_at' => $item->created_at?->toISOString(),
+                'updated_at' => $item->updated_at?->ne($item->created_at)
+                    ? $item->updated_at->toISOString()
+                    : null,
+                'author' => $item->author?->full_name ?: $item->author?->email,
+                'actor_role' => $item->author?->role,
+                'source' => 'department_review',
+                'can_manage' => false,
+                ])
+            : collect();
+
+        return $fileAnnotations
+            ->concat($departmentAnnotations)
             ->sortByDesc('created_at')
             ->values()
             ->all();
@@ -292,6 +336,7 @@ class DocumentFileService
             'version' => $annotation->metadata['version'],
             'created_at' => $annotation->created_at?->toISOString(),
             'author' => $actor->full_name ?: $actor->email,
+            'actor_role' => $actor->role,
         ];
     }
 
@@ -306,7 +351,7 @@ class DocumentFileService
 
         return DB::transaction(function () use ($document, $actor, $fileId, $annotationId, $comment): array {
             $lockedDocument = Document::query()->lockForUpdate()->findOrFail($document->id);
-            $this->authorizeReviewStage($lockedDocument);
+            $this->authorizeAnnotationMutationStage($lockedDocument, $actor);
             $file = $this->fileForAccess($lockedDocument, $actor, $fileId);
             $annotation = $this->activeAnnotation($lockedDocument, $file, $annotationId);
             $currentComment = $this->resolvedAnnotationComment($annotation);
@@ -343,7 +388,7 @@ class DocumentFileService
 
         return DB::transaction(function () use ($document, $actor, $fileId, $annotationId): array {
             $lockedDocument = Document::query()->lockForUpdate()->findOrFail($document->id);
-            $this->authorizeReviewStage($lockedDocument);
+            $this->authorizeAnnotationMutationStage($lockedDocument, $actor);
             $file = $this->fileForAccess($lockedDocument, $actor, $fileId);
             $annotation = $this->activeAnnotation($lockedDocument, $file, $annotationId);
 
@@ -578,6 +623,23 @@ class DocumentFileService
             Document::STATUS_LOGGED,
             Document::STATUS_UNDER_LEGAL_REVIEW,
         ], true)) {
+            throw new NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+    }
+
+    private function authorizeAnnotationMutationStage(
+        Document $document,
+        Profile $actor
+    ): void {
+        $allowed = match ($actor->role) {
+            Profile::ROLE_IRO_ADMIN => $document->status === Document::STATUS_LOGGED,
+            Profile::ROLE_LEGAL_COUNSEL => $document->status === Document::STATUS_UNDER_LEGAL_REVIEW,
+            default => false,
+        };
+
+        if (!$allowed) {
             throw new NotFoundHttpException(
                 'The requested document could not be found.'
             );

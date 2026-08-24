@@ -1,5 +1,295 @@
-.iro-admin-engagements-page .detail-drawer button:disabled {
+.engagement-registry-content {
+  min-width: 0;
+}
+
+.engagement-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(19, 32, 51, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.engagement-detail-modal {
+  width: min(1040px, 100%);
+  max-height: min(90vh, 920px);
+  overflow-y: auto;
+  padding: 28px;
+  border: 1px solid #d8e2dc;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(19, 32, 51, 0.25);
+}
+
+.engagement-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e1e8e4;
+}
+
+.engagement-detail-header h2 {
+  margin: 10px 0 4px;
+  color: #143d2c;
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+
+.engagement-detail-header p {
+  margin: 0;
+  color: #68736f;
+}
+
+.engagement-detail-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #d8e2dc;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #40564d;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.engagement-detail-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  margin: 24px 0 28px;
+}
+
+.engagement-detail-section {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e0e8e3;
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+
+.engagement-detail-section--information {
+  grid-column: 1 / -1;
+}
+
+.engagement-detail-section--information dl {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.engagement-detail-section--contact {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.engagement-detail-section--dates {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+}
+
+.engagement-detail-section--description {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.engagement-detail-section h3 {
+  margin: 0 0 12px;
+  color: #164b34;
+  font-size: 0.95rem;
+}
+
+.engagement-detail-section dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.engagement-detail-row {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2e9e5;
+  border-radius: 8px;
+  background: #f8fbfa;
+}
+
+.engagement-detail-row--wide {
+  grid-column: 1 / -1;
+}
+
+.engagement-detail-row--empty {
+  padding: 10px 12px;
+  border-style: dashed;
+  background: #ffffff;
+}
+
+.engagement-detail-row--empty dt {
+  display: none;
+}
+
+.engagement-detail-row--empty dd {
+  color: #78847f;
+  font-size: 0.9rem;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.engagement-detail-row dt {
+  margin-bottom: 5px;
+  color: #68736f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.engagement-detail-row dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: #20352d;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+.engagement-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid #e1e8e4;
+}
+
+.engagement-detail-footer button {
+  min-width: 130px;
+}
+
+.engagement-detail-footer button:disabled {
   cursor: not-allowed;
+}
+
+.engagement-edit-form {
+  display: grid;
+  gap: 22px;
+  margin-top: 24px;
+}
+
+.engagement-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.engagement-edit-field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  color: #40564d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.engagement-edit-field--wide {
+  grid-column: 1 / -1;
+}
+
+.engagement-edit-field input,
+.engagement-edit-field select,
+.engagement-edit-field textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid #cfdad4;
+  border-radius: 8px;
+  background: #f8fbfa;
+  color: #20352d;
+  font: inherit;
+  font-weight: 500;
+}
+
+.engagement-edit-field textarea {
+  resize: vertical;
+}
+
+.engagement-edit-field input:focus,
+.engagement-edit-field select:focus,
+.engagement-edit-field textarea:focus {
+  border-color: #256349;
+  outline: 3px solid rgba(37, 99, 73, 0.12);
+}
+
+.engagement-edit-field small {
+  color: #68736f;
+  font-weight: 500;
+}
+
+@media (max-width: 800px) {
+  .engagement-detail-backdrop {
+    padding: 16px;
+  }
+
+  .engagement-detail-modal {
+    max-height: 94vh;
+    padding: 20px;
+  }
+
+  .engagement-detail-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .engagement-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .engagement-edit-field--wide {
+    grid-column: auto;
+  }
+
+  .engagement-detail-section--information,
+  .engagement-detail-section--contact,
+  .engagement-detail-section--dates,
+  .engagement-detail-section--description {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .engagement-detail-section--information dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .engagement-detail-backdrop {
+    padding: 0;
+  }
+
+  .engagement-detail-modal {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .engagement-detail-section dl {
+    grid-template-columns: 1fr;
+  }
+
+  .engagement-detail-row--wide {
+    grid-column: auto;
+  }
+
+  .engagement-detail-footer {
+    flex-direction: column-reverse;
+  }
+
+  .engagement-detail-footer button {
+    width: 100%;
+  }
 }
 
 .engagement-modal-backdrop {
@@ -100,6 +390,28 @@
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
   gap: 10px;
+}
+
+.country-list-status {
+  color: #68736f;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.country-list-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #9a3412;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.country-list-error .outline {
+  min-width: auto;
+  padding: 6px 10px;
+  font-size: 0.78rem;
 }
 
 @media (max-width: 600px) {

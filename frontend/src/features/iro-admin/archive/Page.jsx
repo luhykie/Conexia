@@ -15,7 +15,7 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
 import { getArchiveSummary } from "../../../services/workflowSummaryService";
-import { unarchiveIroDocument } from "../../../services/iroStaffService";
+import { unarchiveIroDocument } from "../../../services/iroAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 

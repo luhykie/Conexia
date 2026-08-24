@@ -13,7 +13,7 @@ import {
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
-import { getIroStatusDocuments } from "../../../services/iroStaffService";
+import { getIroStatusDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 

@@ -5,10 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import {
-  getIroDocument,
   returnDocumentForCorrection,
   submitDocumentToIroAdmin,
 } from "../../../services/iroStaffService";
+import { getIroDocument } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -254,43 +254,61 @@ export default function SubmissionDetailsPage({ documentId }) {
 }
 
 function detailSections(document) {
+  const submittedForm = submittedFormDetails(document.description);
+
   return [
     {
       title: "Submission Information",
       items: [
         detail("Tracking Number", document.tracking_number),
         detail("Created By", createdByName(document)),
-        detail("Submitting Office", departmentName(document)),
+        detail(
+          "Submitting Office",
+          departmentName(document, submittedForm.requestingOffice),
+        ),
         detail("Agreement Type", document.document_type),
-        detail("Description", document.description, { wide: true }),
+        detail("Title of Agreement", document.title),
+        detail("Description", submittedDescription(document.description), { wide: true }),
       ],
     },
     {
       title: "Partnership Details",
       items: [
         detail("Partner Institution", document.partner_institution),
-        detail("Partnership Type", document.partnership_type ?? "-"),
-        detail("Partnership Scope", document.partnership_scope ?? "-"),
+        detail("Partnership Type", firstAvailable(
+          document.partnership_type,
+          submittedForm.submissionType,
+        )),
+        detail("Partnership Scope", firstAvailable(
+          document.partnership_scope,
+          submittedForm.partnerClassification,
+        )),
         detail("Partner Email", document.partner_email),
       ],
     },
     {
       title: "Contact Information",
       items: [
-        detail("Contact Person", document.contact_person),
-        detail("Position", document.contact_position),
-        detail("Email Address", document.contact_email),
-        detail("Contact Number", document.contact_number),
+        detail("Contact Person", firstAvailable(document.contact_person, submittedForm.contactPerson)),
+        detail("Position", firstAvailable(document.contact_position, submittedForm.position)),
+        detail("Email Address", firstAvailable(document.contact_email, submittedForm.emailAddress)),
+        detail("Contact Number", firstAvailable(document.contact_number, submittedForm.contactNumber)),
       ],
     },
     {
       title: "Timeline / Status",
       items: [
         detail("Date Submitted", formatDate(document.submitted_at)),
-        detail("Requested Completion", formatDate(document.requested_completion_date)),
+        detail("Requested Completion", formatDate(firstAvailable(
+          document.requested_completion_date,
+          submittedForm.requestedCompletionDate,
+        ))),
         detail("Effective Date", formatDate(document.effective_date)),
         detail("Expiry Date", formatDate(document.expiry_date)),
-        detail("Urgency", document.urgency),
+        detail("Urgency", formatSubmittedValue(firstAvailable(
+          document.urgency,
+          submittedForm.urgencyLevel,
+        ))),
         detail("Current Status", document.status, { status: true }),
       ],
     },
@@ -298,7 +316,78 @@ function detailSections(document) {
 }
 
 function detail(label, value, options = {}) {
-  return { label, value: value || "-", ...options };
+  return { label, value: hasValue(value) ? value : "-", ...options };
+}
+
+function firstAvailable(...values) {
+  return values.find(hasValue);
+}
+
+function hasValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function submittedFormDetails(description) {
+  if (!hasValue(description)) return {};
+
+  const structuredLines = submittedFormLines(description);
+  if (structuredLines.length < 4) return {};
+
+  return structuredLines.reduce((details, line) => {
+    const separator = line.indexOf(":");
+    const key = submittedFormLabels[line.slice(0, separator).trim().toLowerCase()];
+    const value = line.slice(separator + 1).trim();
+    if (key && value) details[key] = value;
+    return details;
+  }, {});
+}
+
+function submittedDescription(description) {
+  if (!hasValue(description)) return undefined;
+
+  const structuredLines = submittedFormLines(description);
+  if (structuredLines.length < 4) return description;
+
+  const purposeLines = String(description).split(/\r?\n/).filter((line) => {
+    const separator = line.indexOf(":");
+    if (separator < 0) return true;
+
+    const label = line.slice(0, separator).trim().toLowerCase();
+    return !submittedFormLabels[label];
+  });
+
+  const purpose = purposeLines.join("\n").trim();
+  return purpose || undefined;
+}
+
+function submittedFormLines(description) {
+  return String(description).split(/\r?\n/).filter((line) => {
+    const separator = line.indexOf(":");
+    if (separator < 0) return false;
+
+    const label = line.slice(0, separator).trim().toLowerCase();
+    return Boolean(submittedFormLabels[label]);
+  });
+}
+
+const submittedFormLabels = {
+  "submission type": "submissionType",
+  "partner classification": "partnerClassification",
+  "requesting office/department": "requestingOffice",
+  "contact person": "contactPerson",
+  position: "position",
+  "email address": "emailAddress",
+  "contact number": "contactNumber",
+  "requested completion date": "requestedCompletionDate",
+  "urgency level": "urgencyLevel",
+};
+
+function formatSubmittedValue(value) {
+  if (!hasValue(value)) return "-";
+
+  return String(value)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function createdByName(document) {
@@ -315,9 +404,11 @@ function createdByName(document) {
   return [identity, role].filter(Boolean).join(" — ") || "-";
 }
 
-function departmentName(document) {
+function departmentName(document, submittedOffice) {
   const department = document.department;
-  if (!department) return document.department_name || "PAIR/IRO";
+  if (!department) {
+    return firstAvailable(document.department_name, submittedOffice, "PAIR/IRO");
+  }
   return department.code && department.name
     ? `${department.code} - ${department.name}`
     : department.code || department.name || "PAIR/IRO";
