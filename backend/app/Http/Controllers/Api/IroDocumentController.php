@@ -368,9 +368,9 @@ class IroDocumentController extends Controller
         Request $request,
         string $id
     ): JsonResponse {
-        $this->ensureIro($request);
+        $profile = $this->ensureIro($request);
 
-        $document = DB::transaction(function () use ($id) {
+        $document = DB::transaction(function () use ($id, $profile) {
             $document = $this->lockedDocument($id);
 
             if ($document->status !== Document::STATUS_SUBMITTED) {
@@ -381,6 +381,12 @@ class IroDocumentController extends Controller
 
             $document->update([
                 'status' => Document::STATUS_LOGGED,
+            ]);
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'iro_admin.document.logged',
+                'metadata' => ['previous_status' => Document::STATUS_SUBMITTED, 'new_status' => Document::STATUS_LOGGED],
             ]);
 
             return $document->refresh();
@@ -513,7 +519,7 @@ class IroDocumentController extends Controller
         Request $request,
         string $id
     ): JsonResponse {
-        $this->ensureIro($request);
+        $profile = $this->ensureIro($request);
 
         $validated = $request->validate([
             'legal_counsel_id' => [
@@ -537,7 +543,8 @@ class IroDocumentController extends Controller
 
         $document = DB::transaction(function () use (
             $id,
-            $legalCounsel
+            $legalCounsel,
+            $profile
         ) {
             $document = $this->lockedDocument($id);
 
@@ -551,6 +558,19 @@ class IroDocumentController extends Controller
                 'assigned_legal_counsel' => $legalCounsel->id,
                 'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
                 'legal_notes' => null,
+            ]);
+            $latestFile = $document->files()->whereNull('deleted_at')->latest('version')->first();
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'document_file_id' => $latestFile?->id,
+                'action' => 'iro_admin.document.assigned_to_legal',
+                'metadata' => [
+                    'previous_status' => Document::STATUS_LOGGED,
+                    'new_status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+                    'document_version' => $latestFile?->version,
+                    'destination' => ['type' => 'legal_counsel', 'id' => $legalCounsel->id, 'name' => $legalCounsel->full_name],
+                ],
             ]);
 
             return $document->refresh();
@@ -815,6 +835,12 @@ class IroDocumentController extends Controller
                 'status' => Document::STATUS_ARCHIVED,
                 'archived_at' => now(),
                 'archived_by' => $profile->id,
+            ]);
+            AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'iro_admin.document.archived',
+                'metadata' => ['previous_status' => Document::STATUS_NOTARIZED, 'new_status' => Document::STATUS_ARCHIVED],
             ]);
 
             return $document->refresh();

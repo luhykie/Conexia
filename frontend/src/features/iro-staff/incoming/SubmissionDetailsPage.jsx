@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
+import { GeneralSubmissionHistory } from "../../../components/GeneralSubmissionHistory";
+import { DocumentChat } from "../../../components/DocumentChat";
 import {
   returnDocumentForCorrection,
   submitDocumentToIroAdmin,
@@ -157,6 +159,9 @@ export default function SubmissionDetailsPage({ documentId }) {
               </div>
             </div>
           </Panel>
+
+          <GeneralSubmissionHistory documentId={document.id} />
+          <DocumentChat documentId={document.id} variant="drawer" />
 
           <Panel
             title="IRO Staff Review"

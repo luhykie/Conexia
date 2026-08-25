@@ -8,6 +8,7 @@ import "pdfjs-dist/web/pdf_viewer.css";
 import { PageTitle } from "./PageTitle";
 import { Panel } from "./Panel";
 import { DocumentChat } from "./DocumentChat";
+import { DepartmentalPdfReview } from "./DepartmentalPdfReview";
 import {
   getActiveLegalCounselUsers,
   getIroDocumentHistory,
@@ -29,13 +30,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 export function DepartmentalDocumentHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, Section = SubmissionDetailSection }) {
   const [open, setOpen] = React.useState(false);
   const [original, setOriginal] = React.useState(null);
-  const [highlightedVersions, setHighlightedVersions] = React.useState([]);
+  const [versions, setVersions] = React.useState([]);
   const [approvedDocument, setApprovedDocument] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
-    setOpen(false); setOriginal(null); setHighlightedVersions([]); setApprovedDocument(null); setError("");
+    setOpen(false); setOriginal(null); setVersions([]); setApprovedDocument(null); setError("");
   }, [documentId]);
 
   async function toggle() {
@@ -46,11 +47,19 @@ export function DepartmentalDocumentHistory({ documentId, loadHistory, onViewVer
     try {
       const response = await loadHistory(documentId);
       setOriginal(response.original ?? null);
-      setHighlightedVersions(response.highlighted_versions ?? []);
+      setVersions(response.versions ?? []);
       setApprovedDocument(response.approved_document ?? null);
     } catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
   }
+
+  const chronologicalVersions = [...versions]
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.file.created_at || "");
+      const rightTime = Date.parse(right.file.created_at || "");
+      if (Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime !== rightTime) return leftTime - rightTime;
+      return Number(left.file.version) - Number(right.file.version);
+    });
 
   return <Section title="Document History"><div className="department-history">
     <button type="button" className="outline department-history__trigger" onClick={toggle}><History size={16} /> {open ? "Hide History" : "History"}</button>
@@ -58,13 +67,21 @@ export function DepartmentalDocumentHistory({ documentId, loadHistory, onViewVer
     {open && <div className="department-history__events">
       {loading && <p>Loading history...</p>}
       {error && <p className="auth-error">{error}</p>}
-      {!loading && !error && !original && <p>No original document found.</p>}
-      {original && <HistoryVersionRow version={original} label="Original Document" action="View Document" onViewVersion={onViewVersion} />}
-      <div className="department-history__group"><b>Highlighted Versions</b>
-        {highlightedVersions.map((version) => <HistoryVersionRow key={`highlighted-${version.file.id}`} version={version} label={`Version ${version.file.version}`} detail={`${version.annotations.length} saved review annotation${version.annotations.length === 1 ? "" : "s"}`} action="View Highlighted Version" onViewVersion={onViewVersion} />)}
-        {!highlightedVersions.length && <p>No saved highlighted versions.</p>}
+      <div className="department-history__group"><b>Documents &amp; Revisions</b>
+        {chronologicalVersions.map((version) => {
+          const isOriginal = version.file.id === original?.file?.id;
+          const isApproved = version.file.id === approvedDocument?.file?.id;
+          const selectedVersion = isApproved ? { ...version, ...approvedDocument } : isOriginal ? { ...version, ...original } : version;
+          const labels = [isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`];
+          if (isApproved) labels.push("Approved");
+          if (version.latest) labels.push("Latest");
+          const details = [version.file.filename, version.status || null];
+          if (version.annotations?.length) details.push(`${version.annotations.length} saved annotation${version.annotations.length === 1 ? "" : "s"}`);
+          if (version.file.created_at) details.push(new Date(version.file.created_at).toLocaleString());
+          return <HistoryVersionRow key={`version-${version.file.id}`} version={selectedVersion} label={labels.join(" - ")} detail={details.filter(Boolean).join(" - ")} action="View Document" onViewVersion={onViewVersion} />;
+        })}
+        {!chronologicalVersions.length && !loading && !error && <p>No document versions found.</p>}
       </div>
-      {approvedDocument && <div className="department-history__group"><b>Approved Document</b><HistoryVersionRow version={approvedDocument} label={`APPROVED - Version ${approvedDocument.file.version}`} detail={approvedDocument.approved_at ? new Date(approvedDocument.approved_at).toLocaleString() : approvedDocument.file.filename} action="View Approved Document" onViewVersion={onViewVersion} /></div>}
     </div>}
   </div></Section>;
 }
@@ -196,20 +213,26 @@ export function DocumentReviewPage({ documentId }) {
     setAnnotations([]);
     setSelection(null);
     if (!fileId) return () => { active = false; };
+    const requestedFile = files.find((file) => file.id === fileId);
+    const previewRequest = requestedFile?.mime_type === "application/pdf"
+      ? Promise.resolve(null)
+      : getDocumentPreviewBlob(documentId, fileId);
     Promise.all([
-      getDocumentPreviewBlob(documentId, fileId),
+      previewRequest,
       getDocumentAnnotations(documentId, fileId),
     ]).then(([blob, response]) => {
-      objectUrl = URL.createObjectURL(blob);
-      if (!active) return URL.revokeObjectURL(objectUrl);
-      setPreviewUrl(objectUrl);
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob);
+        if (!active) return URL.revokeObjectURL(objectUrl);
+        setPreviewUrl(objectUrl);
+      }
       setAnnotations(response.annotations ?? response.data ?? []);
     }).catch((requestError) => active && setError(requestError.message));
     return () => {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [documentId, fileId]);
+  }, [documentId, fileId, files]);
 
   function captureSelection() {
     const browserSelection = window.getSelection();
@@ -334,10 +357,8 @@ export function DocumentReviewPage({ documentId }) {
         annotations: versionAnnotations,
       };
     }));
-    const departmentHighlighted = versions
-      .filter((version) => version.annotations.some(
-        (annotation) => annotation.source === "department_review",
-      ))
+    const highlightedVersions = versions
+      .filter((version) => version.annotations.length > 0)
       .map((version) => ({ ...version, history_view: "highlighted" }));
     const versionsByFileId = new Map(versions.map((version) => [version.file.id, version]));
     const originalVersion = authoritativeHistory.original?.file?.id
@@ -356,10 +377,11 @@ export function DocumentReviewPage({ documentId }) {
       : null;
 
     return {
+      versions,
       original: originalVersion
         ? { ...originalVersion, annotations: [], history_view: "original" }
         : null,
-      highlighted_versions: departmentHighlighted,
+      highlighted_versions: highlightedVersions,
       approved_document: approvedDocument,
     };
   }, [document?.partner_department_id, document?.status, documentId, files, latestFile?.id]);
@@ -393,15 +415,28 @@ export function DocumentReviewPage({ documentId }) {
                 ? `${selectedFile?.filename} · Original Document · Read-only`
                 : `${selectedFile?.filename} · Version ${selectedFile?.version} · Read-only`}
             </p>
-            {selectedFile?.mime_type === "application/pdf" && previewUrl
-              ? <PdfViewer
-                  url={previewUrl}
+            {selectedFile?.mime_type === "application/pdf"
+              ? <DepartmentalPdfReview
+                  documentId={documentId}
+                  fileId={fileId}
                   annotations={visibleAnnotations}
-                  onSelection={canAnnotateSelectedVersion ? captureSelection : undefined}
-                  canManageAnnotations={canAnnotateSelectedVersion}
-                  showInlineComments={false}
-                  onUpdateAnnotation={updateAnnotationComment}
-                  onRequestRemoveAnnotation={requestAnnotationRemoval}
+                  canAnnotate={canAnnotateSelectedVersion}
+                  onCreateAnnotation={async (payload) => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      const response = await createDocumentAnnotation(documentId, fileId, payload);
+                      const annotation = response.annotation ?? response.data;
+                      setAnnotations((current) => [...current, annotation]);
+                      return annotation;
+                    } catch (requestError) {
+                      setError(requestError.message);
+                      throw requestError;
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  onRemoveAnnotation={removeAnnotation}
                 />
               : previewUrl && <iframe className="fallback-document-viewer" src={previewUrl} title={selectedFile?.filename || "Routed document"} />}
           </Panel> : <Panel title="Routed Document"><p>No routed document file is available.</p></Panel>}

@@ -6,11 +6,15 @@ import {
   useDocumentFilters,
 } from "../../../components/DocumentFilters";
 import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
+import { DocumentChat } from "../../../components/DocumentChat";
+import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations } from "../../../components/DocumentReviewPanel";
+import { SubmissionDetailSection } from "../../../components/SubmissionDetails";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
 import {
   getDepartmentDocuments,
+  getDepartmentHistory,
   resubmitDepartmentDocument,
 } from "../../../services/departmentStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -23,6 +27,7 @@ export default function Page() {
   const [processing, setProcessing] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState("");
+  const [historyVersion, setHistoryVersion] = React.useState(null);
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
   const {
@@ -236,6 +241,8 @@ export default function Page() {
               canUpload={["Submitted", "Corrections Needed"].includes(selectedDocument.status)}
               canDelete={["Submitted", "Corrections Needed"].includes(selectedDocument.status)}
             />
+            <DepartmentalDocumentHistory documentId={selectedDocument.id} loadHistory={getDepartmentHistory} onViewVersion={setHistoryVersion} onCloseVersion={() => setHistoryVersion(null)} viewingVersion={Boolean(historyVersion)} Section={SubmissionDetailSection} />
+            {historyVersion && <DepartmentalVersionAnnotations version={historyVersion} Section={SubmissionDetailSection} />}
 
             {error && <p className="auth-error">{error}</p>}
             {success && <p className="success-message">{success}</p>}
@@ -248,6 +255,7 @@ export default function Page() {
           </>
         )}
       </aside>
+      {selectedDocument && <DocumentChat documentId={selectedDocument.id} variant="drawer" />}
     </section>
   );
 }

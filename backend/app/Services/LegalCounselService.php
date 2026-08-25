@@ -74,18 +74,21 @@ class LegalCounselService
 
             $document = $this->documents->save($document);
 
-            if ($correctionRequested) {
-                AuditLog::query()->create([
-                    'actor_id' => $legalCounsel->id,
-                    'document_id' => $document->id,
-                    'action' => 'legal.review.correction_requested',
-                    'metadata' => [
-                        'legal_notes' => $document->legal_notes,
-                        'previous_status' => $previousStatus,
-                        'new_status' => Document::STATUS_CORRECTION_REQUIRED,
-                    ],
-                ]);
-            }
+            $latestFile = $document->files()->whereNull('deleted_at')->latest('version')->first();
+            AuditLog::query()->create([
+                'actor_id' => $legalCounsel->id,
+                'document_id' => $document->id,
+                'document_file_id' => $latestFile?->id,
+                'action' => $correctionRequested
+                    ? 'legal.review.correction_requested'
+                    : 'legal.review.approved',
+                'metadata' => [
+                    'legal_notes' => $document->legal_notes,
+                    'previous_status' => $previousStatus,
+                    'new_status' => $document->status,
+                    'document_version' => $latestFile?->version,
+                ],
+            ]);
 
             return $this->documents->toArray(
                 $document

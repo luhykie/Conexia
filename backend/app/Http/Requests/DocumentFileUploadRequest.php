@@ -21,7 +21,7 @@ class DocumentFileUploadRequest extends FormRequest
                 'file',
                 'min:1',
                 'max:25600',
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text',
+                'mimetypes:application/pdf,application/x-pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/zip,application/x-zip-compressed',
             ],
         ];
     }

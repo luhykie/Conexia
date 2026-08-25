@@ -269,26 +269,13 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
             });
 
         Route::middleware(
-            EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
-        )
-            ->group(function (): void {
-                Route::get(
-                    '/documents/{document}/messages',
-                    [DocumentMessageController::class, 'index']
-                );
-
-                Route::post(
-                    '/documents/{document}/messages',
-                    [DocumentMessageController::class, 'store']
-                );
-            });
-
-        Route::middleware(
             EnsureRole::class
                 .':'
                 .Profile::ROLE_IRO_ADMIN
                 .','
                 .Profile::ROLE_LEGAL_COUNSEL
+                .','
+                .Profile::ROLE_IRO_STAFF
                 .','
                 .Profile::ROLE_DEPARTMENT_STAFF
         )
@@ -474,11 +461,6 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     [IroDocumentController::class, 'store']
                 );
 
-                Route::get(
-                    '/iro/documents/{id}/history',
-                    [IroDocumentController::class, 'history']
-                );
-
                 Route::post(
                     '/iro/documents/{id}/engagement-edit',
                     [IroDocumentController::class, 'updateEngagement']
@@ -524,6 +506,13 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     [IroDocumentController::class, 'unarchive']
                 );
             });
+
+        Route::middleware(
+            EnsureRole::class
+                .':'.Profile::ROLE_IRO_STAFF
+                .','.Profile::ROLE_IRO_ADMIN
+                .','.Profile::ROLE_LEGAL_COUNSEL
+        )->get('/iro/documents/{document}/history', [DepartmentHistoryController::class, 'history']);
 
         Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN

@@ -1678,6 +1678,75 @@ textarea:focus {
   grid-template-columns: minmax(0, 72fr) minmax(260px, 28fr);
 }
 
+.submission-activity-history__event {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.submission-activity-history__event:last-child { border-bottom: 0; }
+.submission-activity-history__event small,
+.submission-activity-history__event p { display: block; margin: 0.2rem 0 0; }
+
+.correction-resubmission {
+  display: grid;
+  gap: var(--cx-space-4, 16px);
+}
+
+.correction-resubmission__intro {
+  margin: 0;
+  color: var(--cx-text-muted, #52605b);
+  line-height: 1.5;
+}
+
+.correction-resubmission__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.correction-resubmission__edit-toggle {
+  width: fit-content;
+  min-height: 40px;
+}
+
+.correction-resubmission__grid label {
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.correction-resubmission__grid input,
+.correction-resubmission__grid select,
+.correction-resubmission__grid textarea {
+  border-radius: var(--cx-radius-sm, 6px);
+  border-color: var(--cx-border, #cbd5d1);
+  background: #fff;
+}
+
+.correction-resubmission__grid textarea { min-height: 96px; }
+.correction-resubmission__wide { grid-column: 1 / -1; }
+
+.correction-resubmission .dropzone {
+  min-height: 180px;
+  margin: 0;
+  padding: 22px;
+  border-radius: var(--cx-radius-md, 8px);
+  background: var(--cx-surface-soft, #f7faf8);
+}
+
+.correction-resubmission__submit {
+  width: 100%;
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .correction-resubmission__grid { grid-template-columns: 1fr; }
+  .correction-resubmission__wide { grid-column: auto; }
+}
+
 .iro-staff-status-page .cx-table table,
 .iro-staff-status-page .cx-table-footer {
   min-width: 680px;

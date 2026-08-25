@@ -111,12 +111,25 @@ class DepartmentDocumentAuthorizationTest extends SecurityTestCase
 
         $this->patchJson(
             "/api/department/documents/{$document->id}/resubmit",
-            [],
+            [
+                'title' => 'Corrected Agreement Title',
+                'partner_institution' => 'Corrected Partner Organization',
+                'contact_person' => 'Updated Contact',
+                'urgency' => 'urgent',
+            ],
             $this->authHeaders($staff)
         )
             ->assertOk()
             ->assertJsonPath('document.status', Document::STATUS_SUBMITTED)
+            ->assertJsonPath('document.title', 'Corrected Agreement Title')
+            ->assertJsonPath('document.partner_institution', 'Corrected Partner Organization')
+            ->assertJsonPath('document.contact_person', 'Updated Contact')
             ->assertJsonPath('document.legal_notes', null);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'document_id' => $document->id,
+            'action' => 'department.revision.resubmitted',
+        ]);
     }
 
     public function test_department_document_store_requires_valid_payload(): void

@@ -64,15 +64,45 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         $this->assertNotSame($versionThree->id, $versionTwo->id);
     }
 
-    public function test_iro_document_history_remains_admin_only(): void
+    public function test_iro_staff_history_returns_submission_metadata_without_historical_files(): void
     {
         $staff = $this->profile(Profile::ROLE_IRO_STAFF);
         $document = $this->document();
+        $file = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $staff->id,
+            'version' => 1,
+        ]);
+        AuditLog::query()->create([
+            'actor_id' => $staff->id,
+            'document_id' => $document->id,
+            'document_file_id' => $file->id,
+            'action' => 'document_file.uploaded',
+            'metadata' => ['filename' => 'private.pdf'],
+        ]);
+        AuditLog::query()->create([
+            'actor_id' => $staff->id,
+            'document_id' => $document->id,
+            'document_file_id' => $file->id,
+            'action' => 'document_file.previewed',
+        ]);
+        AuditLog::query()->create([
+            'actor_id' => $staff->id,
+            'document_id' => $document->id,
+            'document_file_id' => $file->id,
+            'action' => 'document_file.metadata',
+        ]);
 
         $this->getJson(
             "/api/iro/documents/{$document->id}/history",
             $this->authHeaders($staff)
-        )->assertForbidden();
+        )->assertOk()
+            ->assertJsonPath('events.0.label', 'Version 1 submitted')
+            ->assertJsonPath('events.0.version', 1)
+            ->assertJsonMissingPath('events.0.file')
+            ->assertJsonMissingPath('events.0.annotations')
+            ->assertJsonCount(1, 'events')
+            ->assertJsonMissing(['filename' => 'private.pdf']);
     }
 
     public function test_iro_admin_must_submit_a_responsible_office_and_it_is_visible_to_iro_staff(): void

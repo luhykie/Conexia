@@ -92,6 +92,7 @@ class DocumentFileService
         }
 
         if (
+            $document->status !== Document::STATUS_CORRECTIONS_NEEDED &&
             $this->files->duplicateExists(
                 $document,
                 $originalName,
@@ -261,7 +262,10 @@ class DocumentFileService
             ->sortByDesc('created_at')
             ->values();
 
-        $departmentAnnotations = $actor->role === Profile::ROLE_IRO_ADMIN
+        $departmentAnnotations = in_array($actor->role, [
+            Profile::ROLE_IRO_ADMIN,
+            Profile::ROLE_LEGAL_COUNSEL,
+        ], true)
             ? DocumentReviewItem::query()
                 ->with('author')
                 ->where('document_id', $document->id)
@@ -652,6 +656,11 @@ class DocumentFileService
             Document::STATUS_LOGGED,
             Document::STATUS_CORRECTIONS_NEEDED,
             Document::STATUS_UNDER_LEGAL_REVIEW,
+            Document::STATUS_CORRECTION_REQUIRED,
+            Document::STATUS_APPROVED,
+            Document::STATUS_PENDING_NOTARIZATION,
+            Document::STATUS_NOTARIZED,
+            Document::STATUS_ARCHIVED,
         ], true)) {
             throw new NotFoundHttpException(
                 'The requested document is not available for administrative review.'

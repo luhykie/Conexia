@@ -12,6 +12,8 @@ import {
 } from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
+import { GeneralSubmissionHistory } from "../../../components/GeneralSubmissionHistory";
+import { DocumentChat } from "../../../components/DocumentChat";
 import { StatGrid } from "../../../components/StatGrid";
 import { getIroStatusDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -219,6 +221,8 @@ export default function IroStaffStatusPage() {
                 and workflow decisions are handled by IRO Admin.
               </p>
             </div>
+            <GeneralSubmissionHistory documentId={selectedDocument.id} />
+            <DocumentChat documentId={selectedDocument.id} variant="drawer" />
           </>
         </aside>
       )}

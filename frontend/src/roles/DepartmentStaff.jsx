@@ -23,7 +23,9 @@ import { Panel } from "../components/Panel";
 import { DashboardView, Dropzone, ExpiryView } from "../components/SharedViews";
 import { StatGrid } from "../components/StatGrid";
 import { DocumentFilesPanel } from "../components/DocumentFilesPanel";
+import { DocumentChat } from "../components/DocumentChat";
 import { DepartmentalPdfReview } from "../components/DepartmentalPdfReview";
+import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations as SharedDepartmentalVersionAnnotations } from "../components/DocumentReviewPanel";
 import { PreSubmissionModal } from "../components/PreSubmissionModal";
 import DepartmentSettingsPage from "../features/department-staff/settings/Page";
 import {
@@ -371,6 +373,13 @@ function SubmissionPage({ account }) {
             ...form,
             partnerClassification: form.partnershipType === "Departmental" ? "Departmental" : form.partnershipType.toLowerCase(),
           })).trim() || null,
+          partnership_type: form.submissionType === "renewal" ? "Renewal" : "New Partnership",
+          contact_person: form.contactPerson.trim() || null,
+          contact_position: form.position.trim() || null,
+          contact_email: form.emailAddress.trim() || null,
+          contact_number: form.contactNumber.trim() || null,
+          requested_completion_date: form.requestedCompletionDate || null,
+          urgency: form.urgencyLevel || null,
           ...expiryPayload(),
         });
 
@@ -810,6 +819,26 @@ function formatReviewFormDetails(draft) {
   ].join("\n");
 }
 
+function correctionFormFor(document) {
+  return {
+    title: document?.title ?? "",
+    document_type: document?.document_type ?? "MOA",
+    partnership_scope: document?.partnership_scope ?? "Departmental",
+    partner_institution: document?.partner_institution ?? "",
+    partner_email: document?.partner_email ?? "",
+    description: document?.description ?? "",
+    partnership_type: document?.partnership_type ?? "New Partnership",
+    contact_person: document?.contact_person ?? "",
+    contact_position: document?.contact_position ?? "",
+    contact_email: document?.contact_email ?? "",
+    contact_number: document?.contact_number ?? "",
+    requested_completion_date: document?.requested_completion_date ? String(document.requested_completion_date).slice(0, 10) : "",
+    urgency: document?.urgency ?? "normal",
+    effective_date: document?.effective_date ? String(document.effective_date).slice(0, 10) : "",
+    expiry_date: document?.expiry_date ? String(document.expiry_date).slice(0, 10) : "",
+  };
+}
+
 // Shows department-owned submissions and legal comments.
 function MySubmissionsPage({ account }) {
  const [documents, setDocuments] = React.useState([]);
@@ -819,6 +848,8 @@ function MySubmissionsPage({ account }) {
  const [departmentalReview, setDepartmentalReview] = React.useState(null);
  const [pendingReviewItems, setPendingReviewItems] = React.useState([]);
  const [revisedFile, setRevisedFile] = React.useState(null);
+ const [correctionForm, setCorrectionForm] = React.useState(null);
+ const [editingCorrectionForm, setEditingCorrectionForm] = React.useState(false);
  const [historyPreview, setHistoryPreview] = React.useState(null);
  const accountDepartmentId = account?.department_id || account?.departmentId || account?.department?.id;
 
@@ -882,6 +913,26 @@ function MySubmissionsPage({ account }) {
     loadDocuments();
   }, [page, queryParams]);
 
+  React.useEffect(() => {
+    let active = true;
+    if (!reviewOpen || selectedDocument?.status !== "Corrections Needed") return () => { active = false; };
+
+    getDepartmentHistory(selectedDocument.id)
+      .then((response) => {
+        if (!active) return;
+        const highlighted = response.highlighted_versions ?? [];
+        const latestHighlighted = [...highlighted].sort(
+          (left, right) => Number(right.file?.version || 0) - Number(left.file?.version || 0),
+        )[0];
+        if (latestHighlighted) setHistoryPreview(latestHighlighted);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message);
+      });
+
+    return () => { active = false; };
+  }, [reviewOpen, selectedDocument?.id, selectedDocument?.status]);
+
   const rows = documents.map((document) => [
     document.tracking_number,
 
@@ -910,6 +961,8 @@ function MySubmissionsPage({ account }) {
         setSelectedDocument(document);
         setPendingReviewItems([]);
         setRevisedFile(null);
+        setCorrectionForm(correctionFormFor(document));
+        setEditingCorrectionForm(false);
         setHistoryPreview(null);
         setReviewOpen(true);
         setError("");
@@ -930,6 +983,10 @@ function MySubmissionsPage({ account }) {
       setError("Choose the corrected file before submitting it to the Partner Department.");
       return;
     }
+    if (editingCorrectionForm && (!correctionForm?.title.trim() || !correctionForm?.partner_institution.trim())) {
+      setError("Title and partner organization are required.");
+      return;
+    }
 
     setProcessing(true);
     setError("");
@@ -939,9 +996,28 @@ function MySubmissionsPage({ account }) {
 
     try {
       await uploadDocumentFile(selectedDocument.id, revisedFile);
+      const correctedFields = editingCorrectionForm
+        ? {
+            ...correctionForm,
+            title: correctionForm.title.trim(),
+            partner_institution: correctionForm.partner_institution.trim(),
+            partner_email: correctionForm.partner_email.trim() || null,
+            description: correctionForm.description.trim() || null,
+            partnership_type: correctionForm.partnership_type || null,
+            contact_person: correctionForm.contact_person.trim() || null,
+            contact_position: correctionForm.contact_position.trim() || null,
+            contact_email: correctionForm.contact_email.trim() || null,
+            contact_number: correctionForm.contact_number.trim() || null,
+            requested_completion_date: correctionForm.requested_completion_date || null,
+            urgency: correctionForm.urgency || null,
+            effective_date: correctionForm.effective_date || null,
+            expiry_date: correctionForm.expiry_date || null,
+          }
+        : {};
       const response =
         await resubmitDepartmentDocument(
-          selectedDocument.id
+          selectedDocument.id,
+          correctedFields
         );
 
       updatedDocument =
@@ -976,6 +1052,8 @@ function MySubmissionsPage({ account }) {
 
     setSelectedDocument(updatedDocument);
     setRevisedFile(null);
+    setCorrectionForm(correctionFormFor(updatedDocument));
+    setEditingCorrectionForm(false);
     setSuccess("Document successfully resubmitted.");
     setProcessing(false);
   }
@@ -1013,15 +1091,45 @@ function MySubmissionsPage({ account }) {
               <SubmissionDetail label="Partner Contact Email" value={selectedDocument.partner_email} />
             </SubmissionDetailSection>
             {selectedDocument.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{selectedDocument.description}</p></SubmissionDetailSection>}
-            {selectedDocument.partner_department_id && <DepartmentalHistoryPanel documentId={selectedDocument.id} onViewVersion={setHistoryPreview} onCloseVersion={() => setHistoryPreview(null)} viewingVersion={Boolean(historyPreview)} />}
-            {historyPreview && <DepartmentalVersionAnnotations version={historyPreview} />}
+            <DepartmentalDocumentHistory documentId={selectedDocument.id} loadHistory={getDepartmentHistory} onViewVersion={setHistoryPreview} onCloseVersion={() => setHistoryPreview(null)} viewingVersion={Boolean(historyPreview)} Section={SubmissionDetailSection} />
+            {historyPreview && <SharedDepartmentalVersionAnnotations version={historyPreview} Section={SubmissionDetailSection} />}
             {selectedDocument.legal_notes && <SubmissionDetailSection title="Legal Remarks"><div className="notice danger"><p>{selectedDocument.legal_notes}</p></div></SubmissionDetailSection>}
-            {selectedDocument.partner_department_id && reviewIsSubmitted && <><DepartmentalReviewPanel document={selectedDocument} review={departmentalReview} isCreator={isCreator} onReviewChange={setDepartmentalReview} onRemoveAnnotation={async (itemId) => { await deleteDepartmentReviewItem(selectedDocument.id, itemId); setDepartmentalReview(await getDepartmentReview(selectedDocument.id)); }} onDocumentChange={(document) => { setSelectedDocument(document); setDocuments((current) => current.map((item) => item.id === document.id ? document : item)); }} /><DepartmentDiscussionPanel document={selectedDocument} currentDepartmentId={accountDepartmentId} /></>}
-            {isCreator && selectedDocument.status === "Corrections Needed" && <><label className="file-picker">Revised version<input type="file" accept=".pdf,.docx,.odt" onChange={(event) => setRevisedFile(event.target.files?.[0] || null)} /></label><button disabled={processing || !revisedFile} onClick={resubmitDocument}>{processing ? "Submitting revised version..." : "Submit Revised Version"}</button></>}
+            {selectedDocument.partner_department_id && reviewIsSubmitted && <DepartmentalReviewPanel document={selectedDocument} review={departmentalReview} isCreator={isCreator} onReviewChange={setDepartmentalReview} onRemoveAnnotation={async (itemId) => { await deleteDepartmentReviewItem(selectedDocument.id, itemId); setDepartmentalReview(await getDepartmentReview(selectedDocument.id)); }} onDocumentChange={(document) => { setSelectedDocument(document); setDocuments((current) => current.map((item) => item.id === document.id ? document : item)); }} />}
+            {isCreator && selectedDocument.status === "Corrections Needed" && correctionForm && <SubmissionDetailSection title="Correct and Resubmit">
+              <div className="correction-resubmission">
+                <p className="correction-resubmission__intro">Attach the corrected document version. Editing the submitted form is optional.</p>
+                <button type="button" className="outline correction-resubmission__edit-toggle" onClick={() => {
+                  if (editingCorrectionForm) setCorrectionForm(correctionFormFor(selectedDocument));
+                  setEditingCorrectionForm((current) => !current);
+                }} disabled={processing}>
+                  {editingCorrectionForm ? "Cancel Form Editing" : "Edit Submitted Form (Optional)"}
+                </button>
+                {editingCorrectionForm && <div className="correction-resubmission__grid">
+                  <label className="correction-resubmission__wide">Agreement Title<input value={correctionForm.title} onChange={(event) => setCorrectionForm((current) => ({ ...current, title: event.target.value }))} disabled={processing} required /></label>
+                  <label>Agreement Type<select value={correctionForm.document_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, document_type: event.target.value }))} disabled={processing}><option value="MOA">MOA</option><option value="MOU">MOU</option><option value="MOF">MOF</option></select></label>
+                  <label>Partnership Scope<select value={correctionForm.partnership_scope} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_scope: event.target.value }))} disabled={processing}><option value="Departmental">Departmental</option><option value="Local">Local</option><option value="International">International</option></select></label>
+                  <label className="correction-resubmission__wide">Partner Organization<input value={correctionForm.partner_institution} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_institution: event.target.value }))} disabled={processing} required /></label>
+                  <label className="correction-resubmission__wide">Partner Contact Email<input type="email" value={correctionForm.partner_email} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_email: event.target.value }))} disabled={processing} /></label>
+                  <label>Submission Type<select value={correctionForm.partnership_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_type: event.target.value }))} disabled={processing}><option value="New Partnership">New Partnership</option><option value="Renewal">Renewal</option></select></label>
+                  <label>Urgency<select value={correctionForm.urgency} onChange={(event) => setCorrectionForm((current) => ({ ...current, urgency: event.target.value }))} disabled={processing}><option value="normal">Normal</option><option value="urgent">Urgent</option><option value="high">High</option></select></label>
+                  <label>Contact Person<input value={correctionForm.contact_person} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_person: event.target.value }))} disabled={processing} /></label>
+                  <label>Contact Position<input value={correctionForm.contact_position} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_position: event.target.value }))} disabled={processing} /></label>
+                  <label>Contact Email<input type="email" value={correctionForm.contact_email} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_email: event.target.value }))} disabled={processing} /></label>
+                  <label>Contact Number<input value={correctionForm.contact_number} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_number: event.target.value }))} disabled={processing} /></label>
+                  <label>Requested Completion<input type="date" value={correctionForm.requested_completion_date} onChange={(event) => setCorrectionForm((current) => ({ ...current, requested_completion_date: event.target.value }))} disabled={processing} /></label>
+                  <label>Effective Date<input type="date" value={correctionForm.effective_date} onChange={(event) => setCorrectionForm((current) => ({ ...current, effective_date: event.target.value }))} disabled={processing} /></label>
+                  <label>Expiry Date<input type="date" value={correctionForm.expiry_date} onChange={(event) => setCorrectionForm((current) => ({ ...current, expiry_date: event.target.value }))} disabled={processing} /></label>
+                  <label className="correction-resubmission__wide">Description<textarea rows={4} value={correctionForm.description} onChange={(event) => setCorrectionForm((current) => ({ ...current, description: event.target.value }))} disabled={processing} /></label>
+                </div>}
+                <Dropzone label="Drop the corrected agreement here" detail="PDF, DOCX, or ODT · Maximum 25 MB" selectedFile={revisedFile} disabled={processing} onFileSelect={setRevisedFile} onRemove={() => setRevisedFile(null)} />
+                <button className="correction-resubmission__submit" disabled={processing || !revisedFile} onClick={resubmitDocument}>{processing ? "Submitting corrected version..." : "Save Changes & Submit Revised Version"}</button>
+              </div>
+            </SubmissionDetailSection>}
             {isCreator && selectedDocument.status === "Partner Review Complete" && <button disabled={processing} onClick={async () => { setProcessing(true); setError(""); try { const response = await routeDepartmentReviewToStaff(selectedDocument.id); const updated = response.document ?? response.data; setSelectedDocument(updated); setDocuments((current) => current.map((item) => item.id === updated.id ? updated : item)); setSuccess("Submission sent to the next process."); } catch (requestError) { setError(requestError.message); } finally { setProcessing(false); } }}>{processing ? "Sending..." : "Send to Next Process"}</button>}
             {error && <p className="auth-error">{error}</p>}
             {success && <p className="success-message">{success}</p>}
           </aside>
+          <DocumentChat documentId={selectedDocument.id} variant="drawer" />
         </div>
       </section>
     );

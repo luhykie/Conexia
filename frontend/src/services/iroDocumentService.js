@@ -11,3 +11,7 @@ export function getIroDocument(documentId) {
 export function getIroStatusDocuments(params = {}) {
   return apiGet(withQuery("/iro/documents/status", params));
 }
+
+export function getIroSubmissionHistory(documentId) {
+  return apiGet(`/iro/documents/${documentId}/history`);
+}

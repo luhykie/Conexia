@@ -14,10 +14,10 @@ export function getDepartmentDocuments(params = {}) {
   return apiGet(withQuery("/department/documents", params));
 }
 
-export function resubmitDepartmentDocument(documentId) {
+export function resubmitDepartmentDocument(documentId, corrections = {}) {
   return apiPatch(
     `/department/documents/${documentId}/resubmit`,
-    {}
+    corrections
   );
 }
 

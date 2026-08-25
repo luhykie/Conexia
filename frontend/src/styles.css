@@ -2478,19 +2478,27 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .departmental-pdf-text-layer { position: absolute; inset: 0; overflow: hidden; opacity: 1; line-height: 1; }
 .departmental-pdf-text-layer span { position: absolute; color: transparent !important; -webkit-text-fill-color: transparent; text-shadow: none !important; transform-origin: 0 0; white-space: pre; cursor: text; }
 .departmental-pdf-text-layer ::selection { background: rgba(32, 122, 91, .28); color: transparent !important; -webkit-text-fill-color: transparent; text-shadow: none !important; }
-.departmental-pdf-highlight { position: absolute; pointer-events: auto; padding: 0; border: 0; border-bottom: 1px solid rgba(143, 111, 42, .48); background: rgba(212, 180, 76, .28); cursor: pointer; }
+.departmental-pdf-highlight { position: absolute; z-index: 3; display: block; box-sizing: border-box; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-bottom: 1px solid rgba(143, 111, 42, .48); border-radius: 2px; background: rgba(212, 180, 76, .28); box-shadow: none; line-height: 0; pointer-events: auto; cursor: pointer; }
 .departmental-pdf-highlight--green { background: rgba(94, 141, 114, .25); border-color: rgba(44, 103, 74, .58); }
 .departmental-pdf-highlight--blue { background: rgba(113, 151, 181, .25); border-color: rgba(55, 100, 136, .58); }
 .departmental-pdf-highlight--pink { background: rgba(189, 128, 151, .23); border-color: rgba(146, 75, 105, .52); }
 .departmental-pdf-highlight__marker { position: absolute; top: -8px; left: -8px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: #123b2c; color: white; font-size: 10px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
-.departmental-pdf-toolbar { position: fixed; z-index: 10000; pointer-events: auto; display: flex; gap: 4px; padding: 4px; border: 1px solid #c9dbd3; border-radius: 8px; background: #fff; box-shadow: 0 4px 12px rgba(12, 53, 39, .16); transform: translate(-8px, 12px); }
-.departmental-pdf-toolbar button { padding: 5px 8px; border: 0; border-radius: 5px; background: #edf6f1; color: #0c5138; font-size: 12px; font-weight: 700; }
+.departmental-pdf-toolbar { position: fixed; z-index: 10000; pointer-events: auto; display: flex; gap: 8px; padding: 8px; border: 1px solid #c9dbd3; border-radius: 10px; background: #fff; box-shadow: 0 12px 32px rgba(12, 53, 39, .22); }
+.departmental-pdf-toolbar button { width: auto; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 6px; background: #edf6f1; color: #0c5138; font-size: 12px; font-weight: 700; }
 .departmental-pdf-toolbar button:hover { background: #dceee5; }
 .departmental-pdf-toolbar__color { padding: 5px 8px; border-radius: 5px; background: #f4f7f5; color: #547165; font-size: 12px; font-weight: 700; }
-.departmental-pdf-popover, .departmental-pdf-comment { position: absolute; top: 40px; left: 0; display: flex; gap: 5px; padding: 6px; border: 1px solid #d7e5de; border-radius: 7px; background: white; box-shadow: 0 4px 12px rgba(12, 53, 39, .14); }
+.departmental-pdf-toolbar--comment { width: min(320px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 14px; }
+.departmental-pdf-toolbar--comment header, .departmental-pdf-toolbar--comment footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.departmental-pdf-toolbar--comment header b { color: #123b2c; font-size: 14px; }
+.departmental-pdf-toolbar--comment header button { min-width: 32px; padding: 0; background: transparent; color: #53635c; font-size: 20px; }
+.departmental-pdf-toolbar--comment blockquote { max-height: 72px; overflow: auto; margin: 0; padding: 8px 10px; border-left: 3px solid #c8a938; background: #fffbea; color: #45524d; font-size: 12px; line-height: 1.45; }
+.departmental-pdf-toolbar--comment label { gap: 6px; color: #34574a; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; }
+.departmental-pdf-toolbar--comment textarea { width: 100%; min-height: 76px; padding: 9px 10px; border: 1px solid #c9d8d1; border-radius: 7px; resize: vertical; font: inherit; text-transform: none; }
+.departmental-pdf-toolbar--comment footer { justify-content: flex-end; padding-top: 2px; }
+.departmental-pdf-toolbar--manage { align-items: center; }
+.departmental-pdf-toolbar--manage > b { padding: 0 4px; color: #34574a; font-size: 12px; white-space: nowrap; }
 .departmental-pdf-color { width: 20px; height: 20px; padding: 0 !important; }
 .departmental-pdf-color--yellow { background: #d9c47a !important; }.departmental-pdf-color--green { background: #8daf99 !important; }.departmental-pdf-color--blue { background: #91afc6 !important; }.departmental-pdf-color--pink { background: #c79aaa !important; }
-.departmental-pdf-comment textarea { min-width: 180px; min-height: 45px; resize: vertical; }
 .departmental-pdf-toolbar__remove { color: #991b1b !important; }
 .departmental-review__marker { display: inline-block; margin-right: 5px; padding: 2px 5px; border-radius: 4px; background: #e8f5ee; color: #075b3b; }
 .departmental-review__delete { float: right; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0 !important; border-color: #f3c5c5; color: #b42318; background: #fffafa; }

@@ -105,17 +105,12 @@ class DocumentMessageController extends Controller
             !$profile ||
             !in_array($profile->role, [
                 Profile::ROLE_IRO_ADMIN,
+                Profile::ROLE_IRO_STAFF,
                 Profile::ROLE_LEGAL_COUNSEL,
                 Profile::ROLE_DEPARTMENT_STAFF,
             ], true) ||
-            Gate::forUser($profile)->denies('view-document-metadata', $document)
-        ) {
-            throw new NotFoundHttpException('The requested document could not be found.');
-        }
-
-        if (
-            $profile->role === Profile::ROLE_DEPARTMENT_STAFF &&
-            $document->submitted_by !== $profile->id
+            ($profile->role !== Profile::ROLE_IRO_STAFF &&
+                Gate::forUser($profile)->denies('view-document-metadata', $document))
         ) {
             throw new NotFoundHttpException('The requested document could not be found.');
         }

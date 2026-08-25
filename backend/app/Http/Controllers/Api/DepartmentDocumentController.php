@@ -95,6 +95,13 @@ class DepartmentDocumentController extends Controller
             'partner_institution' => ['required', 'string', 'max:255'],
             'partner_email' => ['nullable', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'partnership_type' => ['nullable', 'string', 'max:100'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
+            'contact_position' => ['nullable', 'string', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:255'],
+            'contact_number' => ['nullable', 'string', 'max:100'],
+            'requested_completion_date' => ['nullable', 'date'],
+            'urgency' => ['nullable', 'string', 'max:50'],
             'effective_date' => ['nullable', 'date'],
             'expiry_date' => [
                 'nullable',
@@ -191,8 +198,25 @@ class DepartmentDocumentController extends Controller
         string $id
     ): JsonResponse {
         $profile = $this->departmentProfile($request);
+        $validated = $request->validate([
+            'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'document_type' => ['sometimes', 'required', 'string', 'max:100'],
+            'partnership_scope' => ['sometimes', 'required', Rule::in(['Departmental', 'Local', 'International'])],
+            'partner_institution' => ['sometimes', 'required', 'string', 'max:255'],
+            'partner_email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'partnership_type' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'contact_person' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'contact_position' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'contact_email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'contact_number' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'requested_completion_date' => ['sometimes', 'nullable', 'date'],
+            'urgency' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'effective_date' => ['sometimes', 'nullable', 'date'],
+            'expiry_date' => ['sometimes', 'nullable', 'date'],
+        ]);
 
-        $document = DB::transaction(function () use ($id, $profile) {
+        $document = DB::transaction(function () use ($id, $profile, $validated) {
             $document = Document::query()
                 ->whereKey($id)
                 ->where('department_id', $profile->department_id)
@@ -208,7 +232,16 @@ class DepartmentDocumentController extends Controller
                 ]);
             }
 
+            $effectiveDate = $validated['effective_date'] ?? $document->effective_date?->toDateString();
+            $expiryDate = $validated['expiry_date'] ?? $document->expiry_date?->toDateString();
+            if ($effectiveDate && $expiryDate && $expiryDate < $effectiveDate) {
+                throw ValidationException::withMessages([
+                    'expiry_date' => 'The expiry date must be on or after the effective date.',
+                ]);
+            }
+
             $update = [
+                ...$validated,
                 'status' => $document->partner_department_id ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_SUBMITTED,
                 'legal_notes' => null,
                 'department_review_routed_at' => $document->partner_department_id ? now() : null,
@@ -226,7 +259,12 @@ class DepartmentDocumentController extends Controller
                 'actor_id' => $profile->id,
                 'document_id' => $document->id,
                 'action' => 'department.revision.resubmitted',
-                'metadata' => ['review_version' => $document->department_review_version],
+                'metadata' => [
+                    'review_version' => $document->department_review_version,
+                    'previous_status' => Document::STATUS_CORRECTIONS_NEEDED,
+                    'new_status' => $document->status,
+                    'corrected_fields' => array_keys($validated),
+                ],
             ]);
 
             return $document->refresh();

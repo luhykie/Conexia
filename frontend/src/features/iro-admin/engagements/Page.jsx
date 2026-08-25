@@ -7,8 +7,13 @@ import {
 } from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
+import { DocumentChat } from "../../../components/DocumentChat";
+import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations } from "../../../components/DocumentReviewPanel";
+import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
+import { SubmissionDetailSection } from "../../../components/SubmissionDetails";
 import { getDepartments } from "../../../services/departmentService";
 import {
+  getIroDocumentHistory,
   updateIroEngagement,
 } from "../../../services/iroAdminService";
 import { getIroStatusDocuments } from "../../../services/iroDocumentService";
@@ -28,6 +33,7 @@ export default function IroAdminEngagementsPage() {
   const [departments, setDepartments] = React.useState([]);
   const [saving, setSaving] = React.useState(false);
   const [editError, setEditError] = React.useState("");
+  const [historyVersion, setHistoryVersion] = React.useState(null);
   const {
     filters,
     queryParams,
@@ -47,6 +53,7 @@ export default function IroAdminEngagementsPage() {
     setEditForm(null);
     setEditFile(null);
     setEditError("");
+    setHistoryVersion(null);
   }
 
   async function startEditing() {
@@ -227,6 +234,7 @@ export default function IroAdminEngagementsPage() {
       </div>
 
       {selectedDocument && (
+        <>
         <div
           className="engagement-detail-backdrop"
           role="presentation"
@@ -348,6 +356,19 @@ export default function IroAdminEngagementsPage() {
               ))}
             </div>
 
+            <DepartmentalDocumentHistory
+              documentId={selectedDocument.id}
+              loadHistory={getIroDocumentHistory}
+              onViewVersion={setHistoryVersion}
+              onCloseVersion={() => setHistoryVersion(null)}
+              viewingVersion={Boolean(historyVersion)}
+              Section={SubmissionDetailSection}
+            />
+            {historyVersion && <>
+              <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview previewFileId={historyVersion.file.id} />
+              <DepartmentalVersionAnnotations version={historyVersion} Section={SubmissionDetailSection} showHighlightNumbers />
+            </>}
+
             <footer className="engagement-detail-footer">
               <button type="button" className="outline" onClick={closeDetails}>
                 Close
@@ -367,6 +388,8 @@ export default function IroAdminEngagementsPage() {
             </>)}
           </section>
         </div>
+        <DocumentChat documentId={selectedDocument.id} variant="drawer" />
+        </>
       )}
     </section>
   );

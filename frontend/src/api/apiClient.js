@@ -171,7 +171,10 @@ async function request(endpoint, options = {}) {
 
         try {
             const body = await response.json();
-            message = body.message || message;
+            const validationMessage = Object.values(body.errors || {})
+                .flat()
+                .find((value) => typeof value === "string" && value.trim());
+            message = validationMessage || body.message || message;
         } catch {}
 
         if (response.status === 401) {

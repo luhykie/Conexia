@@ -8,7 +8,7 @@ import {
 } from "../../../components/DocumentFilters";
 import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
 import { DepartmentalPdfReview } from "../../../components/DepartmentalPdfReview";
-import { PdfViewer, getPdfTextSelection } from "../../../components/DocumentReviewPanel";
+import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations, PdfViewer, getPdfTextSelection } from "../../../components/DocumentReviewPanel";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { SubmissionDetails, SubmissionDetailSection } from "../../../components/SubmissionDetails";
@@ -17,6 +17,7 @@ import {
   getReviewDocuments,
   submitLegalDecision,
 } from "../../../services/legalCounselServices";
+import { getIroDocumentHistory } from "../../../services/iroAdminService";
 import { createNotification } from "../../../utils/notifications";
 import { reportClientError } from "../../../utils/reportClientError";
 import {
@@ -35,6 +36,7 @@ export default function LegalCounselReviewPage() {
   const [complianceVerified, setComplianceVerified] = React.useState(false);
   const [legalAnnotations, setLegalAnnotations] = React.useState([]);
   const [selectedFiles, setSelectedFiles] = React.useState([]);
+  const [historyVersion, setHistoryVersion] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [processing, setProcessing] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -96,6 +98,7 @@ export default function LegalCounselReviewPage() {
     setComplianceVerified(false);
     setLegalAnnotations([]);
     setSelectedFiles([]);
+    setHistoryVersion(null);
     setError("");
     setSuccess("");
   }, [selectedDocument]);
@@ -262,10 +265,19 @@ export default function LegalCounselReviewPage() {
         >
           ← Back to Review Queue
         </button>
-        <LegalDocumentPreview documentId={selectedDocument.id} onAnnotationsChange={setLegalAnnotations} onFilesChange={setSelectedFiles} />
+        <LegalDocumentPreview documentId={selectedDocument.id} historyVersion={historyVersion} onAnnotationsChange={setLegalAnnotations} onFilesChange={setSelectedFiles} />
       </main>
 
       <SubmissionDetails document={selectedDocument}>
+            <DepartmentalDocumentHistory
+              documentId={selectedDocument.id}
+              loadHistory={getIroDocumentHistory}
+              onViewVersion={setHistoryVersion}
+              onCloseVersion={() => setHistoryVersion(null)}
+              viewingVersion={Boolean(historyVersion)}
+              Section={SubmissionDetailSection}
+            />
+            {historyVersion && <DepartmentalVersionAnnotations version={historyVersion} Section={SubmissionDetailSection} />}
             {false && <div className="legal-review-document-summary">
               <FileText />
               <div><b>{selectedDocument.title}</b><p>{selectedDocument.tracking_number} · {selectedDocument.document_type}</p></div>
@@ -293,8 +305,6 @@ export default function LegalCounselReviewPage() {
                 <b>Description:</b> {selectedDocument.description}
               </p>
             )}
-
-            {selectedFiles.length > 0 && <section className="legal-review-attachments"><h3>Attached Files</h3>{selectedFiles.map((file) => <p key={file.id}>Version {file.version} · {file.filename}</p>)}</section>}
 
             {legalAnnotations.length > 0 && (
               <section className="legal-review-annotations">
@@ -357,7 +367,7 @@ export default function LegalCounselReviewPage() {
   );
 }
 
-function LegalDocumentPreview({ documentId, onAnnotationsChange, onFilesChange }) {
+function LegalDocumentPreview({ documentId, historyVersion, onAnnotationsChange, onFilesChange }) {
   const [files, setFiles] = React.useState([]);
   const [filesLoading, setFilesLoading] = React.useState(true);
   const [fileId, setFileId] = React.useState("");
@@ -381,6 +391,10 @@ function LegalDocumentPreview({ documentId, onAnnotationsChange, onFilesChange }
       .finally(() => active && setFilesLoading(false));
     return () => { active = false; };
   }, [documentId, onAnnotationsChange, onFilesChange]);
+
+  React.useEffect(() => {
+    if (historyVersion?.file?.id) setFileId(historyVersion.file.id);
+  }, [historyVersion]);
 
   React.useEffect(() => {
     let active = true;
@@ -409,8 +423,8 @@ function LegalDocumentPreview({ documentId, onAnnotationsChange, onFilesChange }
   if (!fileId) return <Panel title="Document Preview"><p>No attached document is available for preview.</p></Panel>;
   if (!selectedFile?.mime_type?.includes("pdf")) return <DocumentFilesPanel documentId={documentId} embeddedPreview previewFileId={fileId} />;
   return <Panel title="Document Preview">
-    {files.length > 1 && <label className="legal-review-version">Document Version<select value={fileId} onChange={(event) => setFileId(event.target.value)}>{files.map((file) => <option key={file.id} value={file.id}>Version {file.version} — {file.filename}</option>)}</select></label>}
-    <DepartmentalPdfReview documentId={documentId} fileId={fileId} annotations={annotations} canAnnotate onCreateAnnotation={async (payload) => { const response = await createDocumentAnnotation(documentId, fileId, payload); const annotation = response.annotation ?? response.data; setAnnotations((current) => [...current, annotation]); onAnnotationsChange((current) => [...current, annotation]); }} onRemoveAnnotation={removeAnnotation} />
+    {files.length > 1 && !historyVersion && <label className="legal-review-version">Document Version<select value={fileId} onChange={(event) => setFileId(event.target.value)}>{files.map((file) => <option key={file.id} value={file.id}>Version {file.version} — {file.filename}</option>)}</select></label>}
+    <DepartmentalPdfReview documentId={documentId} fileId={fileId} items={historyVersion?.annotations ?? []} annotations={historyVersion ? null : annotations} canAnnotate={!historyVersion} onCreateAnnotation={async (payload) => { const response = await createDocumentAnnotation(documentId, fileId, payload); const annotation = response.annotation ?? response.data; setAnnotations((current) => [...current, annotation]); onAnnotationsChange((current) => [...current, annotation]); }} onRemoveAnnotation={removeAnnotation} />
   </Panel>;
 }
 

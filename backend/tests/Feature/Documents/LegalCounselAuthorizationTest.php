@@ -3,6 +3,7 @@
 namespace Tests\Feature\Documents;
 
 use App\Models\Document;
+use App\Models\AuditLog;
 use App\Models\Profile;
 use Tests\Feature\Support\SecurityTestCase;
 
@@ -57,6 +58,35 @@ class LegalCounselAuthorizationTest extends SecurityTestCase
             '/api/legal/documents/review',
             $this->authHeaders($superAdmin)
         )->assertForbidden();
+    }
+
+    public function test_assigned_legal_counsel_can_load_detailed_version_history(): void
+    {
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'assigned_legal_counsel' => $legal->id,
+            'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+        ]);
+        $file = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $legal->id,
+            'version' => 1,
+        ]);
+        AuditLog::query()->create([
+            'actor_id' => $legal->id,
+            'document_id' => $document->id,
+            'document_file_id' => $file->id,
+            'action' => 'document_file.annotated',
+            'metadata' => ['highlight' => 'Exact clause', 'comment' => 'Review note', 'geometry' => ['page' => 1, 'rects' => []]],
+        ]);
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}/history",
+            $this->authHeaders($legal)
+        )->assertOk()
+            ->assertJsonPath('original.file.id', $file->id)
+            ->assertJsonPath('highlighted_versions.0.file.id', $file->id)
+            ->assertJsonPath('highlighted_versions.0.annotations.0.comment', 'Review note');
     }
 
     public function test_legal_decision_validation_returns_422(): void
