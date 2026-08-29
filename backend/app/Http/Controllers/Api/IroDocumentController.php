@@ -55,7 +55,10 @@ class IroDocumentController extends Controller
                     Document::STATUS_NOTARIZED,
                 ],
             $profile,
-            $profile->role === Profile::ROLE_IRO_ADMIN
+            $profile->role === Profile::ROLE_IRO_ADMIN,
+            true,
+            true,
+            true
         );
     }
 
@@ -104,6 +107,46 @@ class IroDocumentController extends Controller
             'Document loaded successfully.',
             $payload,
             ['document' => $payload]
+        );
+    }
+
+    public function markViewed(Request $request, string $id): JsonResponse
+    {
+        $profile = $this->ensureIro($request);
+        $document = Document::query()->whereKey($id)->firstOrFail();
+
+        if (
+            $profile->role === Profile::ROLE_IRO_STAFF &&
+            !in_array($document->status, [
+                Document::STATUS_SUBMITTED,
+                Document::STATUS_LOGGED,
+                Document::STATUS_UNDER_LEGAL_REVIEW,
+                Document::STATUS_CORRECTIONS_NEEDED,
+                Document::STATUS_APPROVED,
+                Document::STATUS_PENDING_NOTARIZATION,
+                Document::STATUS_NOTARIZED,
+            ], true)
+        ) {
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException(
+                'The requested document could not be found.'
+            );
+        }
+
+        $view = AuditLog::query()->firstOrCreate(
+            [
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'action' => 'document.viewed',
+            ],
+            ['metadata' => []]
+        );
+
+        return $this->success(
+            'Document view recorded successfully.',
+            [
+                'viewed' => true,
+                'viewed_at' => $view->created_at?->toISOString(),
+            ]
         );
     }
 
@@ -586,7 +629,7 @@ class IroDocumentController extends Controller
     {
         $profile = $this->ensureIroAdmin($request);
         $validated = $request->validate([
-            'reason' => ['required', 'string', 'min:3', 'max:2000'],
+            'reason' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $document = DB::transaction(function () use ($id, $profile, $validated) {
@@ -603,7 +646,12 @@ class IroDocumentController extends Controller
                 'iro_admin.review.returned_for_revision',
                 $previousStatus,
                 Document::STATUS_CORRECTIONS_NEEDED,
-                ['reason' => trim($validated['reason']), 'destination' => $this->ownershipMetadata($document)]
+                [
+                    'reason' => isset($validated['reason'])
+                        ? trim($validated['reason'])
+                        : null,
+                    'destination' => $this->ownershipMetadata($document),
+                ]
             );
             return $document->refresh();
         });
@@ -897,7 +945,10 @@ class IroDocumentController extends Controller
         string $orderColumn,
         ?array $statuses = null,
         ?Profile $profile = null,
-        bool $adminReviewQueue = false
+        bool $adminReviewQueue = false,
+        bool $includeStaffTitle = false,
+        bool $supportsViewTracking = false,
+        bool $supportsTitleFilter = false
     ): JsonResponse {
         $profile ??= $this->ensureIro($request);
         $options = Pagination::options(
@@ -908,7 +959,7 @@ class IroDocumentController extends Controller
                 ? [...Document::workflowStatuses(), 'Revised']
                 : Document::workflowStatuses()
         );
-        $filters = $request->validate([
+        $filterRules = [
             'document_type' => [
                 'nullable',
                 Rule::in(['MOA', 'MOU', 'MOF']),
@@ -920,7 +971,13 @@ class IroDocumentController extends Controller
             ],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
-        ]);
+        ];
+
+        if ($supportsTitleFilter) {
+            $filterRules['title'] = ['nullable', 'string', 'max:255'];
+        }
+
+        $filters = $request->validate($filterRules);
         $operator = Pagination::searchOperator();
 
         $query = Document::query()
@@ -944,16 +1001,38 @@ class IroDocumentController extends Controller
                 ])
             )
             ->when(
+                $supportsViewTracking,
+                fn ($query) => $query->withExists([
+                    'auditLogs as viewed' => fn ($auditQuery) =>
+                        $auditQuery
+                            ->where('action', 'document.viewed')
+                            ->where('actor_id', $profile->id),
+                ])
+            )
+            ->when(
                 $options['search'] !== '',
-                function ($query) use ($options, $operator, $profile) {
-                    $query->where(function ($builder) use ($options, $operator, $profile) {
+                function ($query) use (
+                    $options,
+                    $operator,
+                    $profile,
+                    $includeStaffTitle
+                ) {
+                    $query->where(function ($builder) use (
+                        $options,
+                        $operator,
+                        $profile,
+                        $includeStaffTitle
+                    ) {
                         $builder->where(
                             'tracking_number',
                             $operator,
                             "%{$options['search']}%"
                         );
 
-                        if ($profile->role !== Profile::ROLE_IRO_STAFF) {
+                        if (
+                            $profile->role !== Profile::ROLE_IRO_STAFF ||
+                            $includeStaffTitle
+                        ) {
                             $builder
                                 ->orWhere('title', $operator, "%{$options['search']}%")
                                 ->orWhere('partner_institution', $operator, "%{$options['search']}%");
@@ -967,6 +1046,14 @@ class IroDocumentController extends Controller
                         );
                     });
                 }
+            )
+            ->when(
+                $supportsTitleFilter && ($filters['title'] ?? null),
+                fn ($query) => $query->where(
+                    'title',
+                    $operator,
+                    "%{$filters['title']}%"
+                )
             )
             ->when(
                 $options['status'] && (
@@ -1072,6 +1159,7 @@ class IroDocumentController extends Controller
                 ? [
                     'id',
                     'tracking_number',
+                    ...($includeStaffTitle ? ['title'] : []),
                     'department_id',
                     'status',
                     'submitted_at',
@@ -1086,7 +1174,13 @@ class IroDocumentController extends Controller
 
         $items = $documents
             ->map(fn (Document $document): array =>
-                $this->payloadFor($profile, $document, $adminReviewQueue)
+                $this->payloadFor(
+                    $profile,
+                    $document,
+                    $adminReviewQueue,
+                    $includeStaffTitle,
+                    $supportsViewTracking
+                )
             )
             ->values();
 
@@ -1104,7 +1198,9 @@ class IroDocumentController extends Controller
     private function payloadFor(
         Profile $profile,
         Document $document,
-        bool $adminReviewQueue = false
+        bool $adminReviewQueue = false,
+        bool $includeStaffTitle = false,
+        bool $supportsViewTracking = false
     ): array
     {
         if ($profile->role !== Profile::ROLE_IRO_STAFF) {
@@ -1118,6 +1214,9 @@ class IroDocumentController extends Controller
                         ? 'Revised'
                         : Document::STATUS_LOGGED,
                 ] : []),
+                ...($supportsViewTracking ? [
+                    'viewed' => (bool) $document->viewed,
+                ] : []),
                 'current_assignment' => $this->currentAssignment($document),
                 'reassignment_destinations' =>
                     $this->reassignmentDestinations($document),
@@ -1129,6 +1228,10 @@ class IroDocumentController extends Controller
         return [
             'id' => $document->id,
             'tracking_number' => $document->tracking_number,
+            ...($includeStaffTitle ? ['title' => $document->title] : []),
+            ...($supportsViewTracking ? [
+                'viewed' => (bool) $document->viewed,
+            ] : []),
             'department_id' => $document->department_id,
             'department' => $document->department
                 ? [

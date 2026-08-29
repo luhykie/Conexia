@@ -68,6 +68,7 @@ class DashboardRepository
         return [
             'id',
             'tracking_number',
+            'title',
             'document_type',
             'partner_institution',
             'partnership_scope',

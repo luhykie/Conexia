@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, History, MessageSquareText, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, History, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -15,7 +15,10 @@ import {
   returnAdminReviewForRevision,
   validateAdminReview,
 } from "../services/iroAdminService";
-import { getIroDocument } from "../services/iroDocumentService";
+import {
+  getIroDocument,
+  markIroDocumentViewed,
+} from "../services/iroDocumentService";
 import {
   createDocumentAnnotation,
   getDocumentAnnotations,
@@ -27,7 +30,50 @@ import {
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-export function DepartmentalDocumentHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, Section = SubmissionDetailSection }) {
+const initialDocumentHistoryState = {
+  selectedVersion: "",
+  isHistoryExpanded: false,
+  isMenuOpen: false,
+  previewResetCount: 0,
+};
+
+function reduceDocumentHistoryState(state, action) {
+  switch (action.type) {
+    case "reset":
+      return initialDocumentHistoryState;
+    case "set-initial-version":
+      return { ...state, selectedVersion: action.version };
+    case "toggle-menu":
+      return { ...state, isMenuOpen: !state.isMenuOpen };
+    case "close-menu":
+      return { ...state, isMenuOpen: false };
+    case "select-option": {
+      const sameVersion = action.version === state.selectedVersion;
+      const isHistoryExpanded = sameVersion
+        ? !state.isHistoryExpanded
+        : true;
+      return {
+        ...state,
+        selectedVersion: action.version,
+        isHistoryExpanded,
+        isMenuOpen: false,
+        previewResetCount: state.previewResetCount + (
+          sameVersion && !isHistoryExpanded ? 1 : 0
+        ),
+      };
+    }
+    default:
+      return state;
+  }
+}
+
+export function DepartmentalDocumentHistory(props) {
+  return props.versionDropdown
+    ? <VersionDropdownHistory {...props} />
+    : <LegacyDocumentHistory {...props} />;
+}
+
+function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, Section = SubmissionDetailSection }) {
   const [open, setOpen] = React.useState(false);
   const [original, setOriginal] = React.useState(null);
   const [versions, setVersions] = React.useState([]);
@@ -86,6 +132,159 @@ export function DepartmentalDocumentHistory({ documentId, loadHistory, onViewVer
   </div></Section>;
 }
 
+function VersionDropdownHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, highlightsVisible, liveAnnotations, canManageAnnotations, onUpdateComment, onRequestRemove, Section = SubmissionDetailSection }) {
+  const [versions, setVersions] = React.useState([]);
+  const [viewEvents, setViewEvents] = React.useState([]);
+  const [original, setOriginal] = React.useState(null);
+  const [approvedDocument, setApprovedDocument] = React.useState(null);
+  const [historyState, dispatchHistory] = React.useReducer(
+    reduceDocumentHistoryState,
+    initialDocumentHistoryState,
+  );
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const dropdownRef = React.useRef(null);
+  const triggerRef = React.useRef(null);
+  const handledPreviewResetRef = React.useRef(0);
+  const {
+    selectedVersion,
+    isHistoryExpanded: isExpanded,
+    isMenuOpen,
+    previewResetCount,
+  } = historyState;
+
+  React.useEffect(() => {
+    let active = true;
+    setVersions([]); setViewEvents([]); handledPreviewResetRef.current = 0; dispatchHistory({ type: "reset" }); setLoading(true); setError("");
+    loadHistory(documentId)
+      .then((response) => {
+        if (!active) return;
+        const loadedVersions = newestVersions(response.versions ?? []);
+        setVersions(loadedVersions);
+        setViewEvents(response.view_events ?? []);
+        setOriginal(response.original ?? null);
+        setApprovedDocument(response.approved_document ?? null);
+        dispatchHistory({ type: "set-initial-version", version: String(loadedVersions.find((version) => version.latest)?.file.version ?? loadedVersions[0]?.file.version ?? "all") });
+      })
+      .catch((requestError) => active && setError(requestError.message))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, [documentId, loadHistory]);
+
+  React.useEffect(() => {
+    if (!isMenuOpen) return undefined;
+    function closeOnOutsideClick(event) {
+      if (!dropdownRef.current?.contains(event.target)) dispatchHistory({ type: "close-menu" });
+    }
+    function closeOnEscape(event) {
+      if (event.key !== "Escape") return;
+      dispatchHistory({ type: "close-menu" });
+      triggerRef.current?.focus();
+    }
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isMenuOpen]);
+
+  React.useLayoutEffect(() => {
+    if (previewResetCount === handledPreviewResetRef.current) return;
+    handledPreviewResetRef.current = previewResetCount;
+    if (viewingVersion) onCloseVersion();
+  }, [onCloseVersion, previewResetCount, viewingVersion]);
+
+  function toggleVersion(version) {
+    const sameVersion = version === selectedVersion;
+    const collapsing = sameVersion && isExpanded;
+    if (!sameVersion && viewingVersion) onCloseVersion();
+    dispatchHistory({ type: "select-option", version });
+    if (!collapsing) {
+      const nextVersion = version === "all"
+        ? versions.find((item) => item.latest) ?? versions[0]
+        : versions.find((item) => String(item.file.version) === version);
+      if (nextVersion) onViewVersion(
+        historyVersionDetails(nextVersion, original, approvedDocument),
+        { forcePreview: true },
+      );
+    }
+  }
+
+  function toggleHistoryControl() {
+    dispatchHistory({
+      type: isExpanded ? "select-option" : "toggle-menu",
+      ...(isExpanded ? { version: selectedVersion } : {}),
+    });
+  }
+
+  const visibleVersions = selectedVersion === "all" ? versions : versions.filter((version) => String(version.file.version) === selectedVersion);
+  const contentId = `admin-document-history-${documentId}`;
+  const optionsId = `${contentId}-options`;
+
+  return <Section title="Document History"><div className="department-history iro-admin-version-history">
+    <div className="document-filter-control submission-history-filter" ref={dropdownRef}>
+      <button ref={triggerRef} type="button" className="submission-history-filter__toggle" disabled={loading || Boolean(error)} aria-label="Document version history" aria-haspopup="true" aria-expanded={isMenuOpen || isExpanded} aria-controls={`${optionsId} ${contentId}`} data-menu-open={isMenuOpen} onClick={toggleHistoryControl}>
+        {selectedVersion === "all" ? "All Versions" : selectedVersion ? `Version ${selectedVersion}` : "Current Version"}
+        <ChevronDown size={18} aria-hidden="true" />
+      </button>
+      <div id={optionsId} className="submission-history-filter__options" role="menu" aria-label="Document versions">
+        {["all", ...versions.map((version) => String(version.file.version))].map((version) => <button key={version} type="button" aria-pressed={selectedVersion === version} onClick={() => toggleVersion(version)}>{version === "all" ? "All Versions" : `Version ${version}`}</button>)}
+      </div>
+    </div>
+    {loading && <p>Loading history...</p>}
+    {error && <p className="auth-error">{error}</p>}
+    <div id={contentId} className={`department-history__events submission-activity-history__entries${isExpanded ? " is-expanded" : ""}`} aria-hidden={!isExpanded}>
+      <div className="department-history__group"><b>Documents &amp; Revisions</b>
+        {visibleVersions.map((version) => {
+          const selected = historyVersionDetails(version, original, approvedDocument);
+          const isOriginal = selected.file.id === original?.file?.id;
+          const isApproved = selected.file.id === approvedDocument?.file?.id;
+          const labels = [isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`];
+          if (isApproved) labels.push("Approved");
+          if (version.latest) labels.push("Latest");
+          const details = [version.file.filename, version.status || null, version.file.created_at ? new Date(version.file.created_at).toLocaleString() : null];
+          return <HistoryVersionRow key={`version-${version.file.id}`} version={selected} label={labels.join(" - ")} detail={details.filter(Boolean).join(" - ")} />;
+        })}
+        {!visibleVersions.length && !loading && !error && <p>No document versions found.</p>}
+      </div>
+      {viewEvents.map((event) => <article key={event.id} className="submission-activity-history__event document-view-history-event">
+        <History size={16} aria-hidden="true" />
+        <div>
+          <b>{event.label}</b>
+          <small>{event.actor || "System"} · {event.created_at ? new Date(event.created_at).toLocaleString() : "Date unavailable"}</small>
+        </div>
+      </article>)}
+      {visibleVersions.map((version) => {
+        const selected = historyVersionDetails(version, original, approvedDocument);
+        const isActivePreview = highlightsVisible && viewingVersion?.file.id === version.file.id;
+        const annotations = isActivePreview
+          ? liveAnnotations
+          : numberAnnotations(version.annotations ?? []);
+        return <DepartmentalVersionAnnotations
+          key={`annotations-${version.file.id}`}
+          version={{ ...selected, annotations }}
+          Section={Section}
+          showHighlightNumbers
+          canManage={isActivePreview && canManageAnnotations}
+          onUpdateComment={onUpdateComment}
+          onRequestRemove={onRequestRemove}
+        />;
+      })}
+    </div>
+  </div></Section>;
+}
+
+function newestVersions(versions) {
+  return [...versions].sort((left, right) => Number(right.file.version) - Number(left.file.version));
+}
+
+function historyVersionDetails(version, original, approvedDocument) {
+  if (version.file.id === approvedDocument?.file?.id) return { ...version, ...approvedDocument };
+  if (version.file.id === original?.file?.id) return { ...version, ...original };
+  return version;
+}
+
 export function DepartmentalVersionAnnotations({ version, Section = SubmissionDetailSection, showHighlightNumbers = false, canManage = false, onUpdateComment, onRequestRemove }) {
   const [editingId, setEditingId] = React.useState("");
   const [draftComment, setDraftComment] = React.useState("");
@@ -116,7 +315,7 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
     {error && <p className="auth-error" role="alert">{error}</p>}
     {!version.annotations?.length && <p>No saved annotations for this version.</p>}
     {(version.annotations ?? []).map((item) => <article key={item.id}>
-      <small>{showHighlightNumbers && <b className="departmental-review__marker">Highlight #{item.display_number}</b>}{item.department || annotationRoleLabel(item.actor_role) || "Department"} · {item.author || "Staff"}</small>
+      <small>{showHighlightNumbers && <b className="departmental-review__marker">Highlight #{item.display_number}</b>}{item.department || annotationRoleLabel(item.actor_role) || "Department"} · {item.author || "Staff"} · {version.status || "Status unavailable"}{(item.updated_at || item.created_at) ? ` · ${new Date(item.updated_at || item.created_at).toLocaleString()}` : ""}</small>
       {(item.selected_text || item.highlight) && <blockquote>{item.selected_text || item.highlight}</blockquote>}
       {editingId === item.id ? <form className="iro-admin-annotation-edit" onSubmit={(event) => saveComment(event, item)}>
         <label htmlFor={`annotation-comment-${item.id}`}>Edit Comment</label>
@@ -137,7 +336,7 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
 }
 
 function HistoryVersionRow({ version, label, detail, action, onViewVersion }) {
-  return <article className="department-history__version"><div><b>{label}</b><small>{detail || version.file.filename}</small></div><button type="button" className="table-action" onClick={() => onViewVersion(version)}>{action}</button></article>;
+  return <article className="department-history__version"><div><b>{label}</b><small>{detail || version.file.filename}</small></div>{action && <button type="button" className="table-action" onClick={() => onViewVersion(version)}>{action}</button>}</article>;
 }
 
 function annotationRoleLabel(role) {
@@ -171,16 +370,15 @@ export function DocumentReviewPage({ documentId }) {
   const [annotations, setAnnotations] = React.useState([]);
   const [selection, setSelection] = React.useState(null);
   const [comment, setComment] = React.useState("");
-  const [reason, setReason] = React.useState("");
-  const [decisionComments, setDecisionComments] = React.useState("");
-  const [legalCounsel, setLegalCounsel] = React.useState([]);
+  const [remarks, setRemarks] = React.useState("");
   const [legalCounselId, setLegalCounselId] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [confirmation, setConfirmation] = React.useState(null);
-  const [expandedAction, setExpandedAction] = React.useState(null);
   const [historyVersion, setHistoryVersion] = React.useState(null);
+  const [historyHighlightsVisible, setHistoryHighlightsVisible] = React.useState(true);
+  const historyCloseTimerRef = React.useRef(null);
 
   React.useEffect(() => {
     let active = true;
@@ -188,7 +386,9 @@ export function DocumentReviewPage({ documentId }) {
       getIroDocument(documentId),
       getDocumentFiles(documentId, { per_page: 100 }),
       getActiveLegalCounselUsers(),
-    ]).then(([documentResponse, filesResponse, counselResponse]) => {
+    ]).then(async ([documentResponse, filesResponse, counselResponse]) => {
+      if (!active) return;
+      await markIroDocumentViewed(documentId);
       if (!active) return;
       const loadedDocument = documentResponse.document ?? documentResponse.data;
       const loadedFiles = filesResponse.files ?? filesResponse.data?.items ?? filesResponse.data ?? [];
@@ -199,12 +399,13 @@ export function DocumentReviewPage({ documentId }) {
       setDocument(loadedDocument);
       setFiles(loadedFiles);
       setFileId(latestFile?.id || "");
-      setLegalCounsel(users);
       setLegalCounselId(users[0]?.id || "");
     }).catch((requestError) => active && setError(requestError.message))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [documentId]);
+
+  React.useEffect(() => () => window.clearTimeout(historyCloseTimerRef.current), []);
 
   React.useEffect(() => {
     let active = true;
@@ -293,7 +494,6 @@ export function DocumentReviewPage({ documentId }) {
   }
 
   function returnForRevision() {
-    if (!reason.trim()) return;
     setConfirmation({ type: "return" });
   }
 
@@ -323,9 +523,9 @@ export function DocumentReviewPage({ documentId }) {
     setBusy(true);
     try {
       if (pending.type === "return") {
-        await returnAdminReviewForRevision(documentId, reason.trim());
+        await returnAdminReviewForRevision(documentId, remarks.trim());
       } else {
-        await validateAdminReview(documentId, legalCounselId, decisionComments.trim());
+        await validateAdminReview(documentId, legalCounselId, remarks.trim());
       }
       navigate("/app/log-review", { replace: true });
     } catch (requestError) { setError(requestError.message); setBusy(false); }
@@ -335,7 +535,7 @@ export function DocumentReviewPage({ documentId }) {
   const actionable = document?.status === "Logged";
   const numberedAnnotations = React.useMemo(() => numberAnnotations(annotations), [annotations]);
   const viewingOriginal = historyVersion?.history_view === "original";
-  const visibleAnnotations = viewingOriginal ? [] : numberedAnnotations;
+  const overlayAnnotations = historyHighlightsVisible ? numberedAnnotations : [];
   const canAnnotateSelectedVersion = actionable && !viewingOriginal;
   const latestFile = [...files].sort(
     (left, right) => Number(right.version) - Number(left.version),
@@ -378,6 +578,9 @@ export function DocumentReviewPage({ documentId }) {
 
     return {
       versions,
+      view_events: (authoritativeHistory.events ?? []).filter(
+        (event) => event.action === "document.viewed",
+      ),
       original: originalVersion
         ? { ...originalVersion, annotations: [], history_view: "original" }
         : null,
@@ -386,18 +589,32 @@ export function DocumentReviewPage({ documentId }) {
     };
   }, [document?.partner_department_id, document?.status, documentId, files, latestFile?.id]);
 
-  function viewHistoryVersion(version) {
+  function viewHistoryVersion(version, options = {}) {
     setSelection(null);
+    window.clearTimeout(historyCloseTimerRef.current);
+    if (
+      !options.forcePreview &&
+      historyVersion?.file.id === version.file.id &&
+      historyHighlightsVisible
+    ) {
+      closeHistoryVersion();
+      return;
+    }
     if (fileId !== version.file.id) setAnnotations([]);
     setHistoryVersion(version);
+    setHistoryHighlightsVisible(true);
     setFileId(version.file.id);
   }
 
   function closeHistoryVersion() {
     setSelection(null);
     if (fileId !== latestFile?.id) setAnnotations([]);
-    setHistoryVersion(null);
+    setHistoryHighlightsVisible(false);
     setFileId(latestFile?.id || "");
+    window.clearTimeout(historyCloseTimerRef.current);
+    historyCloseTimerRef.current = window.setTimeout(() => {
+      setHistoryVersion(null);
+    }, 220);
   }
 
   return (
@@ -419,7 +636,7 @@ export function DocumentReviewPage({ documentId }) {
               ? <DepartmentalPdfReview
                   documentId={documentId}
                   fileId={fileId}
-                  annotations={visibleAnnotations}
+                  annotations={overlayAnnotations}
                   canAnnotate={canAnnotateSelectedVersion}
                   onCreateAnnotation={async (payload) => {
                     setBusy(true);
@@ -471,27 +688,12 @@ export function DocumentReviewPage({ documentId }) {
               <SubmissionDetail label="Partnership Scope" value={document.partnership_scope} />
             </SubmissionDetailSection>
             {document.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{document.description}</p></SubmissionDetailSection>}
-            <DepartmentalDocumentHistory documentId={documentId} loadHistory={loadDepartmentalHistory} onViewVersion={viewHistoryVersion} onCloseVersion={closeHistoryVersion} viewingVersion={Boolean(historyVersion)} Section={SubmissionDetailSection} />
-            {historyVersion && <DepartmentalVersionAnnotations version={{ ...historyVersion, annotations: visibleAnnotations }} Section={SubmissionDetailSection} showHighlightNumbers canManage={canAnnotateSelectedVersion} onUpdateComment={updateAnnotationComment} onRequestRemove={requestAnnotationRemoval} />}
+            <DepartmentalDocumentHistory documentId={documentId} loadHistory={loadDepartmentalHistory} onViewVersion={viewHistoryVersion} onCloseVersion={closeHistoryVersion} viewingVersion={historyVersion} highlightsVisible={historyHighlightsVisible} liveAnnotations={numberedAnnotations} canManageAnnotations={canAnnotateSelectedVersion} onUpdateComment={updateAnnotationComment} onRequestRemove={requestAnnotationRemoval} Section={SubmissionDetailSection} versionDropdown />
           {fileId && actionable && <section className="review-actions" aria-label="IRO Admin review decisions">
-            <div className={`review-action-card return-action${expandedAction === "return" ? " is-expanded" : ""}`}>
-              <button type="button" className="review-action-toggle" aria-expanded={expandedAction === "return"} onClick={() => setExpandedAction((current) => current === "return" ? null : "return")}>
-                <RotateCcw size={18} /> Return for Revision
-              </button>
-              {expandedAction === "return" && <div className="review-action-fields">
-                <label>Required reason<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} maxLength={2000} /></label>
-                <button type="button" onClick={returnForRevision} disabled={busy || !reason.trim()}>Return for Revision</button>
-              </div>}
-            </div>
-            <div className={`review-action-card validate-action${expandedAction === "validate" ? " is-expanded" : ""}`}>
-              <button type="button" className="review-action-toggle" aria-expanded={expandedAction === "validate"} onClick={() => setExpandedAction((current) => current === "validate" ? null : "validate")}>
-                <CheckCircle2 size={18} /> Validate & Route to Legal
-              </button>
-              {expandedAction === "validate" && <div className="review-action-fields">
-                <label>Legal Counsel<select value={legalCounselId} onChange={(event) => setLegalCounselId(event.target.value)} required><option value="">Select Legal Counsel</option>{legalCounsel.map((user) => <option key={user.id} value={user.id}>{user.full_name || user.email}</option>)}</select></label>
-                <label>Review comments (optional)<textarea value={decisionComments} onChange={(event) => setDecisionComments(event.target.value)} rows={2} maxLength={2000} /></label>
-                <button type="button" onClick={validateAndRoute} disabled={busy || !legalCounselId}>Validate & Route to Legal</button>
-              </div>}
+            <label className="review-action-fields">Remarks<textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} rows={2} maxLength={2000} /></label>
+            <div className="review-action-buttons">
+              <button type="button" className="review-action-button--return" onClick={returnForRevision} disabled={busy}><RotateCcw size={18} /> Return for Revision</button>
+              <button type="button" className="review-action-button--validate" onClick={validateAndRoute} disabled={busy || !legalCounselId}><CheckCircle2 size={18} /> Validate & Route to Legal</button>
             </div>
           </section>}
           {fileId && !actionable && <p className="review-complete-notice">This review is read-only because the document has already moved to <b>{document.status}</b>. Saved annotations remain visible.</p>}
@@ -501,7 +703,6 @@ export function DocumentReviewPage({ documentId }) {
       {confirmation && (
         <ConexiaConfirmationModal
           confirmation={confirmation}
-          legalCounselName={legalCounsel.find((user) => user.id === legalCounselId)?.full_name}
           onCancel={() => setConfirmation(null)}
           onConfirm={confirmAction}
         />
@@ -535,9 +736,9 @@ function formatDocumentDate(value) {
   return value ? new Date(value).toLocaleString() : "—";
 }
 
-function ConexiaConfirmationModal({ confirmation, legalCounselName, onCancel, onConfirm }) {
+function ConexiaConfirmationModal({ confirmation, onCancel, onConfirm }) {
   const confirmButtonRef = React.useRef(null);
-  const content = confirmationContent(confirmation.type, legalCounselName);
+  const content = confirmationContent(confirmation.type);
 
   React.useEffect(() => {
     confirmButtonRef.current?.focus();
@@ -565,7 +766,7 @@ function ConexiaConfirmationModal({ confirmation, legalCounselName, onCancel, on
   );
 }
 
-function confirmationContent(type, legalCounselName) {
+function confirmationContent(type) {
   if (type === "return") return {
     title: "Return for Revision?",
     description: "This document will be returned to the originating office for revision. All saved highlights and comments will be preserved as part of the review history.",
@@ -574,8 +775,8 @@ function confirmationContent(type, legalCounselName) {
   };
   if (type === "validate") return {
     title: "Validate & Route to Legal?",
-    description: `This review will be marked as validated and the document will be routed to ${legalCounselName || "the selected Legal Counsel"}.`,
-    confirmLabel: "Validate & Route",
+    description: "This review will be marked as validated and the document will be routed to Legal Counsel.",
+    confirmLabel: "Validate & Route to Legal",
     tone: "validate",
   };
   return {

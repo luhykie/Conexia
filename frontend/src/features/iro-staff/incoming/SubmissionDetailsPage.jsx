@@ -10,7 +10,10 @@ import {
   returnDocumentForCorrection,
   submitDocumentToIroAdmin,
 } from "../../../services/iroStaffService";
-import { getIroDocument } from "../../../services/iroDocumentService";
+import {
+  getIroDocument,
+  markIroDocumentViewed,
+} from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -32,6 +35,8 @@ export default function SubmissionDetailsPage({ documentId }) {
 
       try {
         const response = await getIroDocument(documentId);
+        if (!active) return;
+        await markIroDocumentViewed(documentId);
         if (active) setDocument(response.document ?? response.data ?? null);
       } catch (requestError) {
         reportClientError("Unable to load submission details:", requestError);
@@ -127,7 +132,8 @@ export default function SubmissionDetailsPage({ documentId }) {
 
       {!loading && document && (
         <>
-          <Panel
+          <div className="submission-details-layout">
+            <Panel
             title="Submitted Form"
             subtitle="Read-only information provided by the submitting user"
             className="submission-details-panel"
@@ -158,9 +164,10 @@ export default function SubmissionDetailsPage({ documentId }) {
                 <p>Uploaded documents cannot be viewed, previewed, downloaded, edited, or annotated by IRO Staff.</p>
               </div>
             </div>
-          </Panel>
+            </Panel>
 
-          <GeneralSubmissionHistory documentId={document.id} />
+            <GeneralSubmissionHistory documentId={document.id} />
+          </div>
           <DocumentChat documentId={document.id} variant="drawer" />
 
           <Panel

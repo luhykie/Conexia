@@ -198,6 +198,7 @@ class DashboardService
 
                 $payload = [
                     'tracking_number' => $document->tracking_number,
+                    'title' => $document->title,
                     'timestamp' => $document->updated_at
                         ? $document->updated_at->toISOString()
                         : $document->submitted_at?->toISOString(),

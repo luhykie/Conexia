@@ -1,4 +1,4 @@
-import { apiGet, withQuery } from "../api/apiClient";
+import { apiGet, apiPost, withQuery } from "../api/apiClient";
 
 export function getIncomingDocuments(params = {}) {
   return apiGet(withQuery("/iro/documents/incoming", params));
@@ -6,6 +6,10 @@ export function getIncomingDocuments(params = {}) {
 
 export function getIroDocument(documentId) {
   return apiGet(`/iro/documents/${documentId}`);
+}
+
+export function markIroDocumentViewed(documentId) {
+  return apiPost(`/iro/documents/${documentId}/view`, {});
 }
 
 export function getIroStatusDocuments(params = {}) {

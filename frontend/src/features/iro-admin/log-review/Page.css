@@ -11,8 +11,19 @@
 .iro-admin-review-details .review-action-fields textarea { min-height: 54px; padding: .5rem; resize: vertical; }
 .iro-admin-review-details .review-action-fields select { padding: .5rem; }
 .iro-admin-review-details .review-action-fields > button { padding: .55rem .7rem; }
+.iro-admin-review-details .review-action-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.iro-admin-review-details .review-action-buttons button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; width: 100%; min-height: 44px; height: 44px; padding: .55rem .7rem; }
+.iro-admin-review-details .review-action-button--return { border-color: #b65c55; background: #b65c55; color: white; }
+.iro-admin-review-details .review-action-button--validate { border-color: #27845b; background: #27845b; color: white; }
 .iro-admin-review-details .department-history__events article { align-items: flex-start; }
 .iro-admin-review-details .department-history__events .table-action { flex: 0 0 auto; }
+.iro-admin-review-details .iro-admin-version-history { display: grid; gap: .6rem; }
+.iro-admin-review-details .iro-admin-version-history .submission-history-filter { position: relative; }
+.iro-admin-review-details .iro-admin-version-history .submission-history-filter__options { position: absolute; top: 100%; right: 0; left: 0; z-index: 20; display: none; flex-direction: column; gap: 0; max-height: 15rem; overflow-y: auto; padding: .3rem; border: 1px solid var(--line); border-radius: .4rem; background: white; box-shadow: 0 8px 20px rgba(0, 0, 0, .14); }
+.iro-admin-review-details .iro-admin-version-history .submission-history-filter__toggle[data-menu-open="true"] + .submission-history-filter__options { display: flex; }
+.iro-admin-review-details .iro-admin-version-history .submission-history-filter__options button { width: 100%; border: 0; border-radius: .25rem; background: transparent; text-align: left; }
+.iro-admin-review-details .iro-admin-version-history .submission-history-filter__options button:hover, .iro-admin-review-details .iro-admin-version-history .submission-history-filter__options button[aria-pressed="true"] { background: rgba(39, 132, 91, .1); }
+.iro-admin-review-details .iro-admin-version-history .submission-activity-history__entries.is-expanded { max-height: min(55vh, 28rem); overflow-y: auto; }
 .document-version-label { color: var(--text-muted, #66736d); }
 .pdf-document-viewer { min-height: 70vh; max-height: 78vh; overflow: auto; padding: 1.25rem; background: #4b5158; border-radius: .75rem; user-select: text; }
 .pdf-page { position: relative; margin: 0 auto 1.25rem; overflow: visible; background: white; box-shadow: 0 4px 18px rgba(0,0,0,.28); }
@@ -23,7 +34,7 @@
 .pdf-annotation-group { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .saved-text-highlight { position: absolute; display: block; padding: 0; border: 0; border-radius: 2px; background: rgba(76, 175, 80, 0.20); mix-blend-mode: multiply; pointer-events: auto; cursor: pointer; }
 .saved-text-highlight__marker { position: absolute; top: -9px; left: -9px; z-index: 2; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid #176b48; border-radius: 9px; background: #27845b; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); font-size: 10px; font-weight: 800; line-height: 1; mix-blend-mode: normal; pointer-events: none; }
-.iro-admin-document-review-page .saved-text-highlight { cursor: default; }
+.iro-admin-document-review-page .saved-text-highlight { background: rgba(255, 221, 51, .48); cursor: default; }
 .iro-admin-annotation-actions, .iro-admin-annotation-edit > div { display: flex; justify-content: flex-end; gap: .45rem; margin-top: .65rem; }
 .iro-admin-annotation-actions button, .iro-admin-annotation-edit button { width: auto; padding: .4rem .6rem; font-size: .76rem; }
 .iro-admin-annotation-edit { display: grid; gap: .45rem; margin-top: .65rem; }
@@ -67,4 +78,4 @@
 .conexia-confirm-danger { background: #a83f38; border-color: #a83f38; color: white; }
 .conexia-confirm-primary { background: #27845b; border-color: #27845b; color: white; }
 @media (max-width: 1100px) { .iro-admin-review-workspace { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .review-actions { grid-template-columns: 1fr; } .pdf-document-viewer { padding: .5rem; } }
+@media (max-width: 760px) { .review-actions, .iro-admin-review-details .review-action-buttons { grid-template-columns: 1fr; } .pdf-document-viewer { padding: .5rem; } }

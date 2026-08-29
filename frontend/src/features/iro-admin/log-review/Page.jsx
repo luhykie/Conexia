@@ -94,10 +94,12 @@ export default function IroAdminLogReviewPage({ documentId }) {
 
   const rows = documents.map((document) => [
     document.tracking_number,
+    document.title || "-",
     partnershipScope(document),
     document.partner_institution || "-",
     document.document_type || "-",
     document.review_status || document.status || "-",
+    document.viewed ? "Viewed" : "Not Viewed",
     document.status === "Correction Required" ? (
       <button
         type="button"
@@ -141,7 +143,9 @@ export default function IroAdminLogReviewPage({ documentId }) {
             }}
             statusOptions={["Logged", "Revised", "Correction Required"]}
             partnershipScopeOptions={["Local", "Departmental", "International"]}
+            searchPlaceholder="Search by tracking number, document title, partner, or institution..."
             showDepartment
+            showTitleFilter
           />
           {loading && <p>Loading incoming documents...</p>}
           {error && <p className="auth-error">{error}</p>}
@@ -152,10 +156,12 @@ export default function IroAdminLogReviewPage({ documentId }) {
             <DataTable
               headers={[
                 "Tracking #",
+                "Document Title",
                 "Partnership Scope",
                 "Partner",
                 "Document Type",
                 "Status",
+                "View Status",
                 "Action",
               ]}
               rows={rows}
