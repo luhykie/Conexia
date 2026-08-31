@@ -41,6 +41,7 @@ export default function Page() {
           setDashboard({
             stats: data.stats ?? {},
             trend: normalizeTrend(data.trend),
+            offices: data.offices ?? data.departments ?? [],
             recentActivity: data.recent_activity ?? [],
             system: data.system ?? {},
           });
@@ -144,16 +145,42 @@ export default function Page() {
         </Panel>
       </section>
 
+      <Panel title="Departments at a Glance">
+        {loading && <p>Loading departments...</p>}
+        {!loading && !errorMessage && dashboard.offices.length === 0 && (
+          <p>No department activity is available.</p>
+        )}
+        {!loading && dashboard.offices.map((office) => (
+          <article className="super-activity" key={`${office.code}-${office.name}`}>
+            <strong>{office.code || "N/A"} - {office.name || "Unassigned"}</strong>
+            <p>
+              {formatCount(office.totalDocuments)} documents -{" "}
+              {formatCount(office.active)} active -{" "}
+              {formatCount(office.pending)} pending
+            </p>
+            <small>{formatCount(office.activeUsers)} active users</small>
+          </article>
+        ))}
+      </Panel>
+
       <Panel title="Recent Administrative Activity">
         {loading && <p>Loading activity...</p>}
         {!loading && !errorMessage && dashboard.recentActivity.length === 0 && (
           <p>No recent administrative activity is available.</p>
         )}
         {!loading && dashboard.recentActivity.map((item, index) => (
-          <article className="super-activity" key={`${item.title}-${index}`}>
-            <strong>{item.title || "Administrative activity"}</strong>
-            <p>{item.description || item.detail || ""}</p>
-            <small>{item.time || "-"}</small>
+          <article
+            className="super-activity"
+            key={`${item.tracking_number ?? item.title}-${index}`}
+          >
+            <strong>
+              {item.tracking_number || item.title || "Administrative activity"}
+            </strong>
+            <p>
+              {item.status || item.description || item.detail || ""}
+              {item.department?.code ? ` - ${item.department.code}` : ""}
+            </p>
+            <small>{formatDateTime(item.timestamp) || item.time || "-"}</small>
           </article>
         ))}
       </Panel>
@@ -164,10 +191,23 @@ export default function Page() {
 function TrendChart({ data }) {
   const values = data.map((item) => Number(item.activeUsers ?? 0));
   const max = Math.max(...values, 1);
+  const chartLeft = 44;
+  const chartRight = 276;
+  const chartTop = 40;
+  const chartBottom = 148;
+  const chartHeight = chartBottom - chartTop;
+  const axisTicks = Array.from({ length: 5 }, (_, index) => {
+    const value = Math.round((max / 4) * (4 - index));
+    const y = chartTop + index * (chartHeight / 4);
+
+    return { value, y };
+  });
   const points = values
     .map((value, index) => {
-      const x = 24 + index * (252 / Math.max(values.length - 1, 1));
-      const y = 148 - (value / max) * 108;
+      const x =
+        chartLeft +
+        index * ((chartRight - chartLeft) / Math.max(values.length - 1, 1));
+      const y = chartBottom - (value / max) * chartHeight;
 
       return `${x},${y}`;
     })
@@ -176,6 +216,21 @@ function TrendChart({ data }) {
   return (
     <div className="super-chart">
       <svg viewBox="0 0 300 170" role="img" aria-label="Active user trend">
+        {axisTicks.map((tick) => (
+          <g className="super-chart-tick" key={`${tick.value}-${tick.y}`}>
+            <line x1={chartLeft} x2={chartRight} y1={tick.y} y2={tick.y} />
+            <text x={34} y={tick.y} textAnchor="end">
+              {formatCount(tick.value)}
+            </text>
+          </g>
+        ))}
+        <line
+          className="super-chart-axis"
+          x1={chartLeft}
+          x2={chartLeft}
+          y1={chartTop}
+          y2={chartBottom}
+        />
         <polyline points={points} />
         {points.split(" ").map((point, index) => {
           const [cx, cy] = point.split(",");
@@ -196,6 +251,7 @@ function createEmptyDashboard() {
   return {
     stats: {},
     trend: normalizeTrend(),
+    offices: [],
     recentActivity: [],
     system: {},
   };
@@ -234,4 +290,18 @@ function createTrendPoint(period) {
 
 function formatCount(value) {
   return String(Number.isFinite(Number(value)) ? Number(value) : 0).padStart(2, "0");
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString();
 }

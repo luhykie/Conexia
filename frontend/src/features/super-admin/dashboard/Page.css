@@ -80,6 +80,22 @@
   stroke-linejoin: round;
 }
 
+.super-chart-tick line {
+  stroke: #d9e1dd;
+  stroke-width: 1;
+}
+
+.super-chart-tick text {
+  fill: #667085;
+  dominant-baseline: middle;
+  font-size: 0.7rem;
+}
+
+.super-chart-axis {
+  stroke: #a8b8b0;
+  stroke-width: 1;
+}
+
 .super-chart circle {
   fill: #047857;
 }

@@ -133,27 +133,28 @@ class DashboardService
 
     public function superAdmin(): array
     {
+        $documents = $this->dashboards->iroDocuments();
+
         $stats = [
             'totalUsers' => $this->dashboards->totalUsers(),
             'activeUsers' => $this->dashboards->activeUsers(),
             'activeDepartments' =>
                 $this->dashboards->activeDepartments(),
-            'activeSessions' => 0,
+            'activeSessions' => $this->dashboards->activeSessions(),
             'failedLoginAttempts' => 0,
         ];
 
         return [
             'stats' => $stats,
-            'trend' => [
-                'daily' => $this->governanceTrend($stats, 'Today'),
-                'weekly' => $this->governanceTrend($stats, 'Current'),
-                'monthly' => $this->governanceTrend($stats, 'Current'),
-            ],
-            'recent_activity' => [],
+            'trend' => $this->auditActivityTrend($stats),
+            'offices' => $this->officeBreakdown($documents),
+            'recent_activity' => $this->recentActivity($documents, true),
             'system' => [
                 'platform_status' => 'Operational',
-                'database_status' => 'Connected',
-                'storage_usage' => 'Not tracked',
+                'database_status' => $this->dashboards->databaseStatus(),
+                'storage_usage' => $this->formatStorageUsage(
+                    $this->dashboards->documentStorageBytes()
+                ),
                 'security_alerts' => '0 warnings',
             ],
         ];
@@ -284,19 +285,98 @@ class DashboardService
             ->all();
     }
 
-    private function governanceTrend(
-        array $stats,
-        string $currentPeriod
-    ): array {
+    private function auditActivityTrend(array $stats): array
+    {
         return [
-            [
-                'period' => 'Previous',
-                ...$stats,
-            ],
-            [
-                'period' => $currentPeriod,
-                ...$stats,
-            ],
+            'daily' => $this->auditActivityPoints(
+                $this->dashboards->activityCounts('daily', 7),
+                $stats
+            ),
+            'weekly' => $this->auditActivityPoints(
+                $this->dashboards->activityCounts('weekly', 8),
+                $stats
+            ),
+            'monthly' => $this->auditActivityPoints(
+                $this->dashboards->activityCounts('monthly', 6),
+                $stats
+            ),
         ];
+    }
+
+    private function auditActivityPoints(array $activity, array $stats): array
+    {
+        return collect($activity)
+            ->map(fn (array $point): array => [
+                'period' => $point['period'],
+                'totalUsers' => $stats['totalUsers'],
+                'activeUsers' => $point['activeUsers'],
+                'activeDepartments' => $stats['activeDepartments'],
+                'activeSessions' => $stats['activeSessions'],
+                'activity' => $point['activity'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function officeBreakdown(Collection $documents): array
+    {
+        $activeUsersByDepartment =
+            $this->dashboards->activeUsersByDepartment();
+
+        return $documents
+            ->groupBy(fn (Document $document): string =>
+                $document->department_id ?? 'unassigned'
+            )
+            ->map(function (Collection $group, string $departmentId) use (
+                $activeUsersByDepartment
+            ): array {
+                $department = $group->first()?->department;
+
+                return [
+                    'code' => $department?->code ?? 'N/A',
+                    'name' => $department?->name ?? 'Unassigned',
+                    'totalDocuments' => $group->count(),
+                    'pending' => $this->countIn($group, [
+                        Document::STATUS_SUBMITTED,
+                        Document::STATUS_CORRECTIONS_NEEDED,
+                        Document::STATUS_PENDING_NOTARIZATION,
+                    ]),
+                    'active' => $this->countIn($group, [
+                        Document::STATUS_SUBMITTED,
+                        Document::STATUS_LOGGED,
+                        Document::STATUS_UNDER_LEGAL_REVIEW,
+                        Document::STATUS_CORRECTIONS_NEEDED,
+                        Document::STATUS_APPROVED,
+                        Document::STATUS_PENDING_NOTARIZATION,
+                    ]),
+                    'activeUsers' =>
+                        $activeUsersByDepartment[$departmentId] ?? 0,
+                ];
+            })
+            ->sortBy('code')
+            ->values()
+            ->all();
+    }
+
+    private function formatStorageUsage(?int $bytes): string
+    {
+        if ($bytes === null) {
+            return 'Not tracked';
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $value = max($bytes, 0);
+        $unitIndex = 0;
+
+        while ($value >= 1024 && $unitIndex < count($units) - 1) {
+            $value /= 1024;
+            $unitIndex++;
+        }
+
+        $formatted = $unitIndex === 0
+            ? (string) $value
+            : number_format($value, 1);
+
+        return "{$formatted} {$units[$unitIndex]}";
     }
 }
