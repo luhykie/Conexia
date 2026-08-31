@@ -196,7 +196,7 @@ class DashboardRepository
         if ($period === 'weekly') {
             $start = $now->copy()
                 ->subWeeks($offset)
-                ->startOfWeek(Carbon::MONDAY);
+                ->startOfWeek(1);
 
             return [
                 'key' => $start->format('Y-m-d'),
