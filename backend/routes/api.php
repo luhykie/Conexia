@@ -392,6 +392,11 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     '/iro/documents/{id}',
                     [IroDocumentController::class, 'show']
                 );
+
+                Route::post(
+                    '/iro/documents/{id}/view',
+                    [IroDocumentController::class, 'markViewed']
+                );
             });
 
         Route::middleware(

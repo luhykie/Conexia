@@ -14,16 +14,22 @@ export function DocumentFilters({
   showPartnershipScope = true,
   partnershipScopeOptions = partnershipScopes,
   showDateRange = true,
+  showTitleFilter = false,
   showExpiryWindow = false,
   showDepartment = false,
   showAssignedLegal = false,
   unsupported = {},
 }) {
   const [search, setSearch] = React.useState(filters.search || "");
+  const [title, setTitle] = React.useState(filters.title || "");
 
   React.useEffect(() => {
     setSearch(filters.search || "");
   }, [filters.search]);
+
+  React.useEffect(() => {
+    setTitle(filters.title || "");
+  }, [filters.title]);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -34,6 +40,16 @@ export function DocumentFilters({
 
     return () => window.clearTimeout(timer);
   }, [search, filters.search, onChange]);
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (title !== (filters.title || "")) {
+        onChange("title", title);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [title, filters.title, onChange]);
 
   const activeFilters = activeFilterItems(filters, {
     statusOptions,
@@ -94,11 +110,22 @@ export function DocumentFilters({
         )}
       </div>
 
-      {(showDateRange ||
+      {(showTitleFilter ||
+        showDateRange ||
         showExpiryWindow ||
         showDepartment ||
         showAssignedLegal) && (
         <div className="document-filters__advanced">
+          {showTitleFilter && (
+            <FilterText
+              label="Document Title"
+              value={title}
+              disabled={unsupported.title}
+              onChange={setTitle}
+              placeholder="Filter by document title"
+            />
+          )}
+
           {showDateRange && (
             <>
               <FilterDate
@@ -179,6 +206,7 @@ export function useDocumentFilters(initialFilters = {}) {
   const emptyFilters = React.useMemo(
     () => ({
       search: "",
+      title: "",
       status: "",
       document_type: "",
       partnership_scope: "",
@@ -263,6 +291,28 @@ function FilterDate({ label, value, disabled = false, onChange }) {
   );
 }
 
+function FilterText({
+  label,
+  value,
+  placeholder,
+  disabled = false,
+  onChange,
+}) {
+  return (
+    <label className="document-filter-control">
+      <span>{label}</span>
+      <input
+        type="text"
+        value={value}
+        disabled={disabled}
+        title={disabled ? "Backend filter support required" : undefined}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
 function activeFilterItems(filters) {
   return Object.entries(filters)
     .filter(([, value]) => value)
@@ -275,6 +325,7 @@ function activeFilterItems(filters) {
 function labelFor(key) {
   return {
     search: "Search",
+    title: "Document Title",
     status: "Status",
     document_type: "Agreement Type",
     partnership_scope: "Partnership Scope",

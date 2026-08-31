@@ -1690,6 +1690,104 @@ textarea:focus {
 .submission-activity-history__event small,
 .submission-activity-history__event p { display: block; margin: 0.2rem 0 0; }
 
+.department-history__events .document-view-history-event,
+.submission-activity-history__entries .document-view-history-event {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  justify-content: start;
+  gap: 8px;
+  text-align: left;
+}
+
+.document-view-history-event > svg {
+  width: 16px;
+  min-width: 16px;
+  margin-top: 2px;
+}
+
+.department-history__events .document-view-history-event > div,
+.submission-activity-history__entries .document-view-history-event > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.document-view-history-event b,
+.document-view-history-event small {
+  max-width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.document-view-history-event small { margin-top: 0; }
+
+.submission-history-filter__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--cx-color-border, #d7dfd9);
+  border-radius: var(--cx-radius-sm);
+  color: var(--cx-color-text);
+  background: #fff;
+  font: inherit;
+  text-align: left;
+}
+
+.submission-history-filter__toggle svg {
+  flex: 0 0 auto;
+  transition: transform 180ms ease;
+}
+
+.submission-history-filter__toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.submission-history-filter__options {
+  display: none;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+}
+
+.submission-history-filter__toggle[aria-expanded="true"] + .submission-history-filter__options {
+  display: flex;
+}
+
+.submission-history-filter__options button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--cx-color-border, #d7dfd9);
+  border-radius: 999px;
+  color: var(--cx-color-primary-900, #064e3b);
+  background: #f7fbf8;
+}
+
+.submission-history-filter__options button[aria-pressed="true"] {
+  border-color: var(--cx-color-primary-700, #08745b);
+  background: var(--cx-color-primary-50, #ecfdf5);
+}
+
+.submission-activity-history__entries {
+  max-height: 0;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 240ms ease, opacity 180ms ease;
+}
+
+.submission-activity-history__entries.is-expanded {
+  max-height: 70vh;
+  overflow-y: auto;
+  opacity: 1;
+}
+
 .correction-resubmission {
   display: grid;
   gap: var(--cx-space-4, 16px);

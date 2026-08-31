@@ -91,10 +91,12 @@ export default function IroStaffIncomingPage() {
 
   const rows = documents.map((document) => [
     document.tracking_number,
+    document.title || "-",
     departmentName(document),
     formatDate(document.submitted_at),
     ageLabel(document.submitted_at),
     statusBadge(document),
+    document.viewed ? "Viewed" : "Not Viewed",
     <div key={`action-${document.id}`} className="table-action-group">
       <button
         type="button"
@@ -147,7 +149,7 @@ export default function IroStaffIncomingPage() {
             clearFilters();
             setPage(1);
           }}
-          searchPlaceholder="Search by tracking number or submitting office..."
+          searchPlaceholder="Search by tracking number, document title, or submitting office..."
           statusOptions={[
             "Submitted",
             "Logged",
@@ -159,6 +161,7 @@ export default function IroStaffIncomingPage() {
           ]}
           showAgreementType={false}
           showDepartment={false}
+          showTitleFilter
         />
         {loading && <p>Loading reminder queue...</p>}
         {error && <p className="auth-error">{error}</p>}
@@ -171,10 +174,12 @@ export default function IroStaffIncomingPage() {
           <DataTable
             headers={[
               "Tracking #",
+              "Document Title",
               "Submitting Office",
               "Date Submitted",
               "Age",
               "Current Status",
+              "View Status",
               "Action",
             ]}
             rows={rows}

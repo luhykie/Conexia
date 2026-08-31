@@ -177,6 +177,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
 
         $submitted = $this->document([
             'status' => Document::STATUS_SUBMITTED,
+            'title' => 'Visible Incoming Agreement',
         ]);
 
         $archived = $this->document([
@@ -191,7 +192,10 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         $response->assertJsonFragment(['id' => $submitted->id]);
         $response->assertJsonMissing(['id' => $archived->id]);
         $response->assertJsonMissingPath('data.0.partner_institution');
-        $response->assertJsonMissingPath('data.0.title');
+        $response->assertJsonPath(
+            'data.0.title',
+            'Visible Incoming Agreement'
+        );
         $response->assertJsonMissingPath('data.0.document_type');
         $response->assertJsonMissingPath('data.0.legal_notes');
     }
@@ -204,6 +208,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
         $logged = $this->document([
             'status' => Document::STATUS_LOGGED,
+            'title' => 'Logged Research Agreement',
         ]);
         $underReview = $this->document([
             'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
@@ -216,11 +221,36 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertOk()
             ->assertJsonCount(1, 'documents')
             ->assertJsonPath('documents.0.id', $logged->id)
+            ->assertJsonPath('documents.0.title', 'Logged Research Agreement')
             ->assertJsonPath('documents.0.status', Document::STATUS_LOGGED)
             ->assertJsonPath('meta.total', 1);
 
         $response->assertJsonMissing(['id' => $submitted->id]);
         $response->assertJsonMissing(['id' => $underReview->id]);
+
+        $this->getJson(
+            '/api/iro/documents/incoming?search=Research%20Agreement',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertOk()
+            ->assertJsonCount(1, 'documents')
+            ->assertJsonPath('documents.0.id', $logged->id);
+
+        $this->getJson(
+            '/api/iro/documents/incoming?title=research%20AGREE',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertOk()
+            ->assertJsonCount(1, 'documents')
+            ->assertJsonPath('documents.0.id', $logged->id)
+            ->assertJsonPath('meta.total', 1);
+
+        $this->getJson(
+            '/api/iro/documents/incoming?title[]=invalid',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('title');
 
         $this->getJson(
             '/api/iro/documents/incoming?status=Submitted',
@@ -290,6 +320,183 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('documents.0.review_status', 'Revised');
     }
 
+    public function test_iro_admin_document_view_status_is_per_viewer_and_recorded_after_open(): void
+    {
+        $viewer = $this->profile(Profile::ROLE_IRO_ADMIN, [
+            'full_name' => 'Ada Admin',
+        ]);
+        $otherAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $unauthorized = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'status' => Document::STATUS_LOGGED,
+        ]);
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.viewed', false);
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}",
+            $this->authHeaders($viewer)
+        )->assertOk();
+
+        $this->assertDatabaseMissing('audit_logs', [
+            'actor_id' => $viewer->id,
+            'document_id' => $document->id,
+            'action' => 'document.viewed',
+        ]);
+
+        $this->postJson(
+            "/api/iro/documents/{$document->id}/view",
+            [],
+            $this->authHeaders($unauthorized)
+        )->assertForbidden();
+
+        $this->postJson(
+            "/api/iro/documents/{$document->id}/view",
+            [],
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('data.viewed', true);
+
+        $this->postJson(
+            "/api/iro/documents/{$document->id}/view",
+            [],
+            $this->authHeaders($viewer)
+        )->assertOk();
+
+        $this->assertSame(
+            1,
+            AuditLog::query()
+                ->where('actor_id', $viewer->id)
+                ->where('document_id', $document->id)
+                ->where('action', 'document.viewed')
+                ->count()
+        );
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.viewed', true);
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($otherAdmin)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.viewed', false);
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}/history",
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('events.0.action', 'document.viewed')
+            ->assertJsonPath('events.0.label', 'Document viewed')
+            ->assertJsonPath('events.0.actor', 'Ada Admin')
+            ->assertJsonPath('events.0.created_at', fn ($value) =>
+                is_string($value) && $value !== ''
+            );
+    }
+
+    public function test_iro_staff_document_view_status_is_per_viewer_and_idempotent(): void
+    {
+        $viewer = $this->profile(Profile::ROLE_IRO_STAFF, [
+            'full_name' => 'PAIR IRO Administrator',
+        ]);
+        $otherStaff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $document = $this->document([
+            'status' => Document::STATUS_SUBMITTED,
+        ]);
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.viewed', false);
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}",
+            $this->authHeaders($viewer)
+        )->assertOk();
+
+        $this->assertDatabaseMissing('audit_logs', [
+            'actor_id' => $viewer->id,
+            'document_id' => $document->id,
+            'action' => 'document.viewed',
+        ]);
+
+        $this->postJson(
+            "/api/iro/documents/{$document->id}/view",
+            [],
+            $this->authHeaders($viewer)
+        )->assertOk();
+
+        $this->postJson(
+            "/api/iro/documents/{$document->id}/view",
+            [],
+            $this->authHeaders($viewer)
+        )->assertOk();
+
+        $this->assertSame(
+            1,
+            AuditLog::query()
+                ->where('actor_id', $viewer->id)
+                ->where('document_id', $document->id)
+                ->where('action', 'document.viewed')
+                ->count()
+        );
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.viewed', true);
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($otherStaff)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.viewed', false);
+
+        $this->getJson(
+            "/api/iro/documents/{$document->id}/history",
+            $this->authHeaders($viewer)
+        )
+            ->assertOk()
+            ->assertJsonPath('events.0.action', 'document.viewed')
+            ->assertJsonPath('events.0.label', 'Document viewed')
+            ->assertJsonPath('events.0.actor', 'PAIR IRO Administrator')
+            ->assertJsonPath('events.0.created_at', fn ($value) =>
+                is_string($value) && $value !== ''
+            );
+
+        $archived = $this->document([
+            'status' => Document::STATUS_ARCHIVED,
+        ]);
+
+        $this->postJson(
+            "/api/iro/documents/{$archived->id}/view",
+            [],
+            $this->authHeaders($viewer)
+        )->assertNotFound();
+
+        $this->assertDatabaseMissing('audit_logs', [
+            'actor_id' => $viewer->id,
+            'document_id' => $archived->id,
+            'action' => 'document.viewed',
+        ]);
+    }
+
     public function test_iro_staff_can_view_submission_details(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_STAFF);
@@ -341,6 +548,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             $matching = $this->document([
                 'department_id' => $department->id,
                 'status' => Document::STATUS_SUBMITTED,
+                'title' => 'Cross-Border Exchange Agreement',
                 'partnership_scope' => 'Local',
                 'document_type' => 'MOU',
             ]);
@@ -375,6 +583,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             $response = $this->getJson(
                 '/api/iro/documents/incoming?'.http_build_query([
                     'search' => 'Engineering',
+                    'title' => 'exchange AGREEMENT',
                     'partnership_scope' => 'Local',
                     'document_type' => 'MOU',
                     'department' => 'ENG',
@@ -512,6 +721,10 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
     public function test_iro_staff_can_forward_submitted_document_to_admin_once(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_STAFF);
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $inactiveAdmin = $this->profile(Profile::ROLE_IRO_ADMIN, [
+            'is_active' => false,
+        ]);
         $document = $this->document([
             'status' => Document::STATUS_SUBMITTED,
         ]);
@@ -1078,6 +1291,14 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             'document_id' => $document->id,
             'action' => 'iro_admin.review.returned_for_revision',
         ]);
+        $this->assertSame(
+            'Please correct the termination clause.',
+            AuditLog::query()
+                ->where('document_id', $document->id)
+                ->where('action', 'iro_admin.review.returned_for_revision')
+                ->firstOrFail()
+                ->metadata['reason']
+        );
         $this->assertDatabaseHas('audit_logs', [
             'id' => $annotation->id,
             'action' => 'document_file.annotated',
@@ -1088,6 +1309,31 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ['reason' => 'A duplicate transition must fail.'],
             $this->authHeaders($admin)
         )->assertUnprocessable();
+    }
+
+    public function test_iro_admin_can_return_logged_document_without_remarks(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $document = $this->document(['status' => Document::STATUS_LOGGED]);
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/admin-review/return",
+            [],
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'document.status',
+                Document::STATUS_CORRECTIONS_NEEDED
+            );
+
+        $this->assertNull(
+            AuditLog::query()
+                ->where('document_id', $document->id)
+                ->where('action', 'iro_admin.review.returned_for_revision')
+                ->firstOrFail()
+                ->metadata['reason']
+        );
     }
 
     public function test_iro_admin_can_validate_logged_document_and_route_to_active_legal_counsel(): void
@@ -1109,6 +1355,20 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             'document_id' => $document->id,
             'action' => 'iro_admin.review.validated_and_routed_to_legal',
         ]);
+
+        $withoutRemarks = $this->document([
+            'status' => Document::STATUS_LOGGED,
+        ]);
+        $this->patchJson(
+            "/api/iro/documents/{$withoutRemarks->id}/admin-review/validate",
+            ['legal_counsel_id' => $legal->id, 'comments' => ''],
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'document.status',
+                Document::STATUS_UNDER_LEGAL_REVIEW
+            );
     }
 
     public function test_iro_admin_routes_legal_correction_to_originating_department(): void

@@ -109,6 +109,7 @@ class DashboardAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('data.stats.archived', 1)
             ->assertJsonFragment([
                 'entity_name' => 'SCS',
+                'title' => 'Restricted Title',
                 'type' => 'MOA',
             ])
             ->assertJsonMissingPath('data.recent_activity.0.partner_institution')
@@ -119,6 +120,7 @@ class DashboardAuthorizationTest extends SecurityTestCase
     {
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
         $document = $this->document([
+            'title' => 'International Partnership Agreement',
             'partnership_scope' => 'International',
         ]);
 
@@ -130,6 +132,10 @@ class DashboardAuthorizationTest extends SecurityTestCase
             ->assertJsonPath(
                 'data.recent_activity.0.tracking_number',
                 $document->tracking_number
+            )
+            ->assertJsonPath(
+                'data.recent_activity.0.title',
+                'International Partnership Agreement'
             )
             ->assertJsonPath(
                 'data.recent_activity.0.partnership_scope',

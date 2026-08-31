@@ -20,6 +20,7 @@ class DepartmentHistoryController extends Controller
         'department.submission.created',
         'iro_admin.document.created',
         'document_file.uploaded',
+        'document.viewed',
         'department.review.routed',
         'department.review.correction_requested',
         'department.revision.resubmitted',
@@ -186,6 +187,7 @@ class DepartmentHistoryController extends Controller
         $version = $file?->version;
         $labels = [
             'department.submission.created' => 'Submission created',
+            'document.viewed' => 'Document viewed',
             'department.review.routed' => 'Sent to Partner Department',
             'department.review.correction_requested' => 'Correction requested',
             'department.revision.resubmitted' => 'Sent for Partner Re-Review',
@@ -198,6 +200,7 @@ class DepartmentHistoryController extends Controller
 
         return [
             'id' => $log->id,
+            'action' => $log->action,
             'label' => $label,
             'actor' => $log->actor?->full_name ?? 'System',
             'actor_role' => $log->actor?->role,
@@ -246,6 +249,7 @@ class DepartmentHistoryController extends Controller
 
         return match ($action) {
             'department.submission.created', 'iro_admin.document.created' => 'Submission created',
+            'document.viewed' => 'Document viewed',
             'department.review.routed' => 'Routed for department review',
             'department.review.correction_requested', 'legal.review.correction_requested',
             'iro_staff.document.returned_for_correction', 'iro_admin.review.returned_for_revision' => 'Correction requested',

@@ -149,11 +149,14 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
     }),
   );
 
+  const showDocumentTitle = roleKey === "staff" || roleKey === "admin";
+  const showEntityName = roleKey !== "admin";
   const activityRows = (dashboard?.recent_activity ?? []).map((item) => [
     item.tracking_number || "-",
-    roleKey === "staff"
+    ...(showDocumentTitle ? [item.title || "-"] : []),
+    ...(showEntityName ? [roleKey === "staff"
       ? item.department?.code || item.department?.name || item.entity_name || "-"
-      : item.entity_name || item.department?.code || "-",
+      : item.entity_name || item.department?.code || "-"] : []),
     item.type || "-",
     formatDateTime(item.timestamp),
     item.status || "-",
@@ -180,7 +183,10 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
             <DataTable
               headers={[
                 "Submission ID",
-                roleKey === "staff" ? "Submitting Office" : "Entity Name",
+                ...(showDocumentTitle ? ["Document Title"] : []),
+                ...(showEntityName
+                  ? [roleKey === "staff" ? "Submitting Office" : "Entity Name"]
+                  : []),
                 "Type",
                 "Timestamp",
                 "Status",
