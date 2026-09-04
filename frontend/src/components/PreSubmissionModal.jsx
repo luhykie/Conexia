@@ -102,7 +102,7 @@ export function PreSubmissionModal({ open, onClose, onConfirm, account, loading 
 
         <div className="pre-submission-content">
           {step === 1 && <>
-            <fieldset className="pre-submission-field"><legend>What type of agreement are you initiating?</legend><OptionGroup name="agreementType" value={answers.agreementType} onChange={update} options={[["MOA", "MOA", "Memorandum of Agreement"], ["MOU", "MOU", "Memorandum of Understanding"], ["MOF", "MOF", "Memorandum of Friendship"]]} disabled={loading} /></fieldset>
+            <fieldset className="pre-submission-field"><legend>What type of agreement are you initiating?</legend><OptionGroup name="agreementType" value={answers.agreementType} onChange={update} options={[["MOA", "MOA", "Memorandum of Agreement"], ["MOU", "MOU", "Memorandum of Understanding"]]} disabled={loading} /></fieldset>
             <fieldset className="pre-submission-field"><legend>Is this a new partnership or a renewal of an existing one?</legend><OptionGroup name="submissionType" value={answers.submissionType} onChange={update} options={[["new", "New Partnership"], ["renewal", "Renewal"]]} disabled={loading} /></fieldset>
             <fieldset className="pre-submission-field"><legend>Is the partner institution local, international, or Departmental?</legend><OptionGroup name="partnerClassification" value={answers.partnerClassification} onChange={update} options={[["local", "Local"], ["international", "International"], ["Departmental", "Departmental"]]} disabled={loading} /></fieldset>
           </>}
@@ -126,7 +126,7 @@ export function PreSubmissionModal({ open, onClose, onConfirm, account, loading 
               <label className="pre-submission-input">Title of Agreement<input value={answers.agreementTitle} onChange={(event) => update("agreementTitle", event.target.value)} disabled={loading} placeholder="Enter agreement title" /></label>
               <label className="pre-submission-input">Requested Date of Completion<input type="date" value={answers.requestedCompletionDate} onChange={(event) => update("requestedCompletionDate", event.target.value)} disabled={loading} /></label>
             </div>
-            <fieldset className="pre-submission-field pre-submission-field--nested"><legend>Urgency Level</legend><OptionGroup name="urgencyLevel" value={answers.urgencyLevel} onChange={update} options={[["normal", "Normal"], ["urgent", "Urgent"], ["highly_urgent", "Highly Urgent"]]} disabled={loading} /></fieldset>
+            <fieldset className="pre-submission-field pre-submission-field--nested"><legend>Urgency Level</legend><OptionGroup name="urgencyLevel" value={answers.urgencyLevel} onChange={update} options={[["normal", "Normal"], ["urgent", "Urgent"]]} disabled={loading} /></fieldset>
           </fieldset>}
           {error && <div className="auth-error">{error}</div>}
         </div>

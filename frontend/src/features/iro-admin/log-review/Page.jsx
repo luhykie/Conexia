@@ -142,7 +142,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
               setPage(1);
             }}
             statusOptions={["Logged", "Revised", "Correction Required"]}
-            partnershipScopeOptions={["Local", "Departmental", "International"]}
+            partnershipScopeOptions={["Local", "International"]}
             searchPlaceholder="Search by tracking number, document title, partner, or institution..."
             showDepartment
             showTitleFilter
@@ -176,7 +176,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
 
 function partnershipScope(document) {
   const scope = document.partnership_scope || document.partnership_type;
-  return ["Departmental", "Local", "International"].includes(scope)
+  return ["Local", "International"].includes(scope)
     ? scope
     : "-";
 }

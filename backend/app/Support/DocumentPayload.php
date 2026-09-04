@@ -26,7 +26,7 @@ class DocumentPayload
             'contact_number' => $document->contact_number,
             'urgency' => $document->urgency,
             'requested_completion_date' =>
-                $document->requested_completion_date?->toDateString(),
+                $document->requested_completion_date?->format('Y-m-d'),
             'department_id' => $document->department_id,
             'partner_department_id' => $document->partner_department_id,
             'department_review_version' => $document->department_review_version,
@@ -39,16 +39,16 @@ class DocumentPayload
             'notarial_reference_number' =>
                 $document->notarial_reference_number,
             'notarization_date' =>
-                $document->notarization_date?->toDateString(),
+                $document->notarization_date?->format('Y-m-d'),
             'notary_signature_code' =>
                 $document->notary_signature_code,
             'archived_at' =>
                 $document->archived_at?->toISOString(),
             'archived_by' => $document->archived_by,
             'effective_date' =>
-                $document->effective_date?->toDateString(),
+                $document->effective_date?->format('Y-m-d'),
             'expiry_date' =>
-                $document->expiry_date?->toDateString(),
+                $document->expiry_date?->format('Y-m-d'),
             'renewal_notice_days' =>
                 $document->renewal_notice_days,
             'renewal_status' =>

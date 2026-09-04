@@ -242,7 +242,6 @@ class ExpiryTrackingTest extends SecurityTestCase
         ]);
 
         foreach ([
-            'Departmental' => $departmental,
             'Local' => $local,
             'International' => $international,
         ] as $scope => $expected) {

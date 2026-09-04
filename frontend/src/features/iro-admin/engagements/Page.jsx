@@ -274,7 +274,7 @@ export default function IroAdminEngagementsPage() {
                   </EditField>
                   <EditField label="Agreement Type">
                     <select name="document_type" value={editForm.document_type} onChange={updateEditForm} required>
-                      <option value="MOA">MOA</option><option value="MOU">MOU</option><option value="MOF">MOF</option>
+                      <option value="MOA">MOA</option><option value=""></option><option value=""></option>
                     </select>
                   </EditField>
                   <EditField label="Partnership Type">

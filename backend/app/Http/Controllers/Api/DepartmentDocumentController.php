@@ -90,7 +90,7 @@ class DepartmentDocumentController extends Controller
             'document_type' => ['required', 'string', 'max:100'],
             'partnership_scope' => [
                 'required',
-                Rule::in(['Departmental', 'Local', 'International']),
+                Rule::in(['Local', 'International']),
             ],
             'partner_institution' => ['required', 'string', 'max:255'],
             'partner_email' => ['nullable', 'email', 'max:255'],
@@ -201,7 +201,7 @@ class DepartmentDocumentController extends Controller
         $validated = $request->validate([
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'document_type' => ['sometimes', 'required', 'string', 'max:100'],
-            'partnership_scope' => ['sometimes', 'required', Rule::in(['Departmental', 'Local', 'International'])],
+            'partnership_scope' => ['sometimes', 'required', Rule::in(['Local', 'International'])],
             'partner_institution' => ['sometimes', 'required', 'string', 'max:255'],
             'partner_email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
@@ -232,8 +232,8 @@ class DepartmentDocumentController extends Controller
                 ]);
             }
 
-            $effectiveDate = $validated['effective_date'] ?? $document->effective_date?->toDateString();
-            $expiryDate = $validated['expiry_date'] ?? $document->expiry_date?->toDateString();
+            $effectiveDate = $validated['effective_date'] ?? $document->effective_date;
+            $expiryDate = $validated['expiry_date'] ?? $document->expiry_date;
             if ($effectiveDate && $expiryDate && $expiryDate < $effectiveDate) {
                 throw ValidationException::withMessages([
                     'expiry_date' => 'The expiry date must be on or after the effective date.',

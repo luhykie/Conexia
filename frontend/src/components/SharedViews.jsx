@@ -479,7 +479,6 @@ function ExpiryFilters({ filters, updateFilter }) {
           <option value="all">All</option>
           <option value="MOA">MOA</option>
           <option value="MOU">MOU</option>
-          <option value="MOF">MOF</option>
         </select>
       </label>
       <label>

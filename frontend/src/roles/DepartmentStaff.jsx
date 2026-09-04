@@ -89,7 +89,7 @@ export function DepartmentStaff({ page, account }) {
         roleKey="department"
         title="Institutional Workspace"
         subtitle={`Welcome back, ${account.name || account.fullName}. Here is the real-time status for your department.`}
-        action="New Submission"
+        action="New Engagement"
         onAction={handleNewSubmission}
       />
       <PreSubmissionModal
@@ -545,8 +545,7 @@ function SubmissionPage({ account }) {
                   onChange={updateForm}
                 >
                   <option value="MOA">Memorandum of Agreement (MOA)</option>
-                  <option value="MOU">Memorandum of Understanding (MOU)</option>
-                  <option value="MOF">Memorandum of Funding (MOF)</option>
+                  <option value="">Memorandum of Understanding ()</option>
                 </select>
               </label>
 
@@ -613,7 +612,6 @@ function SubmissionPage({ account }) {
                 <select name="urgencyLevel" value={form.urgencyLevel} onChange={updateForm}>
                   <option value="normal">Normal</option>
                   <option value="urgent">Urgent</option>
-                  <option value="highly_urgent">Highly Urgent</option>
                 </select>
               </label>
             </div>
@@ -768,7 +766,7 @@ function SummaryField({ label, value }) {
 }
 
 function formatUrgency(value) {
-  return value === "highly_urgent" ? "Highly Urgent" : value === "urgent" ? "Urgent" : "Normal";
+  return value === "urgent" ? "Urgent" : "Normal";
 }
 
 function formatDate(value) {
@@ -1106,7 +1104,7 @@ function MySubmissionsPage({ account }) {
                 </button>
                 {editingCorrectionForm && <div className="correction-resubmission__grid">
                   <label className="correction-resubmission__wide">Agreement Title<input value={correctionForm.title} onChange={(event) => setCorrectionForm((current) => ({ ...current, title: event.target.value }))} disabled={processing} required /></label>
-                  <label>Agreement Type<select value={correctionForm.document_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, document_type: event.target.value }))} disabled={processing}><option value="MOA">MOA</option><option value="MOU">MOU</option><option value="MOF">MOF</option></select></label>
+                  <label>Agreement Type<select value={correctionForm.document_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, document_type: event.target.value }))} disabled={processing}><option value="MOA">MOA</option><option value=""></option><option value=""></option></select></label>
                   <label>Partnership Scope<select value={correctionForm.partnership_scope} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_scope: event.target.value }))} disabled={processing}><option value="Departmental">Departmental</option><option value="Local">Local</option><option value="International">International</option></select></label>
                   <label className="correction-resubmission__wide">Partner Organization<input value={correctionForm.partner_institution} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_institution: event.target.value }))} disabled={processing} required /></label>
                   <label className="correction-resubmission__wide">Partner Contact Email<input type="email" value={correctionForm.partner_email} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_email: event.target.value }))} disabled={processing} /></label>
@@ -1508,7 +1506,7 @@ function DepartmentalReviewPanel({ document, review, isCreator, onReviewChange, 
         <label>Correction note<textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Explain the correction required." /></label>
         <div className="departmental-review__actions"><button type="button" className="danger" disabled={saving} onClick={requestCorrection}>Request Correction</button><button type="button" disabled={saving} onClick={approve}>Approve Review</button></div>
       </>}
-      {(review?.items ?? []).length > 0 && <div className="departmental-review__items">{review.items.map((item) => { const marker = item.type === "highlight" ? item.display_number : null; return <article key={item.id}><small>{marker && <b className="departmental-review__marker">Highlight #{marker}</b>}{item.department || "Department"} · {item.author || "Staff"} · {item.created_at ? new Date(item.created_at).toLocaleString() : ""}</small>{item.selected_text && <blockquote className={`departmental-review__highlight departmental-review__highlight--${item.highlight_color || "yellow"}`}>{item.selected_text}</blockquote>}{item.comment && <p>{item.comment}</p>}{canRemoveAnnotation && <button type="button" className="table-action danger departmental-review__delete" title="Remove annotation" aria-label="Remove annotation" disabled={saving} onMouseDown={(event) => event.stopPropagation()} onClick={() => removeAnnotation(item.id)}><Trash2 size={14} /></button>}</article>; })}</div>}
+      {(review?.items ?? []).length > 0 && <div className="departmental-review__items">{review.items.map((item) => { const marker = item.type === "highlight" ? item.display_number : null; return <article key={item.id}><small>{marker && <b className="departmental-review__marker">Highlight #{marker}</b>}{item.department || "Department"} · {item.author || "Staff"} · {item.created_at ? new Date(item.created_at).toLocaleString() : ""}</small>{item.selected_text && <blockquote className={`departmental-review__highlight departmental-review__highlight--${item.highlight_color || "yellow"}`}>{item.selected_text}</blockquote>}{item.comment && <p>{item.comment}</p>}{canRemoveAnnotation && <button type="button" className="table-action danger departmental-review__delete" title="Remove annotation" aria-label="Remove annotation" disabled={saving} onseDown={(event) => event.stopPropagation()} onClick={() => removeAnnotation(item.id)}><Trash2 size={14} /></button>}</article>; })}</div>}
       {error && <p className="auth-error">{error}</p>}
     </div>
   </SubmissionDetailSection>;

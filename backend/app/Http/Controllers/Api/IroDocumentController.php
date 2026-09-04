@@ -208,7 +208,7 @@ class IroDocumentController extends Controller
             'document_type' => [
                 'required',
                 'string',
-                'in:MOA,MOU,MOF',
+                'in:MOA,MOU',
             ],
             'department_id' => ['present', 'nullable', 'uuid', 'exists:departments,id'],
             'partner_institution' => ['required', 'string', 'max:255'],
@@ -217,7 +217,7 @@ class IroDocumentController extends Controller
             'partnership_type' => ['required', 'string', 'max:255'],
             'partnership_scope' => [
                 'required',
-                Rule::in(['Departmental', 'Local', 'International']),
+                Rule::in(['Local', 'International']),
             ],
             'contact_person' => ['required', 'string', 'max:255'],
             'contact_position' => ['nullable', 'string', 'max:255'],
@@ -256,11 +256,11 @@ class IroDocumentController extends Controller
         $profile = $this->ensureIroAdmin($request);
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'document_type' => ['required', Rule::in(['MOA', 'MOU', 'MOF'])],
+            'document_type' => ['required', Rule::in(['MOA', 'MOU'])],
             'partnership_type' => ['required', 'string', 'max:255'],
             'partnership_scope' => [
                 'required',
-                Rule::in(['Departmental', 'Local', 'International']),
+                Rule::in(['Local', 'International']),
             ],
             'department_id' => ['present', 'nullable', 'uuid', 'exists:departments,id'],
             'partner_institution' => ['required', 'string', 'max:255'],
@@ -962,12 +962,12 @@ class IroDocumentController extends Controller
         $filterRules = [
             'document_type' => [
                 'nullable',
-                Rule::in(['MOA', 'MOU', 'MOF']),
+                Rule::in(['MOA', 'MOU']),
             ],
             'department' => ['nullable', 'string', 'max:100'],
             'partnership_scope' => [
                 'nullable',
-                Rule::in(['Local', 'International', 'Departmental']),
+                Rule::in(['Local', 'International']),
             ],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
@@ -1243,7 +1243,7 @@ class IroDocumentController extends Controller
             'status' => $document->status,
             'submitted_at' => $document->submitted_at?->toISOString(),
             'updated_at' => $document->updated_at?->toISOString(),
-            'expiry_date' => $document->expiry_date?->toDateString(),
+            'expiry_date' => $document->expiry_date?->format('Y-m-d'),
             'renewal_status' => $document->renewal_status,
         ];
     }

@@ -136,11 +136,11 @@ class WorkflowSummaryController extends Controller
                 'nullable',
                 Rule::in(['120', '90', '60', '30', 'expired']),
             ],
-            'document_type' => ['nullable', Rule::in(['MOA', 'MOU', 'MOF'])],
+            'document_type' => ['nullable', Rule::in(['MOA', 'MOU'])],
             'department' => ['nullable', 'string', 'max:100'],
             'partnership_scope' => [
                 'nullable',
-                Rule::in(['Departmental', 'Local', 'International']),
+                Rule::in(['Local', 'International']),
             ],
         ]);
 

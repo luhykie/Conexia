@@ -1,8 +1,8 @@
 import React from "react";
 import { Filter, Search, X } from "lucide-react";
 
-const agreementTypes = ["MOA", "MOU", "MOF"];
-const partnershipScopes = ["Departmental", "Local", "International"];
+const agreementTypes = ["MOA", "MOU"];
+const partnershipScopes = ["Local", "International"];
 
 export function DocumentFilters({
   filters,

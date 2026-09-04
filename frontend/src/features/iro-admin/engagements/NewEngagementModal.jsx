@@ -59,12 +59,12 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [fieldErrors, setFieldErrors] = React.useState({});
   const [modalError, setModalError] = React.useState("");
   const [modalSuccess, setModalSuccess] = React.useState("");
-  const mountedRef = React.useRef(true);
+  const ntedRef = React.useRef(true);
 
   React.useEffect(() => {
-    mountedRef.current = true;
+    ntedRef.current = true;
     return () => {
-      mountedRef.current = false;
+      ntedRef.current = false;
     };
   }, []);
 
@@ -96,17 +96,17 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
         throw new Error("No supported countries were returned.");
       }
 
-      if (mountedRef.current) setCountries(options);
+      if (ntedRef.current) setCountries(options);
     } catch (requestError) {
       reportClientError("Unable to load country directory:", requestError);
-      if (mountedRef.current) {
+      if (ntedRef.current) {
         setCountries([philippinesFallback]);
         setCountriesError(
           "Country list unavailable. Philippines (+63) remains available.",
         );
       }
     } finally {
-      if (mountedRef.current) setCountriesLoading(false);
+      if (ntedRef.current) setCountriesLoading(false);
     }
   }
 
@@ -255,7 +255,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     if (currentStep === 4) {
       requiredValues = [selectedFile, form.requested_completion_date, form.urgency];
       if (!selectedFile) {
-        errors.attachment = "Draft MOA/MOU/MOF file is required.";
+        errors.attachment = "Draft MOA// file is required.";
       }
       if (!form.requested_completion_date) {
         errors.requested_completion_date = "Requested completion date is required.";
@@ -377,7 +377,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
 
       await uploadDocumentFile(document.id, selectedFile);
       setModalSuccess("New engagement created and agreement attached successfully.");
-      if (mountedRef.current) {
+      if (ntedRef.current) {
         setSubmitting(false);
       }
       onClose?.();
@@ -386,7 +386,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
       reportClientError("Unable to create engagement:", requestError);
       setModalError(requestError.message || "Unable to create the engagement.");
     } finally {
-      if (mountedRef.current) {
+      if (ntedRef.current) {
         setSubmitting(false);
       }
     }
@@ -440,8 +440,8 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                 Agreement Type
                 <select name="document_type" value={form.document_type} onChange={updateForm}>
                   <option value="MOA">MOA</option>
-                  <option value="MOU">MOU</option>
-                  <option value="MOF">MOF</option>
+                  <option value=""></option>
+                  <option value=""></option>
                 </select>
                 {fieldErrors.document_type && <span className="field-error">{fieldErrors.document_type}</span>}
               </label>
@@ -458,7 +458,6 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
               <label>
                 Partnership Scope
                 <select name="partnership_scope" value={form.partnership_scope} onChange={updateForm}>
-                  <option value="Departmental">Departmental</option>
                   <option value="Local">Local</option>
                   <option value="International">International</option>
                 </select>
@@ -610,7 +609,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
           {modalStep === 4 && (
             <div className="form-step">
               <label className="file-label">
-                Upload Draft MOA/MOU/MOF
+                Upload Draft MOA//
                 <Dropzone
                   selectedFile={selectedFile}
                   detail={selectedFile ? formatFileSize(selectedFile.size) : "PDF, DOCX, ODT - required"}
@@ -646,7 +645,6 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
                 <select name="urgency" value={form.urgency} onChange={updateForm}>
                   <option value="Normal">Normal</option>
                   <option value="Urgent">Urgent</option>
-                  <option value="Highly Urgent">Highly Urgent</option>
                 </select>
                 {fieldErrors.urgency && <span className="field-error">{fieldErrors.urgency}</span>}
               </label>

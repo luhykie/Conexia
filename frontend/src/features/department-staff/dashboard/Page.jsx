@@ -8,7 +8,7 @@ export default function Page({ account }) {
       roleKey="department"
       title="Institutional Workspace"
       subtitle={`Welcome back, ${account?.name || account?.fullName || "Department Staff"}. Here is the real-time status for your department.`}
-      action="New Submission"
+      action="New Engagement"
     />
   );
 }

@@ -126,7 +126,7 @@ class LegalCounselRepository
             'notarial_reference_number' =>
                 $document->notarial_reference_number,
             'notarization_date' =>
-                $document->notarization_date?->toDateString(),
+                $document->notarization_date?->format('Y-m-d'),
             'notary_signature_code' =>
                 $document->notary_signature_code,
             'submitted_at' =>

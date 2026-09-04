@@ -143,7 +143,7 @@ class WorkflowSummaryService
                 'action' => 'document_renewal.requested',
                 'metadata' => [
                     'expiry_date' =>
-                        $document->expiry_date->toDateString(),
+                        $document->expiry_date->format('Y-m-d'),
                 ],
             ]);
 
@@ -162,7 +162,7 @@ class WorkflowSummaryService
                 'total_archived' => $allArchived->count(),
                 'finalized_today' => $allArchived
                     ->filter(fn (Document $document): bool =>
-                        $document->archived_at?->toDateString() === $today
+                        $document->archived_at?->format('Y-m-d') === $today
                     )
                     ->count(),
                 'pending_archival' => $this->summaries
@@ -265,9 +265,9 @@ class WorkflowSummaryService
                     ]
                     : null,
                 'effective_date' =>
-                    $document->effective_date?->toDateString(),
+                    $document->effective_date?->format('Y-m-d'),
                 'expiry_date' =>
-                    $document->expiry_date?->toDateString(),
+                    $document->expiry_date?->format('Y-m-d'),
                 'expiry' => $this->expiryLabel($daysRemaining),
                 'days_remaining' => $daysRemaining,
                 'renewal_status' => $document->renewal_status,
@@ -288,9 +288,9 @@ class WorkflowSummaryService
             'partner_institution' =>
                 $document->partner_institution ?? '-',
             'effective_date' =>
-                $document->effective_date?->toDateString(),
+                $document->effective_date?->format('Y-m-d'),
             'expiry_date' =>
-                $document->expiry_date?->toDateString(),
+                $document->expiry_date?->format('Y-m-d'),
             'expiry' => $this->expiryLabel($daysRemaining),
             'days_remaining' => $daysRemaining,
             'renewal_status' => $document->renewal_status,

@@ -36,7 +36,7 @@ export const roles = {
     label: "IRO ADMIN",
     subtitle:
       "Manage document routing, validate review forms, archive agreements, and generate reports.",
-    theme: "IRO ADMIN",
+    theme: "IRO ADMIN PORTAL",
     user: "PAIR IRO Administrator",
     title: "IRO ADMIN",
     icon: Building2,
@@ -58,7 +58,7 @@ export const roles = {
     label: "LEGAL COUNSEL",
     subtitle:
       "Review agreements, approve or return documents, and record notarization.",
-    theme: "LEGAL COUNSEL",
+    theme: "LEGAL COUNSEL PORTAL",
     user: "Legal Counsel",
     title: "LEGAL COUNSEL",
     icon: Gavel,
@@ -69,7 +69,7 @@ export const roles = {
     label: "DEPARTMENT STAFF",
     subtitle:
       "Submit documents, monitor status, receive legal comments, and resubmit.",
-    theme: "Institutional Repository",
+    theme: "DEPARTMENT STAFF PORTAL",
     user: "Department Staff",
     title: "Department Office",
     icon: Shield,

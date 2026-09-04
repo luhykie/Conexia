@@ -203,8 +203,8 @@ function ExpiryFilters({ filters, updateFilter }) {
         >
           <option value="all">All</option>
           <option value="MOA">MOA</option>
-          <option value="MOU">MOU</option>
-          <option value="MOF">MOF</option>
+          <option value=""></option>
+          <option value=""></option>
         </select>
       </label>
       <label>
@@ -216,7 +216,6 @@ function ExpiryFilters({ filters, updateFilter }) {
           }
         >
           <option value="all">All</option>
-          <option value="Departmental">Departmental</option>
           <option value="Local">Local</option>
           <option value="International">International</option>
         </select>

@@ -348,8 +348,7 @@ export default function Page({ account }) {
                 Agreement Type
                 <select name="agreementType" value={form.agreementType} onChange={updateForm} disabled={submitting}>
                   <option value="MOA">Memorandum of Agreement (MOA)</option>
-                  <option value="MOU">Memorandum of Understanding (MOU)</option>
-                  <option value="MOF">Memorandum of Funding (MOF)</option>
+                  <option value="">Memorandum of Understanding ()</option>
                 </select>
               </label>
 
