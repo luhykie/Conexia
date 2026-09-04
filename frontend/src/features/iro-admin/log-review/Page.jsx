@@ -100,7 +100,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
     document.document_type || "-",
     document.review_status || document.status || "-",
     document.viewed ? "Viewed" : "Not Viewed",
-    document.status === "Correction Required" ? (
+    document.status === "Correction Required" && !isIroAdminCreated(document) ? (
       <button
         type="button"
         className="table-action"
@@ -130,7 +130,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
     <section className="page iro-admin-page iro-admin-log-review-page">
       <PageTitle
         title="Log & Review"
-        subtitle="Review documents submitted directly by departments."
+        subtitle="Review documents submitted by departments and IRO Admin."
       />
 
       <Panel title="Logged Documents">
@@ -155,7 +155,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
           {!loading && !error && rows.length > 0 && (
             <DataTable
               headers={[
-                "Tracking #",
+                "Tracking Number",
                 "Document Title",
                 "Partnership Scope",
                 "Partner",
@@ -179,4 +179,8 @@ function partnershipScope(document) {
   return ["Local", "International"].includes(scope)
     ? scope
     : "-";
+}
+
+function isIroAdminCreated(document) {
+  return document.created_by?.role === "iro_admin";
 }

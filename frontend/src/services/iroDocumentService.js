@@ -16,6 +16,10 @@ export function getIroStatusDocuments(params = {}) {
   return apiGet(withQuery("/iro/documents/status", params));
 }
 
+export function getReassignableIroDocuments(params = {}) {
+  return apiGet(withQuery("/iro/documents/reassignable", params));
+}
+
 export function getIroSubmissionHistory(documentId) {
   return apiGet(`/iro/documents/${documentId}/history`);
 }

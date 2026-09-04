@@ -81,19 +81,24 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.engagement-detail-section--contact {
+.engagement-detail-section--partner {
   grid-column: 1;
   grid-row: 2;
 }
 
+.engagement-detail-section--contact {
+  grid-column: 1;
+  grid-row: 3;
+}
+
 .engagement-detail-section--dates {
   grid-column: 2;
-  grid-row: 2 / span 2;
+  grid-row: 2 / span 3;
 }
 
 .engagement-detail-section--description {
   grid-column: 1;
-  grid-row: 3;
+  grid-row: 4;
 }
 
 .engagement-detail-section h3 {
@@ -183,6 +188,13 @@
   gap: 16px;
 }
 
+.engagement-edit-section-title {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: #164b34;
+  font-size: 0.95rem;
+}
+
 .engagement-edit-field {
   display: grid;
   align-content: start;
@@ -250,6 +262,7 @@
   }
 
   .engagement-detail-section--information,
+  .engagement-detail-section--partner,
   .engagement-detail-section--contact,
   .engagement-detail-section--dates,
   .engagement-detail-section--description {

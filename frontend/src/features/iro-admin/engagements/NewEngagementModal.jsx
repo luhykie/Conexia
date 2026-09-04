@@ -4,15 +4,14 @@ import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString, 
 import { Dropzone } from "../../../components/SharedViews";
 import "../../../components/PreSubmissionModal.css";
 import { getCountryDirectory } from "../../../services/countryService";
-import { getDepartments } from "../../../services/departmentService";
 import { uploadDocumentFile } from "../../../services/documentFileService";
 import { createIroDocument } from "../../../services/iroAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-const initialForm = { document_type: "MOA", partnership_type: "New Partnership", partnership_scope: "Local", partner_institution: "", partner_email: "", department_id: "", contact_person: "", contact_position: "", contact_email: "", contact_country: "PH", contact_number: "", urgency: "Normal" };
+const initialForm = { document_type: "MOA", partnership_type: "New Partnership", partnership_scope: "Local", partner_institution: "", partner_email: "", contact_person: "", contact_position: "", contact_email: "", contact_country: "PH", contact_number: "", urgency: "Normal" };
 const philippinesFallback = { name: "Philippines", code: "+63", iso: "PH" };
-const stepLabels = ["Classification", "Institution Details", "Contact Information", "Attachments"];
+const stepLabels = ["Classification", "Partner Institution", "Primary Partner Contact", "Attachments"];
 
 function getPhoneNumber(number, country) {
   if (!/^\d+$/.test(number) || (country === "PH" && number.length !== 10)) return null;
@@ -24,11 +23,9 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [step, setStep] = React.useState(1);
   const [form, setForm] = React.useState(initialForm);
   const [selectedFile, setSelectedFile] = React.useState(null);
-  const [departments, setDepartments] = React.useState([]);
   const [countries, setCountries] = React.useState([philippinesFallback]);
   const [countriesLoading, setCountriesLoading] = React.useState(true);
   const [countriesError, setCountriesError] = React.useState("");
-  const [loadingDepartments, setLoadingDepartments] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState({});
   const [modalError, setModalError] = React.useState("");
@@ -39,7 +36,6 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   React.useEffect(() => {
     if (!open) return;
     setStep(1); setForm(initialForm); setSelectedFile(null); setSubmitting(false); setFieldErrors({}); setModalError("");
-    loadDepartments();
   }, [open]);
 
   async function loadCountries() {
@@ -54,16 +50,6 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
       reportClientError("Unable to load country directory:", error);
       if (mountedRef.current) { setCountries([philippinesFallback]); setCountriesError("Country list unavailable. Philippines (+63) remains available."); }
     } finally { if (mountedRef.current) setCountriesLoading(false); }
-  }
-
-  async function loadDepartments() {
-    setLoadingDepartments(true);
-    try {
-      const response = await getDepartments({ per_page: 100 });
-      setDepartments(response.data ?? response.departments ?? []);
-    } catch (error) {
-      reportClientError("Unable to load departments:", error); setDepartments([]);
-    } finally { setLoadingDepartments(false); }
   }
 
   function update(name, value) {
@@ -84,21 +70,20 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     const errors = {};
     if (currentStep === 2) {
       if (!form.partner_institution.trim()) errors.partner_institution = "Name of Institution is required.";
-      if (!form.partner_email.trim()) errors.partner_email = "Partner Contact Email is required.";
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.partner_email.trim())) errors.partner_email = "Please enter a valid partner contact email.";
-      if (!form.department_id) errors.department_id = "Please select a responsible office.";
+      if (!form.partner_email.trim()) errors.partner_email = "Institution/Partnership Office Email is required.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.partner_email.trim())) errors.partner_email = "Please enter a valid institution/partnership office email.";
     }
     if (currentStep === 3) {
       if (!form.contact_person.trim()) errors.contact_person = "Contact Person is required.";
       if (!form.contact_position.trim()) errors.contact_position = "Position is required.";
-      if (!form.contact_email.trim()) errors.contact_email = "Email Address is required.";
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) errors.contact_email = "Please enter a valid email address.";
+      if (!form.contact_email.trim()) errors.contact_email = "Direct Email is required.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) errors.contact_email = "Please enter a valid direct email.";
       if (!form.contact_number.trim()) errors.contact_number = "Contact Number is required.";
       else if (!getPhoneNumber(form.contact_number, form.contact_country)) errors.contact_number = "Please enter a valid contact number.";
     }
     if (currentStep === 4) {
       if (!selectedFile) errors.attachment = "Please upload the draft document.";
-      else if (!isSupportedDraft(selectedFile)) errors.attachment = "Upload a PDF, DOCX, or ODT document up to 25 MB.";
+      else if (!isSupportedDraft(selectedFile)) errors.attachment = "Upload a PDF or DOCX document up to 25 MB.";
     }
     return {
       errors,
@@ -128,7 +113,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
       ...current,
       ...(isSupportedDraft(file)
         ? { attachment: undefined }
-        : { attachment: "Upload a PDF, DOCX, or ODT document up to 25 MB." }),
+        : { attachment: "Upload a PDF or DOCX document up to 25 MB." }),
     }));
   }
 
@@ -143,7 +128,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     setSubmitting(true); setModalError("");
     try {
       const institutionName = form.partner_institution.trim();
-      const response = await createIroDocument({ title: institutionName, document_type: form.document_type, partner_institution: institutionName, department_id: form.department_id, partner_email: form.partner_email.trim(), description: null, partnership_type: form.partnership_type, partnership_scope: form.partnership_scope, contact_person: form.contact_person.trim(), contact_position: form.contact_position.trim(), contact_email: form.contact_email.trim(), contact_number: getPhoneNumber(form.contact_number, form.contact_country).number, urgency: form.urgency });
+      const response = await createIroDocument({ title: institutionName, document_type: form.document_type, partner_institution: institutionName, department_id: null, partner_email: form.partner_email.trim(), description: null, partnership_type: form.partnership_type, partnership_scope: form.partnership_scope, contact_person: form.contact_person.trim(), contact_position: form.contact_position.trim(), contact_email: form.contact_email.trim(), contact_number: getPhoneNumber(form.contact_number, form.contact_country).number, urgency: form.urgency });
       const document = response.document ?? response.data;
       if (!document?.id) throw new Error("Unable to create the new engagement.");
       await uploadDocumentFile(document.id, selectedFile); onClose?.(); await onCreated?.();
@@ -157,9 +142,9 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     <div className="pre-submission-header"><div className="pre-submission-hero"><span className="pre-submission-icon"><FilePlus2 size={22} /></span><p className="pre-submission-step">Step {step} of 4 · {stepLabels[step - 1]}</p><h2 id="iro-engagement-title">New Engagement</h2><p className="pre-submission-intro">Complete the required agreement information and upload the draft document.</p></div><button type="button" className="close-button" onClick={close} aria-label="Close" disabled={submitting}><X size={20} /></button></div>
     <div className="pre-submission-content">
       {step === 1 && <><ChoiceField legend="What type of agreement are you initiating?" name="document_type" value={form.document_type} onChange={update} options={[["MOA", "MOA", "Memorandum of Agreement"], ["MOU", "MOU", "Memorandum of Understanding"]]} disabled={submitting} /><ChoiceField legend="Is this a new partnership or a renewal of an existing one?" name="partnership_type" value={form.partnership_type} onChange={update} options={[["New Partnership", "New Partnership"], ["Renewal", "Renewal"]]} disabled={submitting} /><ChoiceField legend="Is the partner institution local or international?" name="partnership_scope" value={form.partnership_scope} onChange={update} options={[["Local", "Local"], ["International", "International"]]} disabled={submitting} /></>}
-      {step === 2 && <fieldset className="pre-submission-field"><legend>Institution Details</legend><div className="pre-submission-grid"><Input label="Name of Institution" error={fieldErrors.partner_institution} wide><input value={form.partner_institution} onChange={(event) => update("partner_institution", event.target.value)} disabled={submitting} placeholder="e.g. Global Tech University" /></Input><Input label="Partner Contact Email" error={fieldErrors.partner_email} wide><input type="email" value={form.partner_email} onChange={(event) => update("partner_email", event.target.value)} disabled={submitting} placeholder="contact@partner.edu" /></Input><Input label="Responsible Office" error={fieldErrors.department_id}><select value={form.department_id} onChange={(event) => update("department_id", event.target.value)} disabled={submitting || loadingDepartments}><option value="">{loadingDepartments ? "Loading departments..." : "Select responsible office"}</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.code ? `${department.code} — ` : ""}{department.name}</option>)}</select></Input></div></fieldset>}
-      {step === 3 && <fieldset className="pre-submission-field"><legend>Contact Information</legend><div className="pre-submission-grid"><Input label="Contact Person" error={fieldErrors.contact_person}><input value={form.contact_person} onChange={(event) => update("contact_person", event.target.value)} disabled={submitting} /></Input><Input label="Position" error={fieldErrors.contact_position}><input value={form.contact_position} onChange={(event) => update("contact_position", event.target.value)} disabled={submitting} /></Input><Input label="Email Address" error={fieldErrors.contact_email}><input type="email" value={form.contact_email} onChange={(event) => update("contact_email", event.target.value)} disabled={submitting} /></Input><Input label="Contact Number" error={fieldErrors.contact_number}><div className="iro-contact-number"><select value={form.contact_country} onChange={(event) => update("contact_country", event.target.value)} aria-label="Country calling code" disabled={submitting || countriesLoading}>{countries.map((country) => <option key={country.iso} value={country.iso}>{country.name} ({country.code})</option>)}</select><input type="text" inputMode="numeric" pattern="[0-9]*" value={form.contact_number} onChange={(event) => update("contact_number", event.target.value)} disabled={submitting} /></div>{countriesError && <small className="country-list-error">{countriesError}<button type="button" className="outline" onClick={loadCountries}>Retry</button></small>}</Input></div></fieldset>}
-      {step === 4 && <fieldset className="pre-submission-field"><legend>Attachments</legend><Input label="Upload the draft document" error={fieldErrors.attachment}><Dropzone selectedFile={selectedFile} detail={selectedFile ? formatFileSize(selectedFile.size) : "PDF, DOCX, ODT · required"} onFileSelect={selectDraft} onRemove={() => setSelectedFile(null)} /></Input><ChoiceField legend="Urgency level" name="urgency" value={form.urgency} onChange={update} options={[["Normal", "Normal"], ["Urgent", "Urgent"]]} disabled={submitting} nested /></fieldset>}
+      {step === 2 && <fieldset className="pre-submission-field"><legend>Partner Institution</legend><div className="pre-submission-grid"><Input label="Name of Institution" error={fieldErrors.partner_institution} wide><input value={form.partner_institution} onChange={(event) => update("partner_institution", event.target.value)} disabled={submitting} placeholder="e.g. Global Tech University" /></Input><Input label="Institution/Partnership Office Email" error={fieldErrors.partner_email} wide><input type="email" value={form.partner_email} onChange={(event) => update("partner_email", event.target.value)} disabled={submitting} placeholder="contact@partner.edu" /></Input></div></fieldset>}
+      {step === 3 && <fieldset className="pre-submission-field"><legend>Primary Partner Contact</legend><div className="pre-submission-grid"><Input label="Contact Person" error={fieldErrors.contact_person}><input value={form.contact_person} onChange={(event) => update("contact_person", event.target.value)} disabled={submitting} /></Input><Input label="Position" error={fieldErrors.contact_position}><input value={form.contact_position} onChange={(event) => update("contact_position", event.target.value)} disabled={submitting} /></Input><Input label="Direct Email" error={fieldErrors.contact_email}><input type="email" value={form.contact_email} onChange={(event) => update("contact_email", event.target.value)} disabled={submitting} /></Input><Input label="Contact Number" error={fieldErrors.contact_number}><div className="iro-contact-number"><select value={form.contact_country} onChange={(event) => update("contact_country", event.target.value)} aria-label="Country calling code" disabled={submitting || countriesLoading}>{countries.map((country) => <option key={country.iso} value={country.iso}>{country.name} ({country.code})</option>)}</select><input type="text" inputMode="numeric" pattern="[0-9]*" value={form.contact_number} onChange={(event) => update("contact_number", event.target.value)} disabled={submitting} /></div>{countriesError && <small className="country-list-error">{countriesError}<button type="button" className="outline" onClick={loadCountries}>Retry</button></small>}</Input></div></fieldset>}
+      {step === 4 && <fieldset className="pre-submission-field"><legend>Attachments</legend><Input label="Upload the draft document" error={fieldErrors.attachment}><Dropzone accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" selectedFile={selectedFile} detail={selectedFile ? formatFileSize(selectedFile.size) : "PDF, DOCX · required"} onFileSelect={selectDraft} onRemove={() => setSelectedFile(null)} /></Input><ChoiceField legend="Urgency level" name="urgency" value={form.urgency} onChange={update} options={[["Normal", "Standard"], ["Urgent", "Urgent"]]} disabled={submitting} nested /></fieldset>}
       {modalError && <div className="auth-error" role="alert">{modalError}</div>}
     </div>
     <div className="pre-submission-footer"><button type="button" className="outline" onClick={step === 1 ? close : () => { setStep((current) => current - 1); setFieldErrors({}); setModalError(""); }} disabled={submitting}>{step === 1 ? "Cancel" : <><ArrowLeft size={16} /> Back</>}</button>{step < 4 ? <button type="button" className="primary" onClick={next} disabled={submitting}>Next <ArrowRight size={16} /></button> : <button type="submit" className="primary" disabled={submitting}>{submitting ? "Creating..." : "Create Engagement"}<ArrowRight size={16} /></button>}</div>
@@ -172,7 +157,7 @@ function formatFileSize(bytes) { if (!Number.isFinite(bytes)) return "-"; return
 
 function requiredValues(step, form, selectedFile) {
   if (step === 1) return [form.document_type, form.partnership_type, form.partnership_scope];
-  if (step === 2) return [form.partner_institution, form.partner_email, form.department_id];
+  if (step === 2) return [form.partner_institution, form.partner_email];
   if (step === 3) return [form.contact_person, form.contact_position, form.contact_email, form.contact_number];
   return [selectedFile, form.urgency];
 }
@@ -185,5 +170,13 @@ function isValidField(name, value, form) {
   return typeof value === "string" && value.trim() !== "";
 }
 function isSupportedDraft(file) {
-  return Boolean(file && file.size <= 25 * 1024 * 1024 && /\.(pdf|docx|odt)$/i.test(file.name));
+  if (!file || file.size > 25 * 1024 * 1024) return false;
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const expectedMimeType = {
+    pdf: "application/pdf",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  }[extension];
+
+  return Boolean(expectedMimeType && file.type === expectedMimeType);
 }

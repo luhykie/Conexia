@@ -6,7 +6,7 @@ import { Panel } from "../../../components/Panel";
 import {
   reassignDocumentToLegal,
 } from "../../../services/iroAdminService";
-import { getIroStatusDocuments } from "../../../services/iroDocumentService";
+import { getReassignableIroDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -27,8 +27,13 @@ export default function IroAdminReassignPage() {
     setError("");
 
     try {
-      const documentResponse = await getIroStatusDocuments({ page });
-      const loadedDocuments = documentResponse.documents ?? documentResponse.data ?? [];
+      const documentResponse = await getReassignableIroDocuments({ page });
+      const loadedDocuments = (
+        documentResponse.documents ?? documentResponse.data ?? []
+      ).filter((document) =>
+        document.status !== "Archived" &&
+        (document.reassignment_destinations?.length ?? 0) > 0
+      );
 
       if (isActive()) {
         setDocuments(loadedDocuments);
@@ -100,18 +105,14 @@ export default function IroAdminReassignPage() {
     document.department?.code || document.department?.name || "Unassigned",
     getAssignmentName(document),
     document.status || "-",
-    isTerminal(document) ? (
-      <span key={document.id}>No reassignment</span>
-    ) : (
-      <button
-        type="button"
-        className="table-action"
-        key={document.id}
-        onClick={() => setSelectedDocument(document)}
-      >
-        Select
-      </button>
-    ),
+    <button
+      type="button"
+      className="table-action"
+      key={document.id}
+      onClick={() => setSelectedDocument(document)}
+    >
+      Select
+    </button>,
   ]);
 
   async function submitReassignment(event) {
@@ -171,10 +172,6 @@ export default function IroAdminReassignPage() {
     setSuccess("");
   }
 
-  function isTerminal(document) {
-    return document?.status === "Archived";
-  }
-
   return (
     <section className="page iro-admin-page iro-admin-reassign-page">
       <PageTitle
@@ -192,7 +189,7 @@ export default function IroAdminReassignPage() {
           {!loading && !error && rows.length > 0 && (
             <DataTable
               headers={[
-                "Submission ID",
+                "Tracking Number",
                 "Department",
                 "Current Assignee",
                 "Status",

@@ -64,17 +64,15 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         $this->assertNotSame($versionThree->id, $versionTwo->id);
     }
 
-    public function test_iro_admin_must_submit_a_responsible_office_and_it_is_visible_to_admin(): void
+    public function test_iro_admin_can_create_upload_view_and_route_an_office_owned_engagement(): void
     {
+        Storage::fake('local');
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
-        $staff = $this->profile(Profile::ROLE_IRO_ADMIN);
-        $department = $this->department([
-            'code' => 'PAIR-EXT',
-            'name' => 'External Relations Office',
-        ]);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
         $payload = [
             'title' => 'Office-owned agreement',
             'document_type' => 'MOA',
+            'department_id' => null,
             'partner_institution' => 'Partner University',
             'partner_email' => 'partner@example.test',
             'description' => 'Agreement with a responsible office.',
@@ -85,52 +83,57 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             'urgency' => 'Normal',
         ];
 
-        $this->postJson(
+        $documentId = $this->postJson(
             '/api/iro/documents',
             $payload,
             $this->authHeaders($admin)
-        )->assertUnprocessable()->assertJsonValidationErrors('department_id');
-
-        $documentId = $this->postJson(
-            '/api/iro/documents',
-            [...$payload, 'department_id' => $department->id],
-            $this->authHeaders($admin)
         )
             ->assertOk()
-            ->assertJsonPath('document.department_id', $department->id)
-            ->assertJsonPath('document.department.code', 'PAIR-EXT')
+            ->assertJsonPath('document.department_id', null)
+            ->assertJsonPath('document.department', null)
+            ->assertJsonPath('document.submitted_by', $admin->id)
             ->assertJsonPath('document.partner_email', 'partner@example.test')
             ->json('document.id');
 
+        $this->postJson(
+            "/api/documents/{$documentId}/files",
+            [
+                'file' => UploadedFile::fake()
+                    ->create('draft.pdf', 12, 'application/pdf'),
+            ],
+            $this->authHeaders($admin)
+        )->assertCreated();
+
         $this->getJson(
             '/api/iro/documents/incoming',
-            $this->authHeaders($staff)
+            $this->authHeaders($admin)
         )
             ->assertOk()
             ->assertJsonPath('documents.0.id', $documentId)
-            ->assertJsonPath('documents.0.department_id', $department->id)
-            ->assertJsonPath('documents.0.department.code', 'PAIR-EXT');
+            ->assertJsonPath('documents.0.department_id', null)
+            ->assertJsonPath('documents.0.submitted_by', $admin->id)
+            ->assertJsonPath('documents.0.created_by.role', Profile::ROLE_IRO_ADMIN);
+
+        $this->patchJson(
+            "/api/iro/documents/{$documentId}/admin-review/validate",
+            [
+                'legal_counsel_id' => $legal->id,
+                'comments' => 'Administrative review complete.',
+            ],
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'document.status',
+                Document::STATUS_UNDER_LEGAL_REVIEW
+            )
+            ->assertJsonPath('document.assigned_legal_counsel', $legal->id);
     }
 
-    public function test_iro_admin_cannot_create_or_update_an_engagement_without_a_department(): void
+    public function test_iro_admin_edit_still_requires_a_department(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
         $department = $this->department();
-
-        $this->postJson('/api/iro/documents', [
-            'title' => 'Office-owned agreement',
-            'document_type' => 'MOU',
-            'department_id' => null,
-            'partner_institution' => 'Partner Organization',
-            'partner_email' => 'partner@example.test',
-            'partnership_type' => 'New Partnership',
-            'partnership_scope' => 'Local',
-            'contact_person' => 'Jamie Partner',
-            'contact_email' => 'jamie@example.test',
-            'urgency' => 'Normal',
-        ], $this->authHeaders($admin))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('department_id');
 
         $document = $this->document([
             'submitted_by' => $admin->id,
@@ -1033,6 +1036,79 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertNotFound();
     }
 
+    public function test_reassignable_documents_exclude_archived_and_actionless_records(): void
+    {
+        $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $department = $this->department();
+        $archived = $this->document([
+            'department_id' => $department->id,
+            'status' => Document::STATUS_ARCHIVED,
+            'archived_at' => now(),
+        ]);
+        $actionless = $this->document([
+            'department_id' => null,
+            'status' => Document::STATUS_LOGGED,
+        ]);
+        $actionless->update(['partner_institution' => null]);
+        $reassignable = $this->document([
+            'department_id' => $department->id,
+            'status' => Document::STATUS_LOGGED,
+        ]);
+
+        $response = $this->getJson(
+            '/api/iro/documents/reassignable?per_page=100',
+            $this->authHeaders($iro)
+        )->assertOk();
+
+        $response
+            ->assertJsonMissing(['id' => $archived->id])
+            ->assertJsonMissing(['id' => $actionless->id])
+            ->assertJsonFragment(['id' => $reassignable->id]);
+
+        foreach ($response->json('documents') as $document) {
+            $this->assertNotSame(Document::STATUS_ARCHIVED, $document['status']);
+            $this->assertNotEmpty($document['reassignment_destinations']);
+        }
+    }
+
+    public function test_every_status_in_reassignable_documents_has_an_action(): void
+    {
+        $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $department = $this->department();
+        $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $statuses = [
+            Document::STATUS_SUBMITTED,
+            Document::STATUS_DEPARTMENT_REVIEW,
+            Document::STATUS_PARTNER_REVIEW_COMPLETE,
+            Document::STATUS_LOGGED,
+            Document::STATUS_UNDER_LEGAL_REVIEW,
+            Document::STATUS_CORRECTION_REQUIRED,
+            Document::STATUS_CORRECTIONS_NEEDED,
+            Document::STATUS_APPROVED,
+        ];
+
+        foreach ($statuses as $status) {
+            $this->document([
+                'department_id' => $department->id,
+                'status' => $status,
+            ]);
+        }
+
+        $response = $this->getJson(
+            '/api/iro/documents/reassignable?per_page=100',
+            $this->authHeaders($iro)
+        )->assertOk();
+
+        $returned = collect($response->json('documents'));
+        $this->assertEqualsCanonicalizing(
+            $statuses,
+            $returned->pluck('status')->unique()->all()
+        );
+        $returned->each(fn (array $document) =>
+            $this->assertNotEmpty($document['reassignment_destinations'])
+        );
+    }
+
     public function test_iro_admin_can_archive_approved_document_without_losing_related_data(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1116,6 +1192,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
     public function test_iro_admin_can_unarchive_document_to_pending_archival(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $this->profile(Profile::ROLE_LEGAL_COUNSEL);
         $trackingNumber = 'CONEXIA-20260810-0001';
         $document = $this->document([
             'tracking_number' => $trackingNumber,
@@ -1146,6 +1223,16 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             'document_id' => $document->id,
             'action' => 'iro_admin.document.unarchived',
         ]);
+
+        $this->getJson(
+            '/api/iro/documents/reassignable?per_page=100',
+            $this->authHeaders($iro)
+        )
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $document->id,
+                'status' => Document::STATUS_APPROVED,
+            ]);
 
         $audit = AuditLog::query()
             ->where('document_id', $document->id)
@@ -1317,7 +1404,9 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
         $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $departmentStaff = $this->profile(Profile::ROLE_DEPARTMENT_STAFF);
         $document = $this->document([
+            'submitted_by' => $departmentStaff->id,
             'status' => Document::STATUS_CORRECTION_REQUIRED,
             'assigned_legal_counsel' => $legal->id,
             'legal_notes' => 'Revise the termination provision.',
@@ -1335,6 +1424,54 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             'actor_id' => $admin->id,
             'document_id' => $document->id,
             'action' => 'iro_admin.legal_correction.routed_to_department',
+        ]);
+    }
+
+    public function test_iro_admin_created_legal_correction_stays_in_direct_review_and_can_return_to_legal(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'submitted_by' => $admin->id,
+            'department_id' => null,
+            'status' => Document::STATUS_CORRECTION_REQUIRED,
+            'assigned_legal_counsel' => $legal->id,
+            'legal_notes' => 'Clarify the termination provision.',
+        ]);
+
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath('documents.0.id', $document->id)
+            ->assertJsonPath('documents.0.department_id', null)
+            ->assertJsonPath('documents.0.created_by.role', Profile::ROLE_IRO_ADMIN);
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/legal-correction/route-to-department",
+            [],
+            $this->authHeaders($admin)
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
+        $this->patchJson(
+            "/api/iro/documents/{$document->id}/admin-review/validate",
+            [
+                'legal_counsel_id' => $legal->id,
+                'comments' => 'IRO Admin review complete.',
+            ],
+            $this->authHeaders($admin)
+        )
+            ->assertOk()
+            ->assertJsonPath('document.status', Document::STATUS_UNDER_LEGAL_REVIEW)
+            ->assertJsonPath('document.assigned_legal_counsel', $legal->id);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'actor_id' => $admin->id,
+            'document_id' => $document->id,
+            'action' => 'iro_admin.review.validated_and_routed_to_legal',
         ]);
     }
 

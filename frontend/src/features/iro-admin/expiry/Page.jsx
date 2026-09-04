@@ -8,6 +8,7 @@ export default function IroAdminExpiryPage() {
     <ExpiryView
       title="Agreement Expiry Tracking"
       subtitle="Review agreement expiry windows and renewal attention areas."
+      documentNameHeader="Document Name / Tracking Number"
     />
   );
 }

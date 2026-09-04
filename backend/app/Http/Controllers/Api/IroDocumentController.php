@@ -15,6 +15,7 @@ use App\Support\DocumentPayload;
 use App\Support\Pagination;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -64,14 +65,7 @@ class IroDocumentController extends Controller
 
         $payload = [
             ...$this->iroPayload($document),
-            'created_by' => $document->submitter
-                ? [
-                    'id' => $document->submitter->id,
-                    'full_name' => $document->submitter->full_name,
-                    'email' => $document->submitter->email,
-                    'role' => $document->submitter->role,
-                ]
-                : null,
+            'created_by' => $this->creatorPayload($document),
             'current_assignment' => $this->currentAssignment($document),
             'reassignment_destinations' =>
                 $this->reassignmentDestinations($document),
@@ -172,6 +166,56 @@ class IroDocumentController extends Controller
         );
     }
 
+    public function reassignable(Request $request): JsonResponse
+    {
+        $profile = $this->ensureIroAdmin($request);
+        $options = Pagination::options(
+            $request,
+            ['updated_at', 'tracking_number', 'status'],
+            'updated_at',
+            Document::workflowStatuses()
+        );
+
+        $query = Document::query()
+            ->with([
+                'department',
+                'legalCounsel',
+                'latestReassignment',
+                'submitter',
+            ])
+            ->whereNotIn('status', [
+                Document::STATUS_ARCHIVED,
+                ...$this->hiddenIroStatuses(),
+            ])
+            ->orderBy($options['sort'], $options['direction']);
+
+        $items = $query->get()
+            ->map(fn (Document $document): array =>
+                $this->payloadFor($profile, $document)
+            )
+            ->filter(fn (array $document): bool =>
+                count($document['reassignment_destinations']) > 0
+            )
+            ->values();
+
+        $documents = new LengthAwarePaginator(
+            $items->forPage($options['page'], $options['per_page'])->values(),
+            $items->count(),
+            $options['per_page'],
+            $options['page'],
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        return $this->success(
+            'Reassignable documents loaded successfully.',
+            $documents->items(),
+            [
+                'documents' => $documents->items(),
+                'meta' => Pagination::meta($documents),
+            ]
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -183,7 +227,7 @@ class IroDocumentController extends Controller
                 'string',
                 'in:MOA,MOU',
             ],
-            'department_id' => ['required', 'uuid', 'exists:departments,id'],
+            'department_id' => ['nullable', 'uuid', 'exists:departments,id'],
             'partner_institution' => ['required', 'string', 'max:255'],
             'partner_email' => ['required', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
@@ -199,6 +243,8 @@ class IroDocumentController extends Controller
             'urgency' => ['required', 'string', 'max:255'],
             'requested_completion_date' => ['nullable', 'date'],
         ]);
+
+        $validated['department_id'] = null;
 
         $document = $this->createDocumentWithTrackingNumber(
             $validated,
@@ -535,7 +581,7 @@ class IroDocumentController extends Controller
 
         $document = DB::transaction(function () use ($id, $profile, $validated, $legalCounsel) {
             $document = $this->lockedDocument($id);
-            $this->requireLoggedAdminReview($document);
+            $this->requireValidatableAdminReview($document);
             $previousStatus = $document->status;
             $document->update([
                 'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
@@ -574,6 +620,12 @@ class IroDocumentController extends Controller
                 ]);
             }
 
+            if ($this->isIroAdminCreated($document)) {
+                throw ValidationException::withMessages([
+                    'status' => 'IRO Admin-created documents must be reviewed directly and cannot be routed to a department.',
+                ]);
+            }
+
             $previousStatus = $document->status;
             $document->update([
                 'status' => Document::STATUS_CORRECTIONS_NEEDED,
@@ -602,6 +654,21 @@ class IroDocumentController extends Controller
         if ($document->status !== Document::STATUS_LOGGED) {
             throw ValidationException::withMessages([
                 'status' => 'Only logged documents awaiting IRO Admin review can be processed.',
+            ]);
+        }
+    }
+
+    private function requireValidatableAdminReview(Document $document): void
+    {
+        if (
+            $document->status !== Document::STATUS_LOGGED &&
+            !(
+                $document->status === Document::STATUS_CORRECTION_REQUIRED &&
+                $this->isIroAdminCreated($document)
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'status' => 'Only documents awaiting direct IRO Admin review can be validated.',
             ]);
         }
     }
@@ -1052,6 +1119,9 @@ class IroDocumentController extends Controller
     {
         return [
             ...$this->iroPayload($document),
+            ...($adminReviewQueue ? [
+                'created_by' => $this->creatorPayload($document),
+            ] : []),
             'can_edit_engagement' =>
                 $profile->role === Profile::ROLE_IRO_ADMIN &&
                 $this->canEditAdminEngagement($document),
@@ -1093,6 +1163,27 @@ class IroDocumentController extends Controller
                 ]
                 : null,
         ];
+    }
+
+    private function creatorPayload(Document $document): ?array
+    {
+        $document->loadMissing('submitter');
+
+        return $document->submitter
+            ? [
+                'id' => $document->submitter->id,
+                'full_name' => $document->submitter->full_name,
+                'email' => $document->submitter->email,
+                'role' => $document->submitter->role,
+            ]
+            : null;
+    }
+
+    private function isIroAdminCreated(Document $document): bool
+    {
+        $document->loadMissing('submitter');
+
+        return $document->submitter?->role === Profile::ROLE_IRO_ADMIN;
     }
 
     private function requireEditableAdminEngagement(Document $document): void

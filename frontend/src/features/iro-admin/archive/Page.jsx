@@ -203,7 +203,7 @@ export default function IroAdminArchivePage() {
         {!loading && !error && rows.length > 0 && (
           <DataTable
             headers={[
-              "Tracking ID",
+              "Tracking Number",
               "Partner Name",
               "Type",
               "Distribution Date",

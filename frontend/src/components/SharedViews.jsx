@@ -171,7 +171,7 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
           {!loading && !error && activityRows.length > 0 && (
             <DataTable
               headers={[
-                "Submission ID",
+                roleKey === "admin" ? "Tracking Number" : "Submission ID",
                 ...(showDocumentTitle ? ["Document Title"] : []),
                 ...(showEntityName
                   ? ["Entity Name"]
@@ -227,7 +227,12 @@ function formatDateTime(value) {
 }
 
 // Shared expiry monitoring table for roles with expiry access.
-export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and track agreements nearing expiration.", action }) {
+export function ExpiryView({
+  title = "Expiry Monitoring",
+  subtitle = "Manage and track agreements nearing expiration.",
+  action,
+  documentNameHeader = "Document Name / ID",
+}) {
   const [summary, setSummary] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -423,7 +428,7 @@ export function ExpiryView({ title = "Expiry Monitoring", subtitle = "Manage and
         )}
         {!loading && !error && rows.length > 0 && (
           <DataTable
-            headers={["Document Name / ID", "Partner Entity", "Expiry / Days", "Status", "Actions"]}
+            headers={[documentNameHeader, "Partner Entity", "Expiry / Days", "Status", "Actions"]}
             rows={rows}
             meta={meta}
             onPageChange={setPage}
@@ -570,6 +575,7 @@ export function FilterBar({ labels }) {
 export function Dropzone({
   label = "Drag and drop file here",
   detail = "PDF, DOCX up to 25MB",
+  accept = ".pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text",
   selectedFile = null,
   disabled = false,
   onFileSelect,
@@ -611,7 +617,7 @@ export function Dropzone({
             ref={inputRef}
             className="visually-hidden-file"
             type="file"
-            accept=".pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text"
+            accept={accept}
             disabled={disabled}
             onChange={(event) =>
               chooseFile(event.target.files?.[0])

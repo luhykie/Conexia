@@ -362,6 +362,11 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
 
                 Route::get(
+                    '/iro/documents/reassignable',
+                    [IroDocumentController::class, 'reassignable']
+                );
+
+                Route::get(
                     '/iro/documents/{id}',
                     [IroDocumentController::class, 'show']
                 );

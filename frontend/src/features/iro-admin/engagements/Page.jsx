@@ -92,11 +92,11 @@ export default function IroAdminEngagementsPage() {
     if (!selectedDocument || !editForm || saving) return;
 
     if (!editForm.partner_email.trim()) {
-      setPartnerEmailError("Partner Contact Email is required.");
+      setPartnerEmailError("Institution/Partnership Office Email is required.");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.partner_email.trim())) {
-      setPartnerEmailError("Please enter a valid partner contact email.");
+      setPartnerEmailError("Please enter a valid institution/partnership office email.");
       return;
     }
 
@@ -180,7 +180,7 @@ export default function IroAdminEngagementsPage() {
   }, [selectedDocument, saving]);
 
   const rows = documents.map((document) => [
-    document.partner_institution || "-",
+    document.title || "-",
     `${document.document_type || "-"} / ${
       document.department?.code || document.department?.name || "Unassigned"
     }`,
@@ -220,6 +220,7 @@ export default function IroAdminEngagementsPage() {
               "Approved",
               "Archived",
             ]}
+            searchPlaceholder="Search by tracking number, document title, partner, or institution..."
             showDepartment
           />
           {loading && <p>Loading engagement records...</p>}
@@ -230,7 +231,7 @@ export default function IroAdminEngagementsPage() {
           {!loading && !error && rows.length > 0 && (
             <DataTable
               headers={[
-                "Partner Organization",
+                "Document Title",
                 "Type / Department",
                 "Validity Period",
                 "Status",
@@ -306,19 +307,21 @@ export default function IroAdminEngagementsPage() {
                       ))}
                     </select>
                   </EditField>
-                  <EditField label="Partner Organization">
+                  <h3 className="engagement-edit-section-title">Partner Institution</h3>
+                  <EditField label="Name of Institution">
                     <input name="partner_institution" value={editForm.partner_institution} onChange={updateEditForm} required maxLength={255} />
                   </EditField>
-                  <EditField label="Partner Contact Email" error={partnerEmailError}>
+                  <EditField label="Institution/Partnership Office Email" error={partnerEmailError}>
                     <input name="partner_email" type="email" value={editForm.partner_email} onChange={updateEditForm} required maxLength={255} />
                   </EditField>
+                  <h3 className="engagement-edit-section-title">Primary Partner Contact</h3>
                   <EditField label="Contact Person">
                     <input name="contact_person" value={editForm.contact_person} onChange={updateEditForm} required maxLength={255} />
                   </EditField>
                   <EditField label="Position">
                     <input name="contact_position" value={editForm.contact_position} onChange={updateEditForm} maxLength={255} />
                   </EditField>
-                  <EditField label="Email">
+                  <EditField label="Direct Email">
                     <input name="contact_email" type="email" value={editForm.contact_email} onChange={updateEditForm} required maxLength={255} />
                   </EditField>
                   <EditField label="Country Code / Contact Number">
@@ -444,24 +447,30 @@ function engagementSections(document) {
       layout: "information",
       items: [
         engagementDetail("Tracking Number", document.tracking_number),
-        engagementDetail("Partner Organization", document.partner_institution),
         engagementDetail("Title", document.title),
         engagementDetail("Agreement Type", document.document_type),
         engagementDetail("Partnership Type", firstAvailable(document.partnership_type, submittedForm.submissionType)),
         engagementDetail("Partnership Scope", firstAvailable(document.partnership_scope, submittedForm.partnerClassification)),
         engagementDetail("Responsible Office", responsibleOffice(document, submittedForm.requestingOffice)),
-        engagementDetail("Partner Department", departmentLabel(document.partner_department)),
-        engagementDetail("Partner Email", document.partner_email),
       ],
     },
     {
-      title: "Contact Information",
+      title: "Partner Institution",
+      layout: "partner",
+      items: [
+        engagementDetail("Name of Institution", document.partner_institution),
+        engagementDetail("Institution/Partnership Office Email", document.partner_email),
+        engagementDetail("Partner Department", departmentLabel(document.partner_department)),
+      ],
+    },
+    {
+      title: "Primary Partner Contact",
       layout: "contact",
       items: [
         engagementDetail("Contact Person", firstAvailable(document.contact_person, submittedForm.contactPerson)),
         engagementDetail("Position", firstAvailable(document.contact_position, submittedForm.position)),
-        engagementDetail("Email", firstAvailable(document.contact_email, submittedForm.emailAddress)),
-        engagementDetail("Country Code / Contact Number", firstAvailable(document.contact_number, submittedForm.contactNumber)),
+        engagementDetail("Direct Email", firstAvailable(document.contact_email, submittedForm.emailAddress)),
+        engagementDetail("Contact Number", firstAvailable(document.contact_number, submittedForm.contactNumber)),
       ],
     },
     {

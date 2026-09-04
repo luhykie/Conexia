@@ -532,7 +532,10 @@ export function DocumentReviewPage({ documentId }) {
   }
 
   const selectedFile = files.find((file) => file.id === fileId);
-  const actionable = document?.status === "Logged";
+  const iroAdminCreated = document?.created_by?.role === "iro_admin";
+  const actionable = document?.status === "Logged" ||
+    (document?.status === "Correction Required" && iroAdminCreated);
+  const canReturnForRevision = document?.status === "Logged";
   const numberedAnnotations = React.useMemo(() => numberAnnotations(annotations), [annotations]);
   const viewingOriginal = historyVersion?.history_view === "original";
   const overlayAnnotations = historyHighlightsVisible ? numberedAnnotations : [];
@@ -682,17 +685,25 @@ export function DocumentReviewPage({ documentId }) {
             <SubmissionDetailSection title="Agreement Details">
               <SubmissionDetail label="Document Type" value={document.document_type} />
               <SubmissionDetail label="Title of Agreement" value={document.title} />
-              <SubmissionDetail label="Partner Organization" value={document.partner_institution} />
-              <SubmissionDetail label="Partner Contact Email" value={document.partner_email} />
               <SubmissionDetail label="Partnership Type" value={document.partnership_type} />
               <SubmissionDetail label="Partnership Scope" value={document.partnership_scope} />
+            </SubmissionDetailSection>
+            <SubmissionDetailSection title="Partner Institution">
+              <SubmissionDetail label="Name of Institution" value={document.partner_institution} />
+              <SubmissionDetail label="Institution/Partnership Office Email" value={document.partner_email} />
+            </SubmissionDetailSection>
+            <SubmissionDetailSection title="Primary Partner Contact">
+              <SubmissionDetail label="Contact Person" value={document.contact_person} />
+              <SubmissionDetail label="Position" value={document.contact_position} />
+              <SubmissionDetail label="Direct Email" value={document.contact_email} />
+              <SubmissionDetail label="Contact Number" value={document.contact_number} />
             </SubmissionDetailSection>
             {document.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{document.description}</p></SubmissionDetailSection>}
             <DepartmentalDocumentHistory documentId={documentId} loadHistory={loadDepartmentalHistory} onViewVersion={viewHistoryVersion} onCloseVersion={closeHistoryVersion} viewingVersion={historyVersion} highlightsVisible={historyHighlightsVisible} liveAnnotations={numberedAnnotations} canManageAnnotations={canAnnotateSelectedVersion} onUpdateComment={updateAnnotationComment} onRequestRemove={requestAnnotationRemoval} Section={SubmissionDetailSection} versionDropdown />
           {fileId && actionable && <section className="review-actions" aria-label="IRO Admin review decisions">
             <label className="review-action-fields">Remarks<textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} rows={2} maxLength={2000} /></label>
             <div className="review-action-buttons">
-              <button type="button" className="review-action-button--return" onClick={returnForRevision} disabled={busy}><RotateCcw size={18} /> Return for Revision</button>
+              {canReturnForRevision && <button type="button" className="review-action-button--return" onClick={returnForRevision} disabled={busy}><RotateCcw size={18} /> Return for Revision</button>}
               <button type="button" className="review-action-button--validate" onClick={validateAndRoute} disabled={busy || !legalCounselId}><CheckCircle2 size={18} /> Validate & Route to Legal</button>
             </div>
           </section>}
