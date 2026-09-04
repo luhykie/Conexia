@@ -43,17 +43,6 @@ export const roles = {
     defaultPage: "dashboard",
   },
 
-  staff: {
-    label: "IRO STAFF",
-    subtitle:
-      "Monitor submissions and reminders for IRO Admin follow-up.",
-    theme: "IRO STAFF PORTAL",
-    user: "PAIR IRO Staff",
-    title: "IRO STAFF",
-    icon: Folder,
-    defaultPage: "dashboard",
-  },
-
   legal: {
     label: "LEGAL COUNSEL",
     subtitle:
@@ -84,13 +73,6 @@ export const navItems = {
     ["submission", "Submission", FilePlus2],
     ["submissions", "My Submissions", FileText],
     ["engagements", "Engagements", Handshake],
-    ["expiry", "Expiry", CalendarClock],
-  ],
-
-  staff: [
-    ["dashboard", "Dashboard", LayoutDashboard],
-    ["incoming", "Incoming Submissions", Folder],
-    ["status", "Status Tracker", Gauge],
     ["expiry", "Expiry", CalendarClock],
   ],
 

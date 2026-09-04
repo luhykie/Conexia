@@ -50,6 +50,10 @@ export function unarchiveIroDocument(documentId) {
   return apiPatch(`/iro/documents/${documentId}/unarchive`, {});
 }
 
+export function archiveIroDocument(documentId) {
+  return apiPatch(`/iro/documents/${documentId}/archive`, {});
+}
+
 export function getActiveLegalCounselUsers(params = {}) {
   return apiGet(withQuery("/users", {
     role: "legal_counsel",

@@ -38,7 +38,7 @@ import {
   getDepartmentDocuments,
   getDepartmentHistory,
   requestDepartmentCorrection,
-  routeDepartmentReviewToStaff,
+  routeDepartmentReviewToAdmin,
   sendDepartmentDiscussionMessage,
   resubmitDepartmentDocument,
   updateDepartmentReviewHighlight,
@@ -1123,7 +1123,7 @@ function MySubmissionsPage({ account }) {
                 <button className="correction-resubmission__submit" disabled={processing || !revisedFile} onClick={resubmitDocument}>{processing ? "Submitting corrected version..." : "Save Changes & Submit Revised Version"}</button>
               </div>
             </SubmissionDetailSection>}
-            {isCreator && selectedDocument.status === "Partner Review Complete" && <button disabled={processing} onClick={async () => { setProcessing(true); setError(""); try { const response = await routeDepartmentReviewToStaff(selectedDocument.id); const updated = response.document ?? response.data; setSelectedDocument(updated); setDocuments((current) => current.map((item) => item.id === updated.id ? updated : item)); setSuccess("Submission sent to the next process."); } catch (requestError) { setError(requestError.message); } finally { setProcessing(false); } }}>{processing ? "Sending..." : "Send to Next Process"}</button>}
+            {isCreator && selectedDocument.status === "Partner Review Complete" && <button disabled={processing} onClick={async () => { setProcessing(true); setError(""); try { const response = await routeDepartmentReviewToAdmin(selectedDocument.id); const updated = response.document ?? response.data; setSelectedDocument(updated); setDocuments((current) => current.map((item) => item.id === updated.id ? updated : item)); setSuccess("Submission sent to IRO Admin."); } catch (requestError) { setError(requestError.message); } finally { setProcessing(false); } }}>{processing ? "Sending..." : "Send to IRO Admin"}</button>}
             {error && <p className="auth-error">{error}</p>}
             {success && <p className="success-message">{success}</p>}
           </aside>
@@ -1532,7 +1532,7 @@ function departmentalStatusLabel(document, isCreator) {
   if (document.status === "Department Review") return "Pending Your Review";
   if (document.status === "Corrections Needed") return "Awaiting Creator's Corrections";
   if (document.status === "Partner Review Complete") return "Review Complete — Returned to Creator";
-  if (document.status === "Submitted") return "Routed to Staff Review";
+  if (document.status === "Logged") return "Routed to IRO Admin";
   return document.status;
 }
 

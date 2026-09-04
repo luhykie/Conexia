@@ -19,8 +19,6 @@ database or storage directly.
 
 - `department_staff`: creates submissions, uploads files, tracks corrections,
   and requests renewals for its own department.
-- `iro_staff`: logs incoming submissions, routes documents, and archives
-  completed workflows.
 - `iro_admin`: views reports, archive records, and operational summaries.
 - `legal_counsel`: reviews assigned documents, returns corrections, approves,
   and completes notarization.
@@ -30,8 +28,8 @@ database or storage directly.
 ## Workflow
 
 ```text
-Submitted
-Logged
+Department Review (when a partner department is selected)
+Logged (routed directly to IRO Admin)
 Under Legal Review
 Corrections Needed
 Approved

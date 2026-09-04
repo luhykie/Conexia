@@ -7,11 +7,10 @@ use Tests\Feature\Support\SecurityTestCase;
 
 class NotificationAuthorizationTest extends SecurityTestCase
 {
-    public function test_iro_roles_receive_and_update_their_own_unread_count(): void
+    public function test_iro_admin_receives_and_updates_own_unread_count(): void
     {
-        foreach ([Profile::ROLE_IRO_ADMIN, Profile::ROLE_IRO_STAFF] as $role) {
-            $profile = $this->profile($role);
-            $otherProfile = $this->profile($role);
+            $profile = $this->profile(Profile::ROLE_IRO_ADMIN);
+            $otherProfile = $this->profile(Profile::ROLE_IRO_ADMIN);
             $unread = $this->notification(['user_id' => $profile->id]);
             $this->notification([
                 'user_id' => $profile->id,
@@ -49,7 +48,6 @@ class NotificationAuthorizationTest extends SecurityTestCase
                 '/api/notifications/unread-count',
                 $this->authHeaders($profile)
             )->assertOk()->assertJsonPath('count', 0);
-        }
     }
 
     public function test_user_reads_only_their_own_notifications(): void
@@ -132,6 +130,46 @@ class NotificationAuthorizationTest extends SecurityTestCase
             "/api/notifications/{$notification->id}/read",
             [],
             $this->authHeaders($user)
+        )->assertNotFound();
+    }
+
+    public function test_iro_admin_does_not_receive_notarization_notifications(): void
+    {
+        $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $visible = $this->notification([
+            'user_id' => $admin->id,
+            'notification_type' => 'document_approved',
+            'title' => 'Approved',
+        ]);
+        $hidden = $this->notification([
+            'user_id' => $admin->id,
+            'notification_type' => 'pending_notarization',
+            'title' => 'Pending notarization',
+        ]);
+        $this->notification([
+            'user_id' => $admin->id,
+            'notification_type' => 'document_notarized',
+            'title' => 'Notarized',
+        ]);
+
+        $response = $this->getJson(
+            '/api/notifications',
+            $this->authHeaders($admin)
+        )->assertOk();
+
+        $response
+            ->assertJsonFragment(['id' => $visible->id])
+            ->assertJsonMissing(['id' => $hidden->id]);
+
+        $this->getJson(
+            '/api/notifications/unread-count',
+            $this->authHeaders($admin)
+        )->assertOk()->assertJsonPath('count', 1);
+
+        $this->patchJson(
+            "/api/notifications/{$hidden->id}/read",
+            [],
+            $this->authHeaders($admin)
         )->assertNotFound();
     }
 

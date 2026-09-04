@@ -50,11 +50,9 @@ class WorkflowSummaryRepository
                         "%{$options['search']}%"
                     );
 
-                    if ($profile->role !== Profile::ROLE_IRO_STAFF) {
-                        $builder
-                            ->orWhere('title', $operator, "%{$options['search']}%")
-                            ->orWhere('partner_institution', $operator, "%{$options['search']}%");
-                    }
+                    $builder
+                        ->orWhere('title', $operator, "%{$options['search']}%")
+                        ->orWhere('partner_institution', $operator, "%{$options['search']}%");
 
                     $builder->orWhereHas(
                         'department',
@@ -128,7 +126,14 @@ class WorkflowSummaryRepository
     {
         $query = Document::query()
             ->with('department')
-            ->where('status', Document::STATUS_ARCHIVED)
+            ->whereIn('status', [
+                Document::STATUS_APPROVED,
+                Document::STATUS_ARCHIVED,
+            ])
+            ->when(
+                $options['status'] ?? null,
+                fn ($query) => $query->where('status', $options['status'])
+            )
             ->when(
                 ($options['search'] ?? '') !== '',
                 fn ($query) => $query->where(function ($builder) use ($options) {
@@ -164,19 +169,27 @@ class WorkflowSummaryRepository
             )
             ->when(
                 $options['date_from'] ?? null,
-                fn ($query) => $query->whereDate(
-                    'archived_at',
-                    '>=',
-                    $options['date_from']
-                )
+                fn ($query) => $query->where(function ($dateQuery) use ($options) {
+                    $dateQuery
+                        ->where(fn ($statusQuery) => $statusQuery
+                            ->where('status', Document::STATUS_ARCHIVED)
+                            ->whereDate('archived_at', '>=', $options['date_from']))
+                        ->orWhere(fn ($statusQuery) => $statusQuery
+                            ->where('status', Document::STATUS_APPROVED)
+                            ->whereDate('updated_at', '>=', $options['date_from']));
+                })
             )
             ->when(
                 $options['date_to'] ?? null,
-                fn ($query) => $query->whereDate(
-                    'archived_at',
-                    '<=',
-                    $options['date_to']
-                )
+                fn ($query) => $query->where(function ($dateQuery) use ($options) {
+                    $dateQuery
+                        ->where(fn ($statusQuery) => $statusQuery
+                            ->where('status', Document::STATUS_ARCHIVED)
+                            ->whereDate('archived_at', '<=', $options['date_to']))
+                        ->orWhere(fn ($statusQuery) => $statusQuery
+                            ->where('status', Document::STATUS_APPROVED)
+                            ->whereDate('updated_at', '<=', $options['date_to']));
+                })
             )
             ->when(
                 $options['partnership_scope'] ?? null,
@@ -186,7 +199,7 @@ class WorkflowSummaryRepository
                 )
             )
             ->orderBy(
-                $options['sort'] ?? 'archived_at',
+                $options['sort'] ?? 'updated_at',
                 $options['direction'] ?? 'desc'
             );
 
@@ -206,6 +219,10 @@ class WorkflowSummaryRepository
     {
         $query = Document::query()
             ->with('department')
+            ->whereNotIn('status', [
+                Document::STATUS_PENDING_NOTARIZATION,
+                Document::STATUS_NOTARIZED,
+            ])
             ->when(
                 ($options['search'] ?? '') !== '',
                 fn ($query) => $query->where(function ($builder) use ($options) {

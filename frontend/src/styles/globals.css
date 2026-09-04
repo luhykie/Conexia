@@ -1021,7 +1021,6 @@ textarea {
 .cx-app-layout__content > .super-admin-page,
 .cx-app-layout__content > .department-page,
 .cx-app-layout__content > .iro-admin-page,
-.cx-app-layout__content > .iro-staff-page,
 .cx-app-layout__content > .legal-page {
   width: 100%;
   max-width: 1680px;
@@ -1674,10 +1673,6 @@ textarea:focus {
   background: #fffaf0;
 }
 
-.iro-staff-status-page {
-  grid-template-columns: minmax(0, 72fr) minmax(260px, 28fr);
-}
-
 .submission-activity-history__event {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1845,15 +1840,6 @@ textarea:focus {
   .correction-resubmission__wide { grid-column: auto; }
 }
 
-.iro-staff-status-page .cx-table table,
-.iro-staff-status-page .cx-table-footer {
-  min-width: 680px;
-}
-
-.iro-staff-status-page .detail-drawer {
-  min-width: 0;
-}
-
 .panel__body > p,
 .auth-error,
 .success-message {
@@ -1872,9 +1858,6 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
 
-  .iro-staff-status-page {
-    grid-template-columns: minmax(0, 72fr) minmax(260px, 28fr);
-  }
 }
 
 @media (max-width: 1180px) {
@@ -1898,9 +1881,6 @@ textarea:focus {
     max-width: none;
   }
 
-  .iro-staff-status-page {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 760px) {

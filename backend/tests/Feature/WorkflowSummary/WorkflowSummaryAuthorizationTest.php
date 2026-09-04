@@ -48,7 +48,7 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
     public function test_archive_endpoint_is_iro_admin_only(): void
     {
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
-        $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
 
         $this->getJson(
             '/api/iro/archive',
@@ -57,11 +57,11 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
 
         $this->getJson(
             '/api/iro/archive',
-            $this->authHeaders($iroStaff)
+            $this->authHeaders($legal)
         )->assertForbidden();
     }
 
-    public function test_archive_endpoint_returns_only_archived_records(): void
+    public function test_archive_endpoint_returns_pending_and_archived_records(): void
     {
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
 
@@ -69,6 +69,11 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
             'tracking_number' => 'ARCHIVED-001',
             'status' => Document::STATUS_ARCHIVED,
             'archived_at' => now(),
+        ]);
+
+        $pending = $this->document([
+            'tracking_number' => 'APPROVED-001',
+            'status' => Document::STATUS_APPROVED,
         ]);
 
         $this->document([
@@ -88,6 +93,10 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
 
         $this->assertStringContainsString(
             $archived->tracking_number,
+            $payload
+        );
+        $this->assertStringContainsString(
+            $pending->tracking_number,
             $payload
         );
         $this->assertStringNotContainsString(
@@ -119,12 +128,14 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
             $this->authHeaders($iroAdmin)
         )
             ->assertOk()
-            ->assertJsonPath('data.stats.total_reviewed', 3)
+            ->assertJsonPath('data.stats.total_reviewed', 2)
             ->assertJsonPath('data.stats.total_returned', 1)
-            ->assertJsonPath('data.stats.total_notarized', 1)
+            ->assertJsonPath('data.stats.pending_archival', 1)
+            ->assertJsonPath('data.stats.total_archived', 0)
+            ->assertJsonMissingPath('data.stats.total_notarized')
             ->assertJsonPath(
                 'data.department_breakdown.0.total_requests',
-                3
+                2
             );
     }
 

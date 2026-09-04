@@ -40,11 +40,6 @@ const IroAdmin = React.lazy(() =>
     default: module.IroAdmin,
   }))
 );
-const IroStaff = React.lazy(() =>
-  import("./roles/IroStaff").then((module) => ({
-    default: module.IroStaff,
-  }))
-);
 const LegalCounsel = React.lazy(() =>
   import("./roles/LegalCounsel").then((module) => ({
     default: module.LegalCounsel,
@@ -520,7 +515,6 @@ function LoginScreen({ onBack, onLogin }) {
 function RolePage({ roleKey, page, account, documentId }) {
   if (roleKey === "super") return <SuperAdmin page={page} account={account} />;
   if (roleKey === "admin") return <IroAdmin page={page} account={account} documentId={documentId} />;
-  if (roleKey === "staff") return <IroStaff page={page} account={account} documentId={documentId} />;
   if (roleKey === "legal") return <LegalCounsel page={page} account={account} />;
   return <DepartmentStaff page={page} account={account} />;
 }

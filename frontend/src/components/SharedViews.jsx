@@ -1,9 +1,7 @@
 import React from "react";
 import {
   CalendarClock,
-  CheckCircle2,
   ChevronDown,
-  ClipboardCheck,
   Download,
   FileCheck2,
   FileText,
@@ -32,7 +30,6 @@ import { reportClientError } from "../utils/reportClientError";
 
 const dashboardLoaders = {
   department: getDepartmentDashboard,
-  staff: getIroDashboard,
   admin: getIroDashboard,
   legal: getLegalDashboard,
 };
@@ -50,12 +47,6 @@ const dashboardCards = {
     ["approved_documents", "Approved", ShieldCheck],
     ["notarized_documents", "Notarized", Gavel],
   ],
-  staff: [
-    ["incoming_submissions", "Unlogged", CalendarClock, "Needs Action"],
-    ["under_review", "Under Review", CheckCircle2],
-    ["pending_notarization", "Awaiting Check", ClipboardCheck],
-    ["assigned_to_legal", "Routed To Legal", Gavel],
-  ],
   admin: [
     ["total_submissions", "Total Submissions", Folder],
     [
@@ -66,7 +57,7 @@ const dashboardCards = {
       "warn",
     ],
     ["under_review", "Under Review", Gauge, "Active"],
-    ["completed", "Completed", FileCheck2, "Workflow"],
+    ["pending_archival", "Pending Archival", FileCheck2, "Approved"],
   ],
   legal: [
     [
@@ -149,14 +140,12 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
     }),
   );
 
-  const showDocumentTitle = roleKey === "staff" || roleKey === "admin";
+  const showDocumentTitle = roleKey === "admin";
   const showEntityName = roleKey !== "admin";
   const activityRows = (dashboard?.recent_activity ?? []).map((item) => [
     item.tracking_number || "-",
     ...(showDocumentTitle ? [item.title || "-"] : []),
-    ...(showEntityName ? [roleKey === "staff"
-      ? item.department?.code || item.department?.name || item.entity_name || "-"
-      : item.entity_name || item.department?.code || "-"] : []),
+    ...(showEntityName ? [item.entity_name || item.department?.code || "-"] : []),
     item.type || "-",
     formatDateTime(item.timestamp),
     item.status || "-",
@@ -185,7 +174,7 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
                 "Submission ID",
                 ...(showDocumentTitle ? ["Document Title"] : []),
                 ...(showEntityName
-                  ? [roleKey === "staff" ? "Submitting Office" : "Entity Name"]
+                  ? ["Entity Name"]
                   : []),
                 "Type",
                 "Timestamp",

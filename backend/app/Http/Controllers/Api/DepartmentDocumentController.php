@@ -156,7 +156,7 @@ class DepartmentDocumentController extends Controller
                                 : Document::RENEWAL_NOT_REQUIRED),
                         'department_id' => $profile->department_id,
                         'submitted_by' => $profile->id,
-                        'status' => $partnerDepartmentId ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_SUBMITTED,
+                        'status' => $partnerDepartmentId ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_LOGGED,
                         'submitted_at' => $createdAt,
                         // This is the point at which “Submit for Review”
                         // officially delivers a departmental submission.
@@ -242,7 +242,7 @@ class DepartmentDocumentController extends Controller
 
             $update = [
                 ...$validated,
-                'status' => $document->partner_department_id ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_SUBMITTED,
+                'status' => $document->partner_department_id ? Document::STATUS_DEPARTMENT_REVIEW : Document::STATUS_LOGGED,
                 'legal_notes' => null,
                 'department_review_routed_at' => $document->partner_department_id ? now() : null,
             ];

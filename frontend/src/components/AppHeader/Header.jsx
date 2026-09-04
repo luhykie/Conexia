@@ -38,9 +38,7 @@ export function Header({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [processingId, setProcessingId] = React.useState(null);
-  const isIroNotificationBadge = ["admin", "staff"].includes(
-    account?.roleKey,
-  );
+  const isIroNotificationBadge = account?.roleKey === "admin";
 
   const initials = getInitials(
     account?.fullName ||
@@ -353,10 +351,6 @@ function getInitials(name) {
 function formatRole(role, roleKey) {
   if (roleKey === "admin") {
     return "IRO Admin";
-  }
-
-  if (roleKey === "staff") {
-    return "IRO Staff";
   }
 
   if (roleKey === "legal") {

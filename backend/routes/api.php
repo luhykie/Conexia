@@ -46,8 +46,6 @@ Route::middleware([
     AuthenticateSupabaseUser::class,
     EnsureRole::class
         .':'
-        .Profile::ROLE_IRO_STAFF
-        .','
         .Profile::ROLE_IRO_ADMIN,
 ])
     ->get('/iro/dashboard', [DashboardController::class, 'iro']);
@@ -194,8 +192,6 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 .','
                 .Profile::ROLE_IRO_ADMIN
                 .','
-                .Profile::ROLE_IRO_STAFF
-                .','
                 .Profile::ROLE_DEPARTMENT_STAFF
         )
             ->group(function (): void {
@@ -211,26 +207,9 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
             });
 
         Route::middleware(
-            EnsureRole::class.':'.Profile::ROLE_IRO_STAFF
-        )
-            ->group(function (): void {
-                Route::patch(
-                    '/iro/documents/{id}/forward-to-admin',
-                    [IroDocumentController::class, 'forwardToAdmin']
-                );
-
-                Route::patch(
-                    '/iro/documents/{id}/return-for-correction',
-                    [IroDocumentController::class, 'returnForCorrection']
-                );
-            });
-
-        Route::middleware(
             EnsureRole::class
                 .':'
                 .Profile::ROLE_DEPARTMENT_STAFF
-                .','
-                .Profile::ROLE_IRO_STAFF
                 .','
                 .Profile::ROLE_IRO_ADMIN
                 .','
@@ -274,8 +253,6 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 .Profile::ROLE_IRO_ADMIN
                 .','
                 .Profile::ROLE_LEGAL_COUNSEL
-                .','
-                .Profile::ROLE_IRO_STAFF
                 .','
                 .Profile::ROLE_DEPARTMENT_STAFF
         )
@@ -365,17 +342,13 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 Route::delete('/department/documents/{document}/review/items/{item}', [DepartmentReviewController::class, 'destroyItem']);
                 Route::patch('/department/documents/{document}/review/approve', [DepartmentReviewController::class, 'approve']);
                 Route::patch('/department/documents/{document}/review/correction', [DepartmentReviewController::class, 'requestCorrection']);
-                Route::patch('/department/documents/{document}/review/route-to-staff', [DepartmentReviewController::class, 'routeToStaff']);
+                Route::patch('/department/documents/{document}/review/route-to-admin', [DepartmentReviewController::class, 'routeToAdmin']);
                 Route::get('/department/documents/{document}/discussion', [DepartmentDiscussionController::class, 'index']);
                 Route::post('/department/documents/{document}/discussion', [DepartmentDiscussionController::class, 'store']);
             });
 
         Route::middleware(
-            EnsureRole::class
-                .':'
-                .Profile::ROLE_IRO_STAFF
-                .','
-                .Profile::ROLE_IRO_ADMIN
+            EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )
             ->group(function (): void {
                 Route::get(
@@ -514,8 +487,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
 
         Route::middleware(
             EnsureRole::class
-                .':'.Profile::ROLE_IRO_STAFF
-                .','.Profile::ROLE_IRO_ADMIN
+                .':'.Profile::ROLE_IRO_ADMIN
                 .','.Profile::ROLE_LEGAL_COUNSEL
         )->get('/iro/documents/{document}/history', [DepartmentHistoryController::class, 'history']);
 

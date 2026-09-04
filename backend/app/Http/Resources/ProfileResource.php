@@ -45,7 +45,6 @@ class ProfileResource extends JsonResource
         return match ($databaseRole) {
             'super_admin' => 'super',
             'iro_admin' => 'admin',
-            'iro_staff' => 'staff',
             'legal_counsel' => 'legal',
             'department_staff' => 'department',
             default => null,

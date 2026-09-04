@@ -9,6 +9,7 @@ use App\Models\Profile;
 use App\Support\Pagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 
 class NotificationController extends Controller
@@ -23,9 +24,8 @@ class NotificationController extends Controller
         );
         $operator = Pagination::searchOperator();
 
-        $notifications = Notification::query()
+        $notifications = $this->visibleNotifications($profile)
             ->with('document')
-            ->where('user_id', $profile->id)
             ->when(
                 $options['search'] !== '',
                 fn ($query) => $query->where(function ($builder) use ($options, $operator) {
@@ -103,8 +103,7 @@ class NotificationController extends Controller
     {
         $profile = $this->profile($request);
 
-        $count = Notification::query()
-            ->where('user_id', $profile->id)
+        $count = $this->visibleNotifications($profile)
             ->where('is_read', false)
             ->count();
 
@@ -121,9 +120,8 @@ class NotificationController extends Controller
     ): JsonResponse {
         $profile = $this->profile($request);
 
-        $notification = Notification::query()
+        $notification = $this->visibleNotifications($profile)
             ->whereKey($id)
-            ->where('user_id', $profile->id)
             ->firstOrFail();
 
         if (!$notification->is_read) {
@@ -147,8 +145,7 @@ class NotificationController extends Controller
     {
         $profile = $this->profile($request);
 
-        Notification::query()
-            ->where('user_id', $profile->id)
+        $this->visibleNotifications($profile)
             ->where('is_read', false)
             ->update([
                 'is_read' => true,
@@ -166,6 +163,19 @@ class NotificationController extends Controller
         return $request->attributes->get(
             'authenticated_profile'
         );
+    }
+
+    private function visibleNotifications(Profile $profile): Builder
+    {
+        return Notification::query()
+            ->where('user_id', $profile->id)
+            ->when(
+                $profile->role === Profile::ROLE_IRO_ADMIN,
+                fn (Builder $query) => $query->whereNotIn(
+                    'notification_type',
+                    ['pending_notarization', 'document_notarized']
+                )
+            );
     }
 
     private function payload(

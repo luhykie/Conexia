@@ -26,10 +26,6 @@ class DepartmentDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('document.partnership_scope', 'Local')
             ->json('document.id');
 
-        Document::query()->whereKey($documentId)->update([
-            'status' => Document::STATUS_LOGGED,
-        ]);
-
         $this->getJson(
             '/api/iro/documents/incoming',
             $this->authHeaders($admin)
@@ -120,7 +116,7 @@ class DepartmentDocumentAuthorizationTest extends SecurityTestCase
             $this->authHeaders($staff)
         )
             ->assertOk()
-            ->assertJsonPath('document.status', Document::STATUS_SUBMITTED)
+            ->assertJsonPath('document.status', Document::STATUS_LOGGED)
             ->assertJsonPath('document.title', 'Corrected Agreement Title')
             ->assertJsonPath('document.partner_institution', 'Corrected Partner Organization')
             ->assertJsonPath('document.contact_person', 'Updated Contact')

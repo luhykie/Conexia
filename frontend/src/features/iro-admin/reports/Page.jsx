@@ -102,8 +102,8 @@ export default function IroAdminReportsPage() {
             tone: "danger",
           },
           {
-            value: String(stats.total_notarized ?? 0),
-            label: "Total Notarized",
+            value: String(stats.pending_archival ?? 0),
+            label: "Pending Archival",
             icon: Shield,
           },
         ]}
@@ -111,7 +111,7 @@ export default function IroAdminReportsPage() {
 
       <div className="two-col">
         <Panel title="Workflow Efficiency: Average Time per Stage">
-          {["Document Logging", "Administrative Review", "Legal Counsel Approval", "Final Notarization"].map((stage, index) => (
+          {["Document Logging", "Administrative Review", "Legal Counsel Approval", "Archival"].map((stage, index) => (
             <div className="bar-row" key={stage}>
               <span>
                 Stage {index + 1}: {stage}
@@ -145,8 +145,6 @@ export default function IroAdminReportsPage() {
             "Under Legal Review",
             "Corrections Needed",
             "Approved",
-            "Pending Notarization",
-            "Notarized",
             "Archived",
           ]}
           showDepartment

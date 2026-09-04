@@ -52,7 +52,6 @@ class UserResource extends JsonResource
         return match ($this->role) {
             'super_admin' => 'Super Admin',
             'iro_admin' => 'IRO Admin',
-            'iro_staff' => 'IRO Staff',
             'legal_counsel' => 'Legal Counsel',
             'department_staff' => 'Department Staff',
             default => ucwords(str_replace('_', ' ', $this->role)),

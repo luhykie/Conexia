@@ -283,14 +283,24 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'message' => 'Correction requested. A revised document will require new approvals from both departments.']);
     }
 
-    public function routeToStaff(Request $request, Document $document): JsonResponse
+    public function routeToAdmin(Request $request, Document $document): JsonResponse
     {
         $profile = $this->participant($request, $document);
-        if ($profile->department_id !== $document->department_id) abort(403, 'Only the creator can route this submission to Staff Review.');
-        if ($document->status !== Document::STATUS_PARTNER_REVIEW_COMPLETE) throw ValidationException::withMessages(['status' => 'Partner approval is required before routing to Staff Review.']);
+        if ($profile->department_id !== $document->department_id) abort(403, 'Only the creator can route this submission to IRO Admin.');
+        if ($document->status !== Document::STATUS_PARTNER_REVIEW_COMPLETE) throw ValidationException::withMessages(['status' => 'Partner approval is required before routing to IRO Admin.']);
 
-        $document->update(['status' => Document::STATUS_SUBMITTED]);
-        return response()->json(['success' => true, 'message' => 'Submission routed to Staff Review.', 'document' => DocumentPayload::make($document->refresh())]);
+        $document->update(['status' => Document::STATUS_LOGGED]);
+        AuditLog::query()->create([
+            'actor_id' => $profile->id,
+            'document_id' => $document->id,
+            'action' => 'department.document.routed_to_iro_admin',
+            'metadata' => [
+                'previous_status' => Document::STATUS_PARTNER_REVIEW_COMPLETE,
+                'new_status' => Document::STATUS_LOGGED,
+            ],
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Submission routed to IRO Admin.', 'document' => DocumentPayload::make($document->refresh())]);
     }
 
     private function participant(Request $request, Document $document): Profile

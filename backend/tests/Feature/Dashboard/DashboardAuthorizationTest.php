@@ -54,18 +54,12 @@ class DashboardAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('data.stats.pending_corrections', 1);
     }
 
-    public function test_iro_dashboard_allows_iro_roles_and_denies_department_staff(): void
+    public function test_iro_dashboard_allows_admin_and_denies_department_staff(): void
     {
-        $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
         $departmentStaff = $this->profile(
             Profile::ROLE_DEPARTMENT_STAFF
         );
-
-        $this->getJson(
-            '/api/iro/dashboard',
-            $this->authHeaders($iroStaff)
-        )->assertOk();
 
         $this->getJson(
             '/api/iro/dashboard',
@@ -80,7 +74,7 @@ class DashboardAuthorizationTest extends SecurityTestCase
 
     public function test_iro_dashboard_returns_live_workflow_counts(): void
     {
-        $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
+        $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
         $department = $this->department(['code' => 'SCS']);
 
         $this->document([
@@ -88,6 +82,9 @@ class DashboardAuthorizationTest extends SecurityTestCase
         ]);
         $this->document([
             'status' => Document::STATUS_PENDING_NOTARIZATION,
+        ]);
+        $this->document([
+            'status' => Document::STATUS_APPROVED,
         ]);
         $this->document([
             'status' => Document::STATUS_SUBMITTED,
@@ -100,20 +97,19 @@ class DashboardAuthorizationTest extends SecurityTestCase
 
         $this->getJson(
             '/api/iro/dashboard',
-            $this->authHeaders($iroStaff)
+            $this->authHeaders($iroAdmin)
         )
             ->assertOk()
             ->assertJsonPath('data.stats.incoming_submissions', 1)
             ->assertJsonPath('data.stats.under_review', 1)
-            ->assertJsonPath('data.stats.pending_notarization', 1)
+            ->assertJsonPath('data.stats.pending_archival', 1)
+            ->assertJsonMissingPath('data.stats.pending_notarization')
             ->assertJsonPath('data.stats.archived', 1)
             ->assertJsonFragment([
-                'entity_name' => 'SCS',
+                'entity_name' => 'Restricted Partner',
                 'title' => 'Restricted Title',
                 'type' => 'MOA',
-            ])
-            ->assertJsonMissingPath('data.recent_activity.0.partner_institution')
-            ->assertJsonMissingPath('data.recent_activity.0.document_type');
+            ]);
     }
 
     public function test_iro_admin_recent_activity_includes_stored_partnership_scope(): void
@@ -168,7 +164,7 @@ class DashboardAuthorizationTest extends SecurityTestCase
     public function test_super_admin_dashboard_is_governance_only(): void
     {
         $superAdmin = $this->profile(Profile::ROLE_SUPER_ADMIN);
-        $this->profile(Profile::ROLE_IRO_STAFF);
+        $this->profile(Profile::ROLE_IRO_ADMIN);
         $this->department(['code' => 'SCS']);
         $this->document([
             'partner_institution' => 'Forbidden Partner',

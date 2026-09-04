@@ -453,3 +453,25 @@
 .engagement-modal .success-message {
   margin: 0;
 }
+
+.pre-submission-modal .iro-contact-number {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.85fr) minmax(0, 1.15fr);
+  gap: var(--space-2);
+}
+
+.pre-submission-modal .field-error {
+  color: #b42318;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.pre-submission-modal .iro-engagement-field--wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .pre-submission-modal .iro-contact-number {
+    grid-template-columns: 1fr;
+  }
+}

@@ -130,7 +130,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
     <section className="page iro-admin-page iro-admin-log-review-page">
       <PageTitle
         title="Log & Review"
-        subtitle="Review documents processed and routed by IRO Staff."
+        subtitle="Review documents submitted directly by departments."
       />
 
       <Panel title="Logged Documents">

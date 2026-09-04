@@ -50,7 +50,16 @@ class DashboardService
 
     public function iro(Profile $profile): array
     {
-        $documents = $this->dashboards->iroDocuments();
+        $documents = $this->dashboards->iroDocuments()
+            ->reject(fn (Document $document): bool => in_array(
+                $document->status,
+                [
+                    Document::STATUS_PENDING_NOTARIZATION,
+                    Document::STATUS_NOTARIZED,
+                ],
+                true
+            ))
+            ->values();
         $queueDocuments = $documents
             ->reject(fn (Document $document): bool =>
                 $document->status === Document::STATUS_ARCHIVED
@@ -71,14 +80,14 @@ class DashboardService
                     $documents,
                     Document::STATUS_UNDER_LEGAL_REVIEW
                 ),
-                'pending_notarization' => $this->countStatus(
+                'pending_archival' => $this->countStatus(
                     $documents,
-                    Document::STATUS_PENDING_NOTARIZATION
+                    Document::STATUS_APPROVED
                 ),
-                'completed' => $this->countIn($documents, [
-                    Document::STATUS_NOTARIZED,
-                    Document::STATUS_ARCHIVED,
-                ]),
+                'completed' => $this->countStatus(
+                    $documents,
+                    Document::STATUS_ARCHIVED
+                ),
                 'archived' => $this->countStatus(
                     $documents,
                     Document::STATUS_ARCHIVED
@@ -87,7 +96,7 @@ class DashboardService
             ],
             'recent_activity' => $this->recentActivity(
                 $queueDocuments,
-                $profile->role === Profile::ROLE_IRO_STAFF,
+                false,
                 $profile->role === Profile::ROLE_IRO_ADMIN
             ),
             'notifications' => $this->statusNotices($queueDocuments),
@@ -148,7 +157,7 @@ class DashboardService
             'stats' => $stats,
             'trend' => $this->auditActivityTrend($stats),
             'offices' => $this->officeBreakdown($documents),
-            'recent_activity' => $this->recentActivity($documents, true),
+            'recent_activity' => [],
             'system' => [
                 'platform_status' => 'Operational',
                 'database_status' => $this->dashboards->databaseStatus(),

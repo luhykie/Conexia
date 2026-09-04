@@ -12,7 +12,6 @@ class Profile extends Model
     use HasUuids;
 
     public const ROLE_DEPARTMENT_STAFF = 'department_staff';
-    public const ROLE_IRO_STAFF = 'iro_staff';
     public const ROLE_IRO_ADMIN = 'iro_admin';
     public const ROLE_LEGAL_COUNSEL = 'legal_counsel';
     public const ROLE_SUPER_ADMIN = 'super_admin';

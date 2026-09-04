@@ -32,15 +32,6 @@ class EnsureUserDirectoryAccess
             return $next($request);
         }
 
-        if (
-            $profile->role === Profile::ROLE_IRO_STAFF &&
-            $request->isMethod('GET') &&
-            $request->query('role') ===
-                Profile::ROLE_LEGAL_COUNSEL
-        ) {
-            return $next($request);
-        }
-
         return $this->error(
             'You do not have permission to access the user directory.',
             403

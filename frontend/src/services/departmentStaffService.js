@@ -41,8 +41,8 @@ export function requestDepartmentCorrection(documentId, comment) {
   return apiPatch(`/department/documents/${documentId}/review/correction`, { comment });
 }
 
-export function routeDepartmentReviewToStaff(documentId) {
-  return apiPatch(`/department/documents/${documentId}/review/route-to-staff`, {});
+export function routeDepartmentReviewToAdmin(documentId) {
+  return apiPatch(`/department/documents/${documentId}/review/route-to-admin`, {});
 }
 
 export function updateDepartmentReviewHighlight(documentId, itemId, payload) {

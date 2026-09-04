@@ -16,7 +16,6 @@ class RoleBoundaryTest extends SecurityTestCase
 
         foreach ([
             Profile::ROLE_DEPARTMENT_STAFF,
-            Profile::ROLE_IRO_STAFF,
             Profile::ROLE_IRO_ADMIN,
             Profile::ROLE_SUPER_ADMIN,
         ] as $role) {
@@ -41,7 +40,6 @@ class RoleBoundaryTest extends SecurityTestCase
 
         foreach ([
             Profile::ROLE_LEGAL_COUNSEL,
-            Profile::ROLE_IRO_STAFF,
             Profile::ROLE_IRO_ADMIN,
             Profile::ROLE_SUPER_ADMIN,
         ] as $role) {
@@ -52,17 +50,12 @@ class RoleBoundaryTest extends SecurityTestCase
         }
     }
 
-    public function test_iro_routes_allow_iro_staff_and_iro_admin_only(): void
+    public function test_iro_routes_allow_iro_admin_only(): void
     {
-        foreach ([
-            Profile::ROLE_IRO_STAFF,
-            Profile::ROLE_IRO_ADMIN,
-        ] as $role) {
-            $this->getJson(
-                '/api/iro/documents/incoming',
-                $this->authHeaders($this->profile($role))
-            )->assertOk();
-        }
+        $this->getJson(
+            '/api/iro/documents/incoming',
+            $this->authHeaders($this->profile(Profile::ROLE_IRO_ADMIN))
+        )->assertOk();
 
         foreach ([
             Profile::ROLE_DEPARTMENT_STAFF,
@@ -80,7 +73,6 @@ class RoleBoundaryTest extends SecurityTestCase
     {
         foreach ([
             Profile::ROLE_DEPARTMENT_STAFF,
-            Profile::ROLE_IRO_STAFF,
             Profile::ROLE_IRO_ADMIN,
             Profile::ROLE_LEGAL_COUNSEL,
         ] as $role) {

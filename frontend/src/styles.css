@@ -1117,12 +1117,6 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .department-page .page-title h1 { color: var(--green-950); }
 
 /* ==========================================================================
-   IRO Staff Screens
-   Incoming queue, log/review, status tracker, and expiry monitoring.
-   ========================================================================== */
-.iro-staff-page .review-sidebar { position: sticky; top: 88px; }
-
-/* ==========================================================================
    IRO Admin Screens
    Validation, reassignment, performance reports, archive, and engagements.
    ========================================================================== */

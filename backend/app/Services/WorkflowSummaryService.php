@@ -155,19 +155,22 @@ class WorkflowSummaryService
     {
         $documents = $this->summaries->archivedDocuments($options);
         $today = now()->toDateString();
-        $allArchived = $this->summaries->archivedDocuments();
+        $allArchiveRecords = $this->summaries->archivedDocuments();
+        $archived = $allArchiveRecords->where(
+            'status',
+            Document::STATUS_ARCHIVED
+        );
 
         return [
             'stats' => [
-                'total_archived' => $allArchived->count(),
-                'finalized_today' => $allArchived
+                'total_archived' => $archived->count(),
+                'finalized_today' => $archived
                     ->filter(fn (Document $document): bool =>
                         $document->archived_at?->format('Y-m-d') === $today
                     )
                     ->count(),
-                'pending_archival' => $this->summaries
-                    ->reportDocuments()
-                    ->where('status', Document::STATUS_NOTARIZED)
+                'pending_archival' => $allArchiveRecords
+                    ->where('status', Document::STATUS_APPROVED)
                     ->count(),
                 'audit_flags' => 0,
             ],
@@ -200,8 +203,6 @@ class WorkflowSummaryService
         $reviewedStatuses = [
             Document::STATUS_CORRECTIONS_NEEDED,
             Document::STATUS_APPROVED,
-            Document::STATUS_PENDING_NOTARIZATION,
-            Document::STATUS_NOTARIZED,
             Document::STATUS_ARCHIVED,
         ];
 
@@ -213,10 +214,14 @@ class WorkflowSummaryService
                     $documents,
                     Document::STATUS_CORRECTIONS_NEEDED
                 ),
-                'total_notarized' => $this->countIn($documents, [
-                    Document::STATUS_NOTARIZED,
-                    Document::STATUS_ARCHIVED,
-                ]),
+                'pending_archival' => $this->countStatus(
+                    $documents,
+                    Document::STATUS_APPROVED
+                ),
+                'total_archived' => $this->countStatus(
+                    $documents,
+                    Document::STATUS_ARCHIVED
+                ),
             ],
             'department_breakdown' =>
                 $pagedBreakdown->items(),
@@ -231,10 +236,16 @@ class WorkflowSummaryService
             'partner_institution' =>
                 $document->partner_institution ?? '-',
             'document_type' => $document->document_type ?? '-',
-            'distribution_date' =>
-                $document->archived_at?->toISOString(),
-            'completion' => 'Archived',
-            'status' => $document->status,
+            'distribution_date' => $document->status === Document::STATUS_ARCHIVED
+                ? $document->archived_at?->toISOString()
+                : $document->updated_at?->toISOString(),
+            'completion' => $document->status === Document::STATUS_ARCHIVED
+                ? 'Archived'
+                : 'Pending Archival',
+            'status' => $document->status === Document::STATUS_APPROVED
+                ? 'Pending Archival'
+                : Document::STATUS_ARCHIVED,
+            'workflow_status' => $document->status,
             'id' => $document->id,
         ];
     }
@@ -251,32 +262,6 @@ class WorkflowSummaryService
             ->diffInDays($document->expiry_date, false);
 
         $classification = $this->expiryClassification($document);
-
-        if ($profile->role === Profile::ROLE_IRO_STAFF) {
-            return [
-                'id' => $document->id,
-                'tracking_number' => $document->tracking_number,
-                'department_id' => $document->department_id,
-                'department' => $document->department
-                    ? [
-                        'id' => $document->department->id,
-                        'code' => $document->department->code,
-                        'name' => $document->department->name,
-                    ]
-                    : null,
-                'effective_date' =>
-                    $document->effective_date?->format('Y-m-d'),
-                'expiry_date' =>
-                    $document->expiry_date?->format('Y-m-d'),
-                'expiry' => $this->expiryLabel($daysRemaining),
-                'days_remaining' => $daysRemaining,
-                'renewal_status' => $document->renewal_status,
-                'status' => $document->status,
-                'workflow_status' => $document->status,
-                'classification' => $classification,
-                'action' => 'Remind IRO Admin',
-            ];
-        }
 
         return [
             'id' => $document->id,
@@ -393,8 +378,6 @@ class WorkflowSummaryService
                 $department = $group->first()?->department;
                 $approved = $this->countIn($group, [
                     Document::STATUS_APPROVED,
-                    Document::STATUS_PENDING_NOTARIZATION,
-                    Document::STATUS_NOTARIZED,
                     Document::STATUS_ARCHIVED,
                 ]);
                 $returned = $this->countStatus(

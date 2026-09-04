@@ -143,14 +143,4 @@ class DocumentMessageAuthorizationTest extends SecurityTestCase
         )->assertUnprocessable()->assertJsonValidationErrors('reply_to_message_id');
     }
 
-    public function test_iro_staff_chat_access_is_rejected_by_existing_role_boundary(): void
-    {
-        $iroStaff = $this->profile(Profile::ROLE_IRO_STAFF);
-        $document = $this->document();
-
-        $this->getJson(
-            "/api/documents/{$document->id}/messages",
-            $this->authHeaders($iroStaff)
-        )->assertForbidden();
-    }
 }

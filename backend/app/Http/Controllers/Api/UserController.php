@@ -36,7 +36,6 @@ class UserController extends Controller
                 Rule::in([
                     Profile::ROLE_SUPER_ADMIN,
                     Profile::ROLE_IRO_ADMIN,
-                    Profile::ROLE_IRO_STAFF,
                     Profile::ROLE_LEGAL_COUNSEL,
                     Profile::ROLE_DEPARTMENT_STAFF,
                 ]),
@@ -148,7 +147,6 @@ class UserController extends Controller
                 Rule::in([
                     Profile::ROLE_SUPER_ADMIN,
                     Profile::ROLE_IRO_ADMIN,
-                    Profile::ROLE_IRO_STAFF,
                     Profile::ROLE_LEGAL_COUNSEL,
                     Profile::ROLE_DEPARTMENT_STAFF,
                 ]),
@@ -280,7 +278,6 @@ class UserController extends Controller
                 Rule::in([
                     Profile::ROLE_SUPER_ADMIN,
                     Profile::ROLE_IRO_ADMIN,
-                    Profile::ROLE_IRO_STAFF,
                     Profile::ROLE_LEGAL_COUNSEL,
                     Profile::ROLE_DEPARTMENT_STAFF,
                 ]),

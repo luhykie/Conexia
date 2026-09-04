@@ -46,9 +46,16 @@ class WorkflowSummaryController extends Controller
 
     public function archive(Request $request): JsonResponse
     {
-        $data = $this->summaries->archive(
-            $this->options($request, ['archived_at', 'tracking_number', 'status'])
+        $options = $this->options(
+            $request,
+            ['updated_at', 'archived_at', 'tracking_number', 'status'],
+            ['Pending Archival', Document::STATUS_ARCHIVED]
         );
+        if (($options['status'] ?? null) === 'Pending Archival') {
+            $options['status'] = Document::STATUS_APPROVED;
+        }
+
+        $data = $this->summaries->archive($options);
 
         return $this->success(
             'Archive records loaded successfully.',
@@ -92,13 +99,14 @@ class WorkflowSummaryController extends Controller
 
     private function options(
         Request $request,
-        array $sortColumns
+        array $sortColumns,
+        ?array $allowedStatuses = null
     ): array {
         $options = Pagination::options(
             $request,
             $sortColumns,
             $sortColumns[0] ?? 'updated_at',
-            Document::workflowStatuses()
+            $allowedStatuses ?? Document::workflowStatuses()
         );
 
         $extra = $request->validate([

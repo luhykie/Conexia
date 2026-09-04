@@ -47,7 +47,6 @@ class AuthController extends Controller
         return match ($role) {
             Profile::ROLE_SUPER_ADMIN => 'super',
             Profile::ROLE_IRO_ADMIN => 'admin',
-            Profile::ROLE_IRO_STAFF => 'staff',
             Profile::ROLE_LEGAL_COUNSEL => 'legal',
             default => 'department',
         };

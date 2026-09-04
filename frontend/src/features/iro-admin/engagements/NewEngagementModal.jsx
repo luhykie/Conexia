@@ -1,53 +1,27 @@
 import React from "react";
-import {
-  getCountryCallingCode,
-  isSupportedCountry,
-  parsePhoneNumberFromString,
-  validatePhoneNumberLength,
-} from "libphonenumber-js/max";
-
+import { ArrowLeft, ArrowRight, FilePlus2, X } from "lucide-react";
+import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString, validatePhoneNumberLength } from "libphonenumber-js/max";
 import { Dropzone } from "../../../components/SharedViews";
-import { createIroDocument } from "../../../services/iroAdminService";
-import { uploadDocumentFile } from "../../../services/documentFileService";
-import { getDepartments } from "../../../services/departmentService";
+import "../../../components/PreSubmissionModal.css";
 import { getCountryDirectory } from "../../../services/countryService";
+import { getDepartments } from "../../../services/departmentService";
+import { uploadDocumentFile } from "../../../services/documentFileService";
+import { createIroDocument } from "../../../services/iroAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-const initialForm = {
-  document_type: "MOA",
-  partnership_type: "New Partnership",
-  partnership_scope: "Local",
-  title: "",
-  partner_institution: "",
-  department_id: "",
-  description: "",
-  contact_person: "",
-  contact_position: "",
-  contact_email: "",
-  contact_country: "PH",
-  contact_number: "",
-  urgency: "Normal",
-  requested_completion_date: "",
-};
-
-const philippinesFallback = {
-  name: "Philippines",
-  code: "+63",
-  iso: "PH",
-};
+const initialForm = { document_type: "MOA", partnership_type: "New Partnership", partnership_scope: "Local", partner_institution: "", partner_email: "", department_id: "", contact_person: "", contact_position: "", contact_email: "", contact_country: "PH", contact_number: "", urgency: "Normal" };
+const philippinesFallback = { name: "Philippines", code: "+63", iso: "PH" };
+const stepLabels = ["Classification", "Institution Details", "Contact Information", "Attachments"];
 
 function getPhoneNumber(number, country) {
-  if (!/^\d+$/.test(number) || (country === "PH" && number.length !== 10)) {
-    return null;
-  }
-
+  if (!/^\d+$/.test(number) || (country === "PH" && number.length !== 10)) return null;
   const phoneNumber = parsePhoneNumberFromString(number, country);
   return phoneNumber?.isValid() ? phoneNumber : null;
 }
 
 export function IroNewEngagementModal({ open, onClose, onCreated }) {
-  const [modalStep, setModalStep] = React.useState(1);
+  const [step, setStep] = React.useState(1);
   const [form, setForm] = React.useState(initialForm);
   const [selectedFile, setSelectedFile] = React.useState(null);
   const [departments, setDepartments] = React.useState([]);
@@ -58,626 +32,158 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState({});
   const [modalError, setModalError] = React.useState("");
-  const [modalSuccess, setModalSuccess] = React.useState("");
-  const ntedRef = React.useRef(true);
+  const mountedRef = React.useRef(true);
 
-  React.useEffect(() => {
-    ntedRef.current = true;
-    return () => {
-      ntedRef.current = false;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    loadCountries();
-  }, []);
-
-  async function loadCountries() {
-    setCountriesLoading(true);
-    setCountriesError("");
-
-    try {
-      const directory = await getCountryDirectory();
-      const options = directory
-        .filter((country) => isSupportedCountry(country.iso))
-        .map((country) => ({
-          ...country,
-          name: country.iso === "PH" ? philippinesFallback.name : country.name,
-          code: `+${getCountryCallingCode(country.iso)}`,
-        }))
-        .sort((left, right) => left.name.localeCompare(right.name, "en"));
-
-      if (!options.some((country) => country.iso === "PH")) {
-        options.push(philippinesFallback);
-        options.sort((left, right) => left.name.localeCompare(right.name, "en"));
-      }
-
-      if (!options.length) {
-        throw new Error("No supported countries were returned.");
-      }
-
-      if (ntedRef.current) setCountries(options);
-    } catch (requestError) {
-      reportClientError("Unable to load country directory:", requestError);
-      if (ntedRef.current) {
-        setCountries([philippinesFallback]);
-        setCountriesError(
-          "Country list unavailable. Philippines (+63) remains available.",
-        );
-      }
-    } finally {
-      if (ntedRef.current) setCountriesLoading(false);
-    }
-  }
-
+  React.useEffect(() => () => { mountedRef.current = false; }, []);
+  React.useEffect(() => { loadCountries(); }, []);
   React.useEffect(() => {
     if (!open) return;
-    setModalStep(1);
-    setForm(initialForm);
-    setSelectedFile(null);
-    setSubmitting(false);
-    setFieldErrors({});
-    setModalError("");
-    setModalSuccess("");
+    setStep(1); setForm(initialForm); setSelectedFile(null); setSubmitting(false); setFieldErrors({}); setModalError("");
     loadDepartments();
   }, [open]);
 
+  async function loadCountries() {
+    setCountriesLoading(true); setCountriesError("");
+    try {
+      const directory = await getCountryDirectory();
+      const options = directory.filter((country) => isSupportedCountry(country.iso)).map((country) => ({ ...country, name: country.iso === "PH" ? philippinesFallback.name : country.name, code: `+${getCountryCallingCode(country.iso)}` })).sort((a, b) => a.name.localeCompare(b.name, "en"));
+      if (!options.some((country) => country.iso === "PH")) options.push(philippinesFallback);
+      if (!options.length) throw new Error("No supported countries were returned.");
+      if (mountedRef.current) setCountries(options);
+    } catch (error) {
+      reportClientError("Unable to load country directory:", error);
+      if (mountedRef.current) { setCountries([philippinesFallback]); setCountriesError("Country list unavailable. Philippines (+63) remains available."); }
+    } finally { if (mountedRef.current) setCountriesLoading(false); }
+  }
+
   async function loadDepartments() {
     setLoadingDepartments(true);
-
     try {
       const response = await getDepartments({ per_page: 100 });
-      setDepartments(response.data ?? []);
-    } catch (requestError) {
-      reportClientError("Unable to load departments:", requestError);
-      setDepartments([]);
-    } finally {
-      setLoadingDepartments(false);
-    }
+      setDepartments(response.data ?? response.departments ?? []);
+    } catch (error) {
+      reportClientError("Unable to load departments:", error); setDepartments([]);
+    } finally { setLoadingDepartments(false); }
   }
 
-  function updateForm(event) {
-    const { name, value } = event.target;
-    const trimmedValue = value.trim();
-
-    if (name === "contact_number" && !/^\d*$/.test(value)) {
-      setModalError("");
-      setModalSuccess("");
-      setFieldErrors((current) => ({
-        ...current,
-        contact_number: "Please enter a valid contact number.",
-      }));
-      return;
-    }
-
-    if (
-      name === "contact_number"
-      && value
-      && (form.contact_country === "PH"
-        ? value.length > 10
-        : validatePhoneNumberLength(value, form.contact_country) === "TOO_LONG")
-    ) {
-      return;
-    }
-
-    setForm((current) => {
-      const nextForm = {
-        ...current,
-        [name]: value,
-      };
-
-      return nextForm;
-    });
-
-    setModalError("");
-    setModalSuccess("");
+  function update(name, value) {
+    if (name === "contact_number" && !/^\d*$/.test(value)) return;
+    if (name === "contact_number" && value && (form.contact_country === "PH" ? value.length > 10 : validatePhoneNumberLength(value, form.contact_country) === "TOO_LONG")) return;
+    const nextForm = { ...form, [name]: value };
+    setForm(nextForm);
     setFieldErrors((current) => {
-      const isValid = name === "contact_email"
-        ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedValue)
-        : name === "contact_number"
-          ? Boolean(getPhoneNumber(value, form.contact_country))
-          : Boolean(trimmedValue);
-      const nextErrors = { ...current };
-      if (name === "contact_country" && getPhoneNumber(form.contact_number, value)) {
-        delete nextErrors.contact_number;
-        delete nextErrors._form;
-      } else if (name === "contact_country" && form.contact_number) {
-        nextErrors.contact_number = "Please enter a valid contact number.";
-      }
-      if (name === "contact_number" && getPhoneNumber(value, form.contact_country)) {
-        delete nextErrors.contact_number;
-        delete nextErrors._form;
-      }
-      if (isValid) delete nextErrors[name];
-      if (isValid) delete nextErrors._form;
-      return nextErrors;
+      const next = { ...current };
+      if (isValidField(name, value, nextForm)) delete next[name];
+      if (name === "contact_country" && isValidField(name, value, nextForm)) delete next.contact_number;
+      return next;
     });
+    if (requiredValues(step, nextForm, selectedFile).some(hasValue)) setModalError("");
   }
 
-  function validateStep(currentStep) {
+  function validate(currentStep) {
     const errors = {};
-    let requiredValues = [];
-
-    if (currentStep === 1) {
-      requiredValues = [form.document_type, form.partnership_type, form.partnership_scope];
-      if (!form.document_type) {
-        errors.document_type = "Please select an agreement type.";
-      }
-      if (!form.partnership_type) {
-        errors.partnership_type = "Please select a partnership type.";
-      }
-      if (!form.partnership_scope) {
-        errors.partnership_scope = "Please select a partnership scope.";
-      }
-    }
-
     if (currentStep === 2) {
-      requiredValues = [form.title, form.partner_institution, form.description, form.department_id];
-      if (!form.title.trim()) {
-        errors.title = "Agreement title is required.";
-      }
-      if (!form.department_id) {
-        errors.department_id = "Please select a responsible office.";
-      }
-      if (!form.partner_institution.trim()) {
-        errors.partner_institution = "Partner organization is required.";
-      }
-      if (!form.description.trim()) {
-        errors.description = "Description or purpose is required.";
-      }
+      if (!form.partner_institution.trim()) errors.partner_institution = "Name of Institution is required.";
+      if (!form.partner_email.trim()) errors.partner_email = "Partner Contact Email is required.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.partner_email.trim())) errors.partner_email = "Please enter a valid partner contact email.";
+      if (!form.department_id) errors.department_id = "Please select a responsible office.";
     }
-
     if (currentStep === 3) {
-      requiredValues = [
-        form.contact_person,
-        form.contact_position,
-        form.contact_email,
-        form.contact_number,
-      ];
-      if (!form.contact_person.trim()) {
-        errors.contact_person = "Contact person is required.";
-      }
-      if (!form.contact_position.trim()) {
-        errors.contact_position = "Contact position is required.";
-      }
-      if (!form.contact_email.trim()) {
-        errors.contact_email = "Contact email is required.";
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) {
-        errors.contact_email = "Please enter a valid contact email.";
-      }
-      if (!form.contact_number.trim()) {
-        errors.contact_number = "Contact number is required.";
-      } else if (!getPhoneNumber(form.contact_number, form.contact_country)) {
-        errors.contact_number = "Please enter a valid contact number.";
-      }
+      if (!form.contact_person.trim()) errors.contact_person = "Contact Person is required.";
+      if (!form.contact_position.trim()) errors.contact_position = "Position is required.";
+      if (!form.contact_email.trim()) errors.contact_email = "Email Address is required.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) errors.contact_email = "Please enter a valid email address.";
+      if (!form.contact_number.trim()) errors.contact_number = "Contact Number is required.";
+      else if (!getPhoneNumber(form.contact_number, form.contact_country)) errors.contact_number = "Please enter a valid contact number.";
     }
-
     if (currentStep === 4) {
-      requiredValues = [selectedFile, form.requested_completion_date, form.urgency];
-      if (!selectedFile) {
-        errors.attachment = "Draft MOA// file is required.";
-      }
-      if (!form.requested_completion_date) {
-        errors.requested_completion_date = "Requested completion date is required.";
-      }
-      if (!form.urgency) {
-        errors.urgency = "Please select an urgency level.";
-      }
+      if (!selectedFile) errors.attachment = "Please upload the draft document.";
+      else if (!isSupportedDraft(selectedFile)) errors.attachment = "Upload a PDF, DOCX, or ODT document up to 25 MB.";
     }
-
-    const allRequiredFieldsEmpty = requiredValues.length > 0
-      && requiredValues.every((value) => !value || (typeof value === "string" && !value.trim()));
-
-    if (allRequiredFieldsEmpty) {
-      return { _form: "All required fields must be filled out." };
-    }
-
-    return errors;
+    return {
+      errors,
+      allBlank: requiredValues(currentStep, form, selectedFile).every((value) => !hasValue(value)),
+    };
   }
 
-  function advanceStep() {
-    const errors = validateStep(modalStep);
-
+  function next() {
+    const { errors, allBlank } = validate(step);
     if (Object.keys(errors).length) {
-      setFieldErrors(errors);
+      setFieldErrors(allBlank ? {} : errors);
+      setModalError(allBlank ? "Please complete all required fields." : "");
       return;
     }
-
-    setFieldErrors({});
-    setModalError("");
-    setModalStep((current) => Math.min(current + 1, 4));
+    setFieldErrors({}); setModalError(""); setStep((current) => Math.min(current + 1, 4));
   }
 
-  function previousStep() {
-    setFieldErrors({});
-    setModalError("");
-    setModalStep((current) => Math.max(current - 1, 1));
-  }
-
-  function navigateToStep(targetStep) {
-    if (submitting || targetStep === modalStep) return;
-
-    if (targetStep < modalStep) {
-      setFieldErrors({});
-      setModalError("");
-      setModalStep(targetStep);
-      return;
-    }
-
-    for (let step = 1; step < targetStep; step += 1) {
-      const errors = validateStep(step);
-      if (Object.keys(errors).length) {
-        setFieldErrors(errors);
-        setModalError("");
-        setModalStep(step);
-        return;
-      }
-    }
-
-    setFieldErrors({});
-    setModalError("");
-    setModalStep(targetStep);
-  }
-
-  function closeModal() {
+  function close() {
     if (submitting) return;
-    setModalStep(1);
-    setForm(initialForm);
-    setSelectedFile(null);
-    setFieldErrors({});
+    setStep(1); setFieldErrors({}); setModalError(""); onClose?.();
+  }
+
+  function selectDraft(file) {
+    setSelectedFile(file);
     setModalError("");
-    setModalSuccess("");
-    onClose?.();
+    setFieldErrors((current) => ({
+      ...current,
+      ...(isSupportedDraft(file)
+        ? { attachment: undefined }
+        : { attachment: "Upload a PDF, DOCX, or ODT document up to 25 MB." }),
+    }));
   }
 
-  function formatFileSize(bytes) {
-    if (!Number.isFinite(bytes)) return "-";
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(1)} KB`;
-    }
-
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  }
-
-  async function submitNewEngagement(event) {
+  async function submit(event) {
     event.preventDefault();
-
-    const errors = validateStep(4);
+    const { errors, allBlank } = validate(4);
     if (Object.keys(errors).length) {
-      setFieldErrors(errors);
+      setFieldErrors(allBlank ? {} : errors);
+      setModalError(allBlank ? "Please complete all required fields." : "");
       return;
     }
-
-    setSubmitting(true);
-    setModalError("");
-    setModalSuccess("");
-
+    setSubmitting(true); setModalError("");
     try {
-      const response = await createIroDocument({
-        title: form.title.trim(),
-        document_type: form.document_type,
-        partner_institution: form.partner_institution.trim(),
-        department_id: form.department_id === "pair_iro" ? null : form.department_id,
-        partner_email: null,
-        description: form.description.trim() || null,
-        partnership_type: form.partnership_type,
-        partnership_scope: form.partnership_scope,
-        contact_person: form.contact_person.trim(),
-        contact_position: form.contact_position.trim() || null,
-        contact_email: form.contact_email.trim(),
-        contact_number: getPhoneNumber(form.contact_number, form.contact_country).number,
-        urgency: form.urgency,
-        requested_completion_date: form.requested_completion_date || null,
-      });
-
+      const institutionName = form.partner_institution.trim();
+      const response = await createIroDocument({ title: institutionName, document_type: form.document_type, partner_institution: institutionName, department_id: form.department_id, partner_email: form.partner_email.trim(), description: null, partnership_type: form.partnership_type, partnership_scope: form.partnership_scope, contact_person: form.contact_person.trim(), contact_position: form.contact_position.trim(), contact_email: form.contact_email.trim(), contact_number: getPhoneNumber(form.contact_number, form.contact_country).number, urgency: form.urgency });
       const document = response.document ?? response.data;
-      if (!document?.id) {
-        throw new Error("Unable to create the new engagement.");
-      }
-
-      await uploadDocumentFile(document.id, selectedFile);
-      setModalSuccess("New engagement created and agreement attached successfully.");
-      if (ntedRef.current) {
-        setSubmitting(false);
-      }
-      onClose?.();
-      await onCreated?.();
-    } catch (requestError) {
-      reportClientError("Unable to create engagement:", requestError);
-      setModalError(requestError.message || "Unable to create the engagement.");
-    } finally {
-      if (ntedRef.current) {
-        setSubmitting(false);
-      }
-    }
+      if (!document?.id) throw new Error("Unable to create the new engagement.");
+      await uploadDocumentFile(document.id, selectedFile); onClose?.(); await onCreated?.();
+    } catch (error) {
+      reportClientError("Unable to create engagement:", error); setModalError(error.message || "Unable to create the engagement.");
+    } finally { if (mountedRef.current) setSubmitting(false); }
   }
 
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div className="engagement-modal-backdrop" role="presentation" onClick={closeModal}>
-      <section
-        className="engagement-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="engagement-modal-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header>
-          <div>
-            <h2 id="engagement-modal-title">New Engagement</h2>
-            <p>Collect engagement details and attach the draft agreement.</p>
-          </div>
-          <button type="button" aria-label="Close" onClick={closeModal}>
-            Close
-          </button>
-        </header>
-
-        <div className="engagement-steps">
-          {["Classification", "Details", "Contact", "Attachments"].map((label, index) => {
-            const step = index + 1;
-            return (
-              <button
-                key={label}
-                type="button"
-                className={modalStep >= step ? "active" : ""}
-                aria-current={modalStep === step ? "step" : undefined}
-                onClick={() => navigateToStep(step)}
-                disabled={submitting}
-              >
-                {step}. {label}
-              </button>
-            );
-          })}
-        </div>
-
-        <form className="engagement-form" onSubmit={submitNewEngagement}>
-          {modalStep === 1 && (
-            <div className="form-step">
-              <label>
-                Agreement Type
-                <select name="document_type" value={form.document_type} onChange={updateForm}>
-                  <option value="MOA">MOA</option>
-                  <option value=""></option>
-                  <option value=""></option>
-                </select>
-                {fieldErrors.document_type && <span className="field-error">{fieldErrors.document_type}</span>}
-              </label>
-
-              <label>
-                Partnership Type
-                <select name="partnership_type" value={form.partnership_type} onChange={updateForm}>
-                  <option value="New Partnership">New Partnership</option>
-                  <option value="Renewal">Renewal</option>
-                </select>
-                {fieldErrors.partnership_type && <span className="field-error">{fieldErrors.partnership_type}</span>}
-              </label>
-
-              <label>
-                Partnership Scope
-                <select name="partnership_scope" value={form.partnership_scope} onChange={updateForm}>
-                  <option value="Local">Local</option>
-                  <option value="International">International</option>
-                </select>
-                {fieldErrors.partnership_scope && <span className="field-error">{fieldErrors.partnership_scope}</span>}
-              </label>
-            </div>
-          )}
-
-          {modalStep === 2 && (
-            <div className="form-step">
-              <label>
-                Title
-                <input
-                  name="title"
-                  value={form.title}
-                  onChange={updateForm}
-                  placeholder="Agreement title"
-                />
-                {fieldErrors.title && <span className="field-error">{fieldErrors.title}</span>}
-              </label>
-
-              <label>
-                  Responsible Office
-                  <select
-                    name="department_id"
-                    value={form.department_id}
-                    onChange={updateForm}
-                    disabled={loadingDepartments}
-                    required
-                  >
-                    <option value="">
-                      {loadingDepartments
-                        ? "Loading departments..."
-                        : "Select responsible office"}
-                    </option>
-                    <option value="pair_iro">PAIR/IRO (no department applies)</option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.code} - {department.name}
-                      </option>
-                    ))}
-                  </select>
-                  {fieldErrors.department_id && <span className="field-error">{fieldErrors.department_id}</span>}
-                </label>
-
-              <label>
-                Partner Organization / Institution
-                <input
-                  name="partner_institution"
-                  value={form.partner_institution}
-                  onChange={updateForm}
-                  placeholder="Partner organization name"
-                />
-                {fieldErrors.partner_institution && <span className="field-error">{fieldErrors.partner_institution}</span>}
-              </label>
-
-              <label>
-                Description / Purpose
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={updateForm}
-                  rows={4}
-                  placeholder="Describe the engagement purpose."
-                />
-                {fieldErrors.description && <span className="field-error">{fieldErrors.description}</span>}
-              </label>
-            </div>
-          )}
-
-          {modalStep === 3 && (
-            <div className="form-step">
-              <label>
-                Contact Person
-                <input
-                  name="contact_person"
-                  value={form.contact_person}
-                  onChange={updateForm}
-                  placeholder="Contact person name"
-                />
-                {fieldErrors.contact_person && <span className="field-error">{fieldErrors.contact_person}</span>}
-              </label>
-
-              <label>
-                Position
-                <input
-                  name="contact_position"
-                  value={form.contact_position}
-                  onChange={updateForm}
-                  placeholder="Contact position"
-                />
-                {fieldErrors.contact_position && <span className="field-error">{fieldErrors.contact_position}</span>}
-              </label>
-
-              <label>
-                Email
-                <input
-                  type="email"
-                  name="contact_email"
-                  value={form.contact_email}
-                  onChange={updateForm}
-                  placeholder="Contact email"
-                />
-                {fieldErrors.contact_email && <span className="field-error">{fieldErrors.contact_email}</span>}
-              </label>
-
-              <label>
-                Contact Number
-                <div className="contact-number-fields">
-                  <select
-                    name="contact_country"
-                    value={form.contact_country}
-                    onChange={updateForm}
-                    aria-label="Country calling code"
-                    disabled={countriesLoading}
-                  >
-                    {countries.map((country) => (
-                      <option key={country.iso} value={country.iso}>
-                        {country.name} ({country.code})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    name="contact_number"
-                    value={form.contact_number}
-                    onChange={updateForm}
-                    placeholder="Contact phone or mobile"
-                  />
-                </div>
-                {countriesLoading && (
-                  <small className="country-list-status">Loading countries...</small>
-                )}
-                {countriesError && (
-                  <span className="country-list-error" role="alert">
-                    {countriesError}
-                    <button type="button" className="outline" onClick={loadCountries}>
-                      Retry
-                    </button>
-                  </span>
-                )}
-                {fieldErrors.contact_number && <span className="field-error">{fieldErrors.contact_number}</span>}
-              </label>
-            </div>
-          )}
-
-          {modalStep === 4 && (
-            <div className="form-step">
-              <label className="file-label">
-                Upload Draft MOA//
-                <Dropzone
-                  selectedFile={selectedFile}
-                  detail={selectedFile ? formatFileSize(selectedFile.size) : "PDF, DOCX, ODT - required"}
-                  onFileSelect={(file) => {
-                    setSelectedFile(file);
-                    if (file) {
-                      setFieldErrors((current) => {
-                        const nextErrors = { ...current };
-                        delete nextErrors.attachment;
-                        delete nextErrors._form;
-                        return nextErrors;
-                      });
-                    }
-                  }}
-                  onRemove={() => setSelectedFile(null)}
-                />
-                {fieldErrors.attachment && <span className="field-error">{fieldErrors.attachment}</span>}
-              </label>
-
-              <label>
-                Requested Completion Date
-                <input
-                  type="date"
-                  name="requested_completion_date"
-                  value={form.requested_completion_date}
-                  onChange={updateForm}
-                />
-                {fieldErrors.requested_completion_date && <span className="field-error">{fieldErrors.requested_completion_date}</span>}
-              </label>
-
-              <label>
-                Urgency
-                <select name="urgency" value={form.urgency} onChange={updateForm}>
-                  <option value="Normal">Normal</option>
-                  <option value="Urgent">Urgent</option>
-                </select>
-                {fieldErrors.urgency && <span className="field-error">{fieldErrors.urgency}</span>}
-              </label>
-            </div>
-          )}
-
-          {modalError && <p className="auth-error">{modalError}</p>}
-          {fieldErrors._form && <p className="auth-error">{fieldErrors._form}</p>}
-          {modalSuccess && <p className="success-message">{modalSuccess}</p>}
-
-          <div className="engagement-modal-actions">
-            {modalStep > 1 ? (
-              <button type="button" className="outline" onClick={previousStep} disabled={submitting}>
-                Back
-              </button>
-            ) : (
-              <button type="button" className="outline" onClick={closeModal} disabled={submitting}>
-                Cancel
-              </button>
-            )}
-
-            {modalStep < 4 ? (
-              <button type="button" onClick={advanceStep} disabled={submitting}>
-                Continue
-              </button>
-            ) : (
-              <button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Create Engagement"}
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
+  if (!open) return null;
+  return <div className="pre-submission-overlay" role="presentation"><form className="pre-submission-modal" role="dialog" aria-modal="true" aria-labelledby="iro-engagement-title" onSubmit={submit}>
+    <div className="pre-submission-header"><div className="pre-submission-hero"><span className="pre-submission-icon"><FilePlus2 size={22} /></span><p className="pre-submission-step">Step {step} of 4 · {stepLabels[step - 1]}</p><h2 id="iro-engagement-title">New Engagement</h2><p className="pre-submission-intro">Complete the required agreement information and upload the draft document.</p></div><button type="button" className="close-button" onClick={close} aria-label="Close" disabled={submitting}><X size={20} /></button></div>
+    <div className="pre-submission-content">
+      {step === 1 && <><ChoiceField legend="What type of agreement are you initiating?" name="document_type" value={form.document_type} onChange={update} options={[["MOA", "MOA", "Memorandum of Agreement"], ["MOU", "MOU", "Memorandum of Understanding"]]} disabled={submitting} /><ChoiceField legend="Is this a new partnership or a renewal of an existing one?" name="partnership_type" value={form.partnership_type} onChange={update} options={[["New Partnership", "New Partnership"], ["Renewal", "Renewal"]]} disabled={submitting} /><ChoiceField legend="Is the partner institution local or international?" name="partnership_scope" value={form.partnership_scope} onChange={update} options={[["Local", "Local"], ["International", "International"]]} disabled={submitting} /></>}
+      {step === 2 && <fieldset className="pre-submission-field"><legend>Institution Details</legend><div className="pre-submission-grid"><Input label="Name of Institution" error={fieldErrors.partner_institution} wide><input value={form.partner_institution} onChange={(event) => update("partner_institution", event.target.value)} disabled={submitting} placeholder="e.g. Global Tech University" /></Input><Input label="Partner Contact Email" error={fieldErrors.partner_email} wide><input type="email" value={form.partner_email} onChange={(event) => update("partner_email", event.target.value)} disabled={submitting} placeholder="contact@partner.edu" /></Input><Input label="Responsible Office" error={fieldErrors.department_id}><select value={form.department_id} onChange={(event) => update("department_id", event.target.value)} disabled={submitting || loadingDepartments}><option value="">{loadingDepartments ? "Loading departments..." : "Select responsible office"}</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.code ? `${department.code} — ` : ""}{department.name}</option>)}</select></Input></div></fieldset>}
+      {step === 3 && <fieldset className="pre-submission-field"><legend>Contact Information</legend><div className="pre-submission-grid"><Input label="Contact Person" error={fieldErrors.contact_person}><input value={form.contact_person} onChange={(event) => update("contact_person", event.target.value)} disabled={submitting} /></Input><Input label="Position" error={fieldErrors.contact_position}><input value={form.contact_position} onChange={(event) => update("contact_position", event.target.value)} disabled={submitting} /></Input><Input label="Email Address" error={fieldErrors.contact_email}><input type="email" value={form.contact_email} onChange={(event) => update("contact_email", event.target.value)} disabled={submitting} /></Input><Input label="Contact Number" error={fieldErrors.contact_number}><div className="iro-contact-number"><select value={form.contact_country} onChange={(event) => update("contact_country", event.target.value)} aria-label="Country calling code" disabled={submitting || countriesLoading}>{countries.map((country) => <option key={country.iso} value={country.iso}>{country.name} ({country.code})</option>)}</select><input type="text" inputMode="numeric" pattern="[0-9]*" value={form.contact_number} onChange={(event) => update("contact_number", event.target.value)} disabled={submitting} /></div>{countriesError && <small className="country-list-error">{countriesError}<button type="button" className="outline" onClick={loadCountries}>Retry</button></small>}</Input></div></fieldset>}
+      {step === 4 && <fieldset className="pre-submission-field"><legend>Attachments</legend><Input label="Upload the draft document" error={fieldErrors.attachment}><Dropzone selectedFile={selectedFile} detail={selectedFile ? formatFileSize(selectedFile.size) : "PDF, DOCX, ODT · required"} onFileSelect={selectDraft} onRemove={() => setSelectedFile(null)} /></Input><ChoiceField legend="Urgency level" name="urgency" value={form.urgency} onChange={update} options={[["Normal", "Normal"], ["Urgent", "Urgent"]]} disabled={submitting} nested /></fieldset>}
+      {modalError && <div className="auth-error" role="alert">{modalError}</div>}
     </div>
-  );
+    <div className="pre-submission-footer"><button type="button" className="outline" onClick={step === 1 ? close : () => { setStep((current) => current - 1); setFieldErrors({}); setModalError(""); }} disabled={submitting}>{step === 1 ? "Cancel" : <><ArrowLeft size={16} /> Back</>}</button>{step < 4 ? <button type="button" className="primary" onClick={next} disabled={submitting}>Next <ArrowRight size={16} /></button> : <button type="submit" className="primary" disabled={submitting}>{submitting ? "Creating..." : "Create Engagement"}<ArrowRight size={16} /></button>}</div>
+  </form></div>;
+}
+
+function ChoiceField({ legend, name, value, onChange, options, disabled, nested = false }) { return <fieldset className={`pre-submission-field${nested ? " pre-submission-field--nested" : ""}`}><legend>{legend}</legend><div className={`radio-group radio-group--${options.length}`}>{options.map(([optionValue, label, detail]) => <label className={value === optionValue ? "selected" : ""} key={optionValue}><input type="radio" name={name} value={optionValue} checked={value === optionValue} onChange={(event) => onChange(name, event.target.value)} disabled={disabled} /><span><b>{label}</b>{detail && <small>{detail}</small>}</span></label>)}</div></fieldset>; }
+function Input({ label, error, wide = false, children }) { return <label className={`pre-submission-input${wide ? " iro-engagement-field--wide" : ""}`}>{label}{children}{error && <span className="field-error">{error}</span>}</label>; }
+function formatFileSize(bytes) { if (!Number.isFinite(bytes)) return "-"; return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(2)} MB`; }
+
+function requiredValues(step, form, selectedFile) {
+  if (step === 1) return [form.document_type, form.partnership_type, form.partnership_scope];
+  if (step === 2) return [form.partner_institution, form.partner_email, form.department_id];
+  if (step === 3) return [form.contact_person, form.contact_position, form.contact_email, form.contact_number];
+  return [selectedFile, form.urgency];
+}
+
+function hasValue(value) { return (typeof value === "object" && value !== null) || (typeof value === "string" && value.trim() !== ""); }
+function isValidField(name, value, form) {
+  if (name === "contact_email" || name === "partner_email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  if (name === "contact_number") return Boolean(getPhoneNumber(value, form.contact_country));
+  if (name === "contact_country") return Boolean(getPhoneNumber(form.contact_number, value));
+  return typeof value === "string" && value.trim() !== "";
+}
+function isSupportedDraft(file) {
+  return Boolean(file && file.size <= 25 * 1024 * 1024 && /\.(pdf|docx|odt)$/i.test(file.name));
 }

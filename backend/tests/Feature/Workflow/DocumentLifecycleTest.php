@@ -39,7 +39,7 @@ class DocumentLifecycleTest extends SecurityTestCase
             $this->authHeaders($staff)
         )
             ->assertOk()
-            ->assertJsonPath('document.status', Document::STATUS_SUBMITTED)
+            ->assertJsonPath('document.status', Document::STATUS_LOGGED)
             ->json('document');
 
         $documentId = $document['id'];
@@ -58,14 +58,6 @@ class DocumentLifecycleTest extends SecurityTestCase
             'document_id' => $documentId,
             'actor_id' => $staff->id,
         ]);
-
-        $this->patchJson(
-            "/api/iro/documents/{$documentId}/log",
-            [],
-            $this->authHeaders($iro)
-        )
-            ->assertOk()
-            ->assertJsonPath('document.status', Document::STATUS_LOGGED);
 
         $this->patchJson(
             "/api/iro/documents/{$documentId}/assign-legal",
@@ -89,6 +81,17 @@ class DocumentLifecycleTest extends SecurityTestCase
             ->assertOk()
             ->assertJsonPath(
                 'document.status',
+                Document::STATUS_CORRECTION_REQUIRED
+            );
+
+        $this->patchJson(
+            "/api/iro/documents/{$documentId}/legal-correction/route-to-department",
+            [],
+            $this->authHeaders($iro)
+        )
+            ->assertOk()
+            ->assertJsonPath(
+                'document.status',
                 Document::STATUS_CORRECTIONS_NEEDED
             );
 
@@ -98,14 +101,8 @@ class DocumentLifecycleTest extends SecurityTestCase
             $this->authHeaders($staff)
         )
             ->assertOk()
-            ->assertJsonPath('document.status', Document::STATUS_SUBMITTED)
+            ->assertJsonPath('document.status', Document::STATUS_LOGGED)
             ->assertJsonPath('document.legal_notes', null);
-
-        $this->patchJson(
-            "/api/iro/documents/{$documentId}/log",
-            [],
-            $this->authHeaders($iro)
-        )->assertOk();
 
         $this->patchJson(
             "/api/iro/documents/{$documentId}/assign-legal",
@@ -149,24 +146,5 @@ class DocumentLifecycleTest extends SecurityTestCase
             ->assertOk()
             ->assertJsonPath('document.status', Document::STATUS_NOTARIZED);
 
-        $this->patchJson(
-            "/api/iro/documents/{$documentId}/archive",
-            [],
-            $this->authHeaders($iro)
-        )
-            ->assertOk()
-            ->assertJsonPath('document.status', Document::STATUS_ARCHIVED);
-
-        $this->getJson(
-            '/api/iro/documents/incoming',
-            $this->authHeaders($iro)
-        )->assertJsonMissing(['id' => $documentId]);
-
-        $this->getJson(
-            '/api/iro/archive',
-            $this->authHeaders(
-                $this->profile(Profile::ROLE_IRO_ADMIN)
-            )
-        )->assertJsonFragment(['id' => $documentId]);
     }
 }

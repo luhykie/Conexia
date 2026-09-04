@@ -134,22 +134,6 @@ class SuperAdminActionsTest extends SecurityTestCase
         ]);
     }
 
-    public function test_iro_staff_locked_permissions_remain_protected(): void
-    {
-        $admin = $this->profile(Profile::ROLE_SUPER_ADMIN);
-
-        $this
-            ->withHeaders($this->authHeaders($admin))
-            ->patchJson('/api/super-admin/roles', [
-                'permissions' => [
-                    Profile::ROLE_IRO_STAFF => [
-                        'files' => true,
-                    ],
-                ],
-            ])
-            ->assertUnprocessable();
-    }
-
     public function test_audit_logs_are_super_admin_only(): void
     {
         $admin = $this->profile(Profile::ROLE_SUPER_ADMIN);

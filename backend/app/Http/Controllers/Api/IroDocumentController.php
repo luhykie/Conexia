@@ -40,20 +40,10 @@ class IroDocumentController extends Controller
             'Incoming documents loaded successfully.',
             $request,
             'submitted_at',
-            $profile->role === Profile::ROLE_IRO_ADMIN
-                ? [
-                    Document::STATUS_LOGGED,
-                    Document::STATUS_CORRECTION_REQUIRED,
-                ]
-                : [
-                    Document::STATUS_SUBMITTED,
-                    Document::STATUS_LOGGED,
-                    Document::STATUS_UNDER_LEGAL_REVIEW,
-                    Document::STATUS_CORRECTIONS_NEEDED,
-                    Document::STATUS_APPROVED,
-                    Document::STATUS_PENDING_NOTARIZATION,
-                    Document::STATUS_NOTARIZED,
-                ],
+            [
+                Document::STATUS_LOGGED,
+                Document::STATUS_CORRECTION_REQUIRED,
+            ],
             $profile,
             $profile->role === Profile::ROLE_IRO_ADMIN,
             true,
@@ -69,27 +59,11 @@ class IroDocumentController extends Controller
         $document = Document::query()
             ->with(['department', 'submitter'])
             ->whereKey($id)
+            ->whereNotIn('status', $this->hiddenIroStatuses())
             ->firstOrFail();
 
-        if (
-            $profile->role === Profile::ROLE_IRO_STAFF &&
-            !in_array($document->status, [
-                Document::STATUS_SUBMITTED,
-                Document::STATUS_LOGGED,
-                Document::STATUS_UNDER_LEGAL_REVIEW,
-                Document::STATUS_CORRECTIONS_NEEDED,
-                Document::STATUS_APPROVED,
-                Document::STATUS_PENDING_NOTARIZATION,
-                Document::STATUS_NOTARIZED,
-            ], true)
-        ) {
-            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException(
-                'The requested document could not be found.'
-            );
-        }
-
         $payload = [
-            ...DocumentPayload::make($document),
+            ...$this->iroPayload($document),
             'created_by' => $document->submitter
                 ? [
                     'id' => $document->submitter->id,
@@ -113,24 +87,10 @@ class IroDocumentController extends Controller
     public function markViewed(Request $request, string $id): JsonResponse
     {
         $profile = $this->ensureIro($request);
-        $document = Document::query()->whereKey($id)->firstOrFail();
-
-        if (
-            $profile->role === Profile::ROLE_IRO_STAFF &&
-            !in_array($document->status, [
-                Document::STATUS_SUBMITTED,
-                Document::STATUS_LOGGED,
-                Document::STATUS_UNDER_LEGAL_REVIEW,
-                Document::STATUS_CORRECTIONS_NEEDED,
-                Document::STATUS_APPROVED,
-                Document::STATUS_PENDING_NOTARIZATION,
-                Document::STATUS_NOTARIZED,
-            ], true)
-        ) {
-            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException(
-                'The requested document could not be found.'
-            );
-        }
+        $document = Document::query()
+            ->whereKey($id)
+            ->whereNotIn('status', $this->hiddenIroStatuses())
+            ->firstOrFail();
 
         $view = AuditLog::query()->firstOrCreate(
             [
@@ -154,7 +114,10 @@ class IroDocumentController extends Controller
     {
         $this->ensureIroAdmin($request);
 
-        $document = Document::query()->whereKey($id)->firstOrFail();
+        $document = Document::query()
+            ->whereKey($id)
+            ->whereNotIn('status', $this->hiddenIroStatuses())
+            ->firstOrFail();
         $filesByVersion = DocumentFile::query()
             ->where('document_id', $document->id)
             ->whereNull('deleted_at')
@@ -194,7 +157,17 @@ class IroDocumentController extends Controller
             'Status documents loaded successfully.',
             $request,
             'updated_at',
-            null,
+            [
+                Document::STATUS_SUBMITTED,
+                Document::STATUS_DEPARTMENT_REVIEW,
+                Document::STATUS_PARTNER_REVIEW_COMPLETE,
+                Document::STATUS_LOGGED,
+                Document::STATUS_UNDER_LEGAL_REVIEW,
+                Document::STATUS_CORRECTION_REQUIRED,
+                Document::STATUS_CORRECTIONS_NEEDED,
+                Document::STATUS_APPROVED,
+                Document::STATUS_ARCHIVED,
+            ],
             $profile
         );
     }
@@ -210,9 +183,9 @@ class IroDocumentController extends Controller
                 'string',
                 'in:MOA,MOU',
             ],
-            'department_id' => ['present', 'nullable', 'uuid', 'exists:departments,id'],
+            'department_id' => ['required', 'uuid', 'exists:departments,id'],
             'partner_institution' => ['required', 'string', 'max:255'],
-            'partner_email' => ['nullable', 'email', 'max:255'],
+            'partner_email' => ['required', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'partnership_type' => ['required', 'string', 'max:255'],
             'partnership_scope' => [
@@ -230,7 +203,7 @@ class IroDocumentController extends Controller
         $document = $this->createDocumentWithTrackingNumber(
             $validated,
             $profile,
-            Document::STATUS_SUBMITTED
+            Document::STATUS_LOGGED
         );
 
         AuditLog::query()->create([
@@ -262,8 +235,9 @@ class IroDocumentController extends Controller
                 'required',
                 Rule::in(['Local', 'International']),
             ],
-            'department_id' => ['present', 'nullable', 'uuid', 'exists:departments,id'],
+            'department_id' => ['required', 'uuid', 'exists:departments,id'],
             'partner_institution' => ['required', 'string', 'max:255'],
+            'partner_email' => ['required', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'contact_person' => ['required', 'string', 'max:255'],
             'contact_position' => ['nullable', 'string', 'max:255'],
@@ -284,6 +258,7 @@ class IroDocumentController extends Controller
             'partnership_scope',
             'department_id',
             'partner_institution',
+            'partner_email',
             'description',
             'contact_person',
             'contact_position',
@@ -346,7 +321,7 @@ class IroDocumentController extends Controller
         });
 
         $payload = [
-            ...DocumentPayload::make($result['document']),
+            ...$this->iroPayload($result['document']),
             'can_edit_engagement' => $this->canEditAdminEngagement(
                 $result['document']
             ),
@@ -439,123 +414,6 @@ class IroDocumentController extends Controller
             'Document marked as logged.',
             $document
         );
-    }
-
-    public function forwardToAdmin(
-        Request $request,
-        string $id
-    ): JsonResponse {
-        $profile = $this->ensureIro($request);
-        $validated = $request->validate([
-            'remarks' => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        $document = DB::transaction(function () use ($id, $profile, $validated) {
-            $document = $this->lockedDocument($id);
-
-            if ($document->status !== Document::STATUS_SUBMITTED) {
-                throw ValidationException::withMessages([
-                    'status' => 'Only submitted documents can be forwarded to IRO Admin.',
-                ]);
-            }
-
-            $previousStatus = $document->status;
-            $document->update(['status' => Document::STATUS_LOGGED]);
-
-            AuditLog::query()->create([
-                'actor_id' => $profile->id,
-                'document_id' => $document->id,
-                'action' => 'iro_staff.document.forwarded_to_admin',
-                'metadata' => [
-                    'remarks' => $validated['remarks'] ?? null,
-                    'previous_status' => $previousStatus,
-                    'new_status' => Document::STATUS_LOGGED,
-                    'actor' => [
-                        'id' => $profile->id,
-                        'role' => $profile->role,
-                    ],
-                    'ownership' => $this->ownershipMetadata($document),
-                    'destination' => [
-                        'type' => 'iro_admin_validation_queue',
-                    ],
-                ],
-            ]);
-
-            return $document->refresh();
-        });
-
-        return $this->documentResponse(
-            'Document submitted to IRO Admin successfully.',
-            $document
-        );
-    }
-
-    public function returnForCorrection(
-        Request $request,
-        string $id
-    ): JsonResponse {
-        $profile = $this->ensureIro($request);
-        $validated = $request->validate([
-            'remarks' => ['required', 'string', 'min:1', 'max:2000'],
-        ]);
-
-        $document = DB::transaction(function () use ($id, $profile, $validated) {
-            $document = $this->lockedDocument($id);
-
-            if ($document->status !== Document::STATUS_SUBMITTED) {
-                throw ValidationException::withMessages([
-                    'status' => 'Only submitted documents can be returned for correction.',
-                ]);
-            }
-
-            $previousStatus = $document->status;
-            $document->update([
-                'status' => Document::STATUS_CORRECTIONS_NEEDED,
-            ]);
-
-            $ownership = $this->ownershipMetadata($document);
-
-            AuditLog::query()->create([
-                'actor_id' => $profile->id,
-                'document_id' => $document->id,
-                'action' => 'iro_staff.document.returned_for_correction',
-                'metadata' => [
-                    'remarks' => trim($validated['remarks']),
-                    'previous_status' => $previousStatus,
-                    'new_status' => Document::STATUS_CORRECTIONS_NEEDED,
-                    'actor' => [
-                        'id' => $profile->id,
-                        'role' => $profile->role,
-                    ],
-                    'ownership' => $ownership,
-                    'destination' => $ownership,
-                ],
-            ]);
-
-            return $document->refresh();
-        });
-
-        return $this->documentResponse(
-            'Document returned for correction successfully.',
-            $document
-        );
-    }
-
-    private function ownershipMetadata(Document $document): array
-    {
-        $document->loadMissing('department');
-
-        return [
-            'submitted_by' => $document->submitted_by,
-            'department_id' => $document->department_id,
-            'department' => $document->department
-                ? [
-                    'id' => $document->department->id,
-                    'code' => $document->department->code,
-                    'name' => $document->department->name,
-                ]
-                : null,
-        ];
     }
 
     public function assignLegal(
@@ -803,7 +661,6 @@ class IroDocumentController extends Controller
             if (
                 in_array($document->status, [
                     Document::STATUS_ARCHIVED,
-                    Document::STATUS_NOTARIZED,
                 ], true)
             ) {
                 throw ValidationException::withMessages([
@@ -873,9 +730,9 @@ class IroDocumentController extends Controller
         $document = DB::transaction(function () use ($id, $profile) {
             $document = $this->lockedDocument($id);
 
-            if ($document->status !== Document::STATUS_NOTARIZED) {
+            if ($document->status !== Document::STATUS_APPROVED) {
                 throw ValidationException::withMessages([
-                    'status' => 'Only notarized documents can be archived.',
+                    'status' => 'Only approved documents pending archival can be archived.',
                 ]);
             }
 
@@ -888,7 +745,11 @@ class IroDocumentController extends Controller
                 'actor_id' => $profile->id,
                 'document_id' => $document->id,
                 'action' => 'iro_admin.document.archived',
-                'metadata' => ['previous_status' => Document::STATUS_NOTARIZED, 'new_status' => Document::STATUS_ARCHIVED],
+                'metadata' => [
+                    'previous_status' => Document::STATUS_APPROVED,
+                    'new_status' => Document::STATUS_ARCHIVED,
+                    'acted_at' => now()->toISOString(),
+                ],
             ]);
 
             return $document->refresh();
@@ -916,7 +777,7 @@ class IroDocumentController extends Controller
             }
 
             $document->update([
-                'status' => Document::STATUS_NOTARIZED,
+                'status' => Document::STATUS_APPROVED,
                 'archived_at' => null,
                 'archived_by' => null,
             ]);
@@ -926,7 +787,10 @@ class IroDocumentController extends Controller
                 'document_id' => $document->id,
                 'action' => 'iro_admin.document.unarchived',
                 'metadata' => [
-                    'restored_status' => Document::STATUS_NOTARIZED,
+                    'previous_status' => Document::STATUS_ARCHIVED,
+                    'new_status' => Document::STATUS_APPROVED,
+                    'restored_status' => Document::STATUS_APPROVED,
+                    'acted_at' => now()->toISOString(),
                 ],
             ]);
 
@@ -1029,14 +893,9 @@ class IroDocumentController extends Controller
                             "%{$options['search']}%"
                         );
 
-                        if (
-                            $profile->role !== Profile::ROLE_IRO_STAFF ||
-                            $includeStaffTitle
-                        ) {
-                            $builder
-                                ->orWhere('title', $operator, "%{$options['search']}%")
-                                ->orWhere('partner_institution', $operator, "%{$options['search']}%");
-                        }
+                        $builder
+                            ->orWhere('title', $operator, "%{$options['search']}%")
+                            ->orWhere('partner_institution', $operator, "%{$options['search']}%");
 
                         $builder->orWhereHas(
                             'department',
@@ -1155,19 +1014,7 @@ class IroDocumentController extends Controller
 
         $documents = $query->paginate(
             $options['per_page'],
-            $profile->role === Profile::ROLE_IRO_STAFF
-                ? [
-                    'id',
-                    'tracking_number',
-                    ...($includeStaffTitle ? ['title'] : []),
-                    'department_id',
-                    'status',
-                    'submitted_at',
-                    'updated_at',
-                    'expiry_date',
-                    'renewal_status',
-                ]
-                : ['*'],
+            ['*'],
             'page',
             $options['page']
         );
@@ -1203,35 +1050,40 @@ class IroDocumentController extends Controller
         bool $supportsViewTracking = false
     ): array
     {
-        if ($profile->role !== Profile::ROLE_IRO_STAFF) {
-            return [
-                ...DocumentPayload::make($document),
-                'can_edit_engagement' =>
-                    $profile->role === Profile::ROLE_IRO_ADMIN &&
-                    $this->canEditAdminEngagement($document),
-                ...($adminReviewQueue ? [
-                    'review_status' => $document->has_admin_revision
-                        ? 'Revised'
-                        : Document::STATUS_LOGGED,
-                ] : []),
-                ...($supportsViewTracking ? [
-                    'viewed' => (bool) $document->viewed,
-                ] : []),
-                'current_assignment' => $this->currentAssignment($document),
-                'reassignment_destinations' =>
-                    $this->reassignmentDestinations($document),
-            ];
-        }
-
-        $document->loadMissing('department');
-
         return [
-            'id' => $document->id,
-            'tracking_number' => $document->tracking_number,
-            ...($includeStaffTitle ? ['title' => $document->title] : []),
+            ...$this->iroPayload($document),
+            'can_edit_engagement' =>
+                $profile->role === Profile::ROLE_IRO_ADMIN &&
+                $this->canEditAdminEngagement($document),
+            ...($adminReviewQueue ? [
+                'review_status' => $document->has_admin_revision
+                    ? 'Revised'
+                    : Document::STATUS_LOGGED,
+            ] : []),
             ...($supportsViewTracking ? [
                 'viewed' => (bool) $document->viewed,
             ] : []),
+            'current_assignment' => $this->currentAssignment($document),
+            'reassignment_destinations' =>
+                $this->reassignmentDestinations($document),
+        ];
+    }
+
+    private function lockedDocument(string $id): Document
+    {
+        return Document::query()
+            ->whereKey($id)
+            ->whereNotIn('status', $this->hiddenIroStatuses())
+            ->lockForUpdate()
+            ->firstOrFail();
+    }
+
+    private function ownershipMetadata(Document $document): array
+    {
+        $document->loadMissing('department');
+
+        return [
+            'submitted_by' => $document->submitted_by,
             'department_id' => $document->department_id,
             'department' => $document->department
                 ? [
@@ -1240,20 +1092,7 @@ class IroDocumentController extends Controller
                     'name' => $document->department->name,
                 ]
                 : null,
-            'status' => $document->status,
-            'submitted_at' => $document->submitted_at?->toISOString(),
-            'updated_at' => $document->updated_at?->toISOString(),
-            'expiry_date' => $document->expiry_date?->format('Y-m-d'),
-            'renewal_status' => $document->renewal_status,
         ];
-    }
-
-    private function lockedDocument(string $id): Document
-    {
-        return Document::query()
-            ->whereKey($id)
-            ->lockForUpdate()
-            ->firstOrFail();
     }
 
     private function requireEditableAdminEngagement(Document $document): void
@@ -1282,7 +1121,7 @@ class IroDocumentController extends Controller
         Document $document
     ): JsonResponse {
         $payload = [
-            ...DocumentPayload::make($document),
+            ...$this->iroPayload($document),
             'current_assignment' => $this->currentAssignment($document),
             'reassignment_destinations' =>
                 $this->reassignmentDestinations($document),
@@ -1300,7 +1139,6 @@ class IroDocumentController extends Controller
         if (
             in_array($document->status, [
                 Document::STATUS_ARCHIVED,
-                Document::STATUS_NOTARIZED,
             ], true)
         ) {
             return [];
@@ -1376,6 +1214,27 @@ class IroDocumentController extends Controller
                 $destination['type'] === $type &&
                 ($destination['id'] ?? null) === $id
             );
+    }
+
+    private function hiddenIroStatuses(): array
+    {
+        return [
+            Document::STATUS_PENDING_NOTARIZATION,
+            Document::STATUS_NOTARIZED,
+        ];
+    }
+
+    private function iroPayload(Document $document): array
+    {
+        $payload = DocumentPayload::make($document);
+
+        unset(
+            $payload['notarial_reference_number'],
+            $payload['notarization_date'],
+            $payload['notary_signature_code']
+        );
+
+        return $payload;
     }
 
     private function currentAssignment(Document $document): array
@@ -1463,7 +1322,7 @@ class IroDocumentController extends Controller
         );
 
         if (!$profile) {
-            abort(403, 'IRO Staff access is required.');
+            abort(403, 'IRO Admin access is required.');
         }
 
         return $profile;

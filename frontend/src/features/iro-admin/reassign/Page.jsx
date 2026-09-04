@@ -97,7 +97,7 @@ export default function IroAdminReassignPage() {
 
   const rows = documents.map((document) => [
     document.tracking_number,
-    document.department?.code || document.department?.name || "PAIR/IRO",
+    document.department?.code || document.department?.name || "Unassigned",
     getAssignmentName(document),
     document.status || "-",
     isTerminal(document) ? (
@@ -172,7 +172,7 @@ export default function IroAdminReassignPage() {
   }
 
   function isTerminal(document) {
-    return ["Archived", "Notarized"].includes(document?.status);
+    return document?.status === "Archived";
   }
 
   return (

@@ -15,7 +15,10 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
 import { getArchiveSummary } from "../../../services/workflowSummaryService";
-import { unarchiveIroDocument } from "../../../services/iroAdminService";
+import {
+  archiveIroDocument,
+  unarchiveIroDocument,
+} from "../../../services/iroAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -98,6 +101,29 @@ export default function IroAdminArchivePage() {
     }
   }
 
+  async function archiveRecord(record) {
+    if (!record?.id) return;
+
+    if (!window.confirm(`Archive ${record.tracking_number || "this record"}?`)) {
+      return;
+    }
+
+    setProcessingId(record.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await archiveIroDocument(record.id);
+      setSuccess("Record archived successfully.");
+      await loadArchive(() => true);
+    } catch (requestError) {
+      reportClientError("Unable to archive record:", requestError);
+      setError(requestError.message || "Unable to archive record.");
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
   const stats = summary?.stats ?? {};
   const rows = (summary?.records ?? []).map((record) => [
     record.tracking_number || "-",
@@ -113,9 +139,13 @@ export default function IroAdminArchivePage() {
       className="table-action"
       disabled={processingId === record.id}
       key={record.id}
-      onClick={() => unarchiveRecord(record)}
+      onClick={() => record.workflow_status === "Archived"
+        ? unarchiveRecord(record)
+        : archiveRecord(record)}
     >
-      {processingId === record.id ? "Restoring..." : "Unarchive"}
+      {processingId === record.id
+        ? (record.workflow_status === "Archived" ? "Restoring..." : "Archiving...")
+        : (record.workflow_status === "Archived" ? "Unarchive" : "Archive")}
     </button>,
   ]);
 
@@ -161,14 +191,14 @@ export default function IroAdminArchivePage() {
             clearFilters();
             setPage(1);
           }}
-          statusOptions={["Archived"]}
+          statusOptions={["Pending Archival", "Archived"]}
           showDepartment
         />
         {loading && <p>Loading archive records...</p>}
         {error && <p className="auth-error">{error}</p>}
         {success && <p className="success-message">{success}</p>}
         {!loading && !error && rows.length === 0 && (
-          <p>No archived records are available.</p>
+          <p>No pending or archived records are available.</p>
         )}
         {!loading && !error && rows.length > 0 && (
           <DataTable

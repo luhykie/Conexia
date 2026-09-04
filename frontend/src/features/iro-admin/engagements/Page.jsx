@@ -33,6 +33,7 @@ export default function IroAdminEngagementsPage() {
   const [departments, setDepartments] = React.useState([]);
   const [saving, setSaving] = React.useState(false);
   const [editError, setEditError] = React.useState("");
+  const [partnerEmailError, setPartnerEmailError] = React.useState("");
   const [historyVersion, setHistoryVersion] = React.useState(null);
   const {
     filters,
@@ -53,6 +54,7 @@ export default function IroAdminEngagementsPage() {
     setEditForm(null);
     setEditFile(null);
     setEditError("");
+    setPartnerEmailError("");
     setHistoryVersion(null);
   }
 
@@ -62,6 +64,7 @@ export default function IroAdminEngagementsPage() {
     setEditForm(editableEngagement(selectedDocument));
     setEditFile(null);
     setEditError("");
+    setPartnerEmailError("");
     setEditing(true);
 
     if (!departments.length) {
@@ -79,11 +82,23 @@ export default function IroAdminEngagementsPage() {
     const { name, value } = event.target;
     setEditForm((current) => ({ ...current, [name]: value }));
     setEditError("");
+    if (name === "partner_email" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+      setPartnerEmailError("");
+    }
   }
 
   async function saveEngagement(event) {
     event.preventDefault();
     if (!selectedDocument || !editForm || saving) return;
+
+    if (!editForm.partner_email.trim()) {
+      setPartnerEmailError("Partner Contact Email is required.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.partner_email.trim())) {
+      setPartnerEmailError("Please enter a valid partner contact email.");
+      return;
+    }
 
     setSaving(true);
     setEditError("");
@@ -92,9 +107,7 @@ export default function IroAdminEngagementsPage() {
         selectedDocument.id,
         {
           ...editForm,
-          department_id: editForm.department_id === "pair_iro"
-            ? ""
-            : editForm.department_id,
+          department_id: editForm.department_id,
         },
         editFile,
       );
@@ -169,7 +182,7 @@ export default function IroAdminEngagementsPage() {
   const rows = documents.map((document) => [
     document.partner_institution || "-",
     `${document.document_type || "-"} / ${
-      document.department?.code || document.department?.name || "PAIR/IRO"
+      document.department?.code || document.department?.name || "Unassigned"
     }`,
     document.expiry_date || document.expected_duration || "-",
     document.status || "-",
@@ -205,8 +218,6 @@ export default function IroAdminEngagementsPage() {
               "Under Legal Review",
               "Corrections Needed",
               "Approved",
-              "Pending Notarization",
-              "Notarized",
               "Archived",
             ]}
             showDepartment
@@ -290,7 +301,6 @@ export default function IroAdminEngagementsPage() {
                   <EditField label="Responsible Office">
                     <select name="department_id" value={editForm.department_id} onChange={updateEditForm} required>
                       <option value="">Select responsible office</option>
-                      <option value="pair_iro">PAIR/IRO (no department applies)</option>
                       {departments.map((department) => (
                         <option key={department.id} value={department.id}>{departmentLabel(department)}</option>
                       ))}
@@ -298,6 +308,9 @@ export default function IroAdminEngagementsPage() {
                   </EditField>
                   <EditField label="Partner Organization">
                     <input name="partner_institution" value={editForm.partner_institution} onChange={updateEditForm} required maxLength={255} />
+                  </EditField>
+                  <EditField label="Partner Contact Email" error={partnerEmailError}>
+                    <input name="partner_email" type="email" value={editForm.partner_email} onChange={updateEditForm} required maxLength={255} />
                   </EditField>
                   <EditField label="Contact Person">
                     <input name="contact_person" value={editForm.contact_person} onChange={updateEditForm} required maxLength={255} />
@@ -321,7 +334,7 @@ export default function IroAdminEngagementsPage() {
                 </div>
                 {editError && <p className="auth-error">{editError}</p>}
                 <footer className="engagement-detail-footer">
-                  <button type="button" className="outline" disabled={saving} onClick={() => { setEditing(false); setEditError(""); }}>
+                  <button type="button" className="outline" disabled={saving} onClick={() => { setEditing(false); setEditError(""); setPartnerEmailError(""); }}>
                     Cancel
                   </button>
                   <button className="primary" type="submit" disabled={saving}>
@@ -395,11 +408,12 @@ export default function IroAdminEngagementsPage() {
   );
 }
 
-function EditField({ label, wide = false, children }) {
+function EditField({ label, wide = false, error = "", children }) {
   return (
     <label className={wide ? "engagement-edit-field engagement-edit-field--wide" : "engagement-edit-field"}>
       <span>{label}</span>
       {children}
+      {error && <span className="field-error">{error}</span>}
     </label>
   );
 }
@@ -410,8 +424,9 @@ function editableEngagement(document) {
     document_type: document.document_type ?? "MOA",
     partnership_type: document.partnership_type ?? "New Partnership",
     partnership_scope: document.partnership_scope ?? "Local",
-    department_id: document.department_id ?? "pair_iro",
+    department_id: document.department_id ?? "",
     partner_institution: document.partner_institution ?? "",
+    partner_email: document.partner_email ?? "",
     description: submittedDescription(document.description) ?? "",
     contact_person: document.contact_person ?? "",
     contact_position: document.contact_position ?? "",

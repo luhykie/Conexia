@@ -174,7 +174,7 @@ class ExpiryTrackingTest extends SecurityTestCase
             'department_id' => $ownDepartment->id,
         ]);
         $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
-        $iro = $this->profile(Profile::ROLE_IRO_STAFF);
+        $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
         $superAdmin = $this->profile(Profile::ROLE_SUPER_ADMIN);
 
         $own = $this->document([
@@ -209,55 +209,10 @@ class ExpiryTrackingTest extends SecurityTestCase
 
         $this->getJson('/api/expiry', $this->authHeaders($iro))
             ->assertOk()
-            ->assertJsonPath('data.stats.total_expiring_soon', 3)
-            ->assertJsonMissingPath('data.records.0.partner_institution')
-            ->assertJsonMissingPath('data.records.0.title')
-            ->assertJsonMissingPath('data.records.0.document_type');
+            ->assertJsonPath('data.stats.total_expiring_soon', 3);
 
         $this->getJson('/api/expiry', $this->authHeaders($superAdmin))
             ->assertForbidden();
-    }
-
-    public function test_iro_staff_can_filter_expiry_records_by_partnership_scope(): void
-    {
-        $iro = $this->profile(Profile::ROLE_IRO_STAFF);
-
-        $departmental = $this->document([
-            'tracking_number' => 'EXP-DEPARTMENTAL',
-            'partnership_scope' => 'Departmental',
-            'expiry_date' => '2026-08-01',
-            'renewal_status' => Document::RENEWAL_ACTIVE,
-        ]);
-        $local = $this->document([
-            'tracking_number' => 'EXP-LOCAL',
-            'partnership_scope' => 'Local',
-            'expiry_date' => '2026-08-01',
-            'renewal_status' => Document::RENEWAL_ACTIVE,
-        ]);
-        $international = $this->document([
-            'tracking_number' => 'EXP-INTERNATIONAL',
-            'partnership_scope' => 'International',
-            'expiry_date' => '2026-08-01',
-            'renewal_status' => Document::RENEWAL_ACTIVE,
-        ]);
-
-        foreach ([
-            'Local' => $local,
-            'International' => $international,
-        ] as $scope => $expected) {
-            $response = $this->getJson(
-                "/api/expiry?partnership_scope={$scope}",
-                $this->authHeaders($iro)
-            )->assertOk();
-
-            $response
-                ->assertJsonCount(1, 'data.records')
-                ->assertJsonPath('data.records.0.id', $expected->id);
-        }
-
-        $this->getJson('/api/expiry', $this->authHeaders($iro))
-            ->assertOk()
-            ->assertJsonCount(3, 'data.records');
     }
 
     public function test_iro_admin_expiry_filters_use_expiry_and_document_data(): void

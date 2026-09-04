@@ -245,7 +245,6 @@ export default function Page() {
                 disabled={creating}
               >
                 <option value="department_staff">Department Staff</option>
-                <option value="iro_staff">IRO Staff</option>
                 <option value="iro_admin">IRO Admin</option>
                 <option value="legal_counsel">Legal Counsel</option>
                 <option value="super_admin">Super Admin</option>

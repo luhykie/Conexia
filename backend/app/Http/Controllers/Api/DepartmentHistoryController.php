@@ -16,37 +16,9 @@ use Illuminate\Support\Facades\Gate;
 
 class DepartmentHistoryController extends Controller
 {
-    private const SUBMISSION_ACTIVITY_ACTIONS = [
-        'department.submission.created',
-        'iro_admin.document.created',
-        'document_file.uploaded',
-        'document.viewed',
-        'department.review.routed',
-        'department.review.correction_requested',
-        'department.revision.resubmitted',
-        'department.review.approved',
-        'iro_staff.document.forwarded_to_admin',
-        'iro_staff.document.returned_for_correction',
-        'iro_admin.document.logged',
-        'iro_admin.document.assigned_to_legal',
-        'iro_admin.review.returned_for_revision',
-        'iro_admin.review.validated_and_routed_to_legal',
-        'iro_admin.legal_correction.routed_to_department',
-        'iro_admin.document.reassigned',
-        'legal.review.correction_requested',
-        'legal.review.approved',
-        'document_renewal.requested',
-        'iro_admin.document.archived',
-        'iro_admin.document.unarchived',
-    ];
-
     public function history(Request $request, Document $document): JsonResponse
     {
-        $profile = $request->attributes->get('authenticated_profile');
-
-        return $profile?->role === Profile::ROLE_IRO_STAFF
-            ? $this->activity($request, $document)
-            : $this->index($request, $document);
+        return $this->index($request, $document);
     }
 
     public function index(Request $request, Document $document): JsonResponse
@@ -164,23 +136,6 @@ class DepartmentHistoryController extends Controller
         return response()->json(['success' => true, 'events' => $events, 'versions' => $versions, 'original' => $original, 'highlighted_versions' => $highlightedVersions, 'approved_document' => $approvedDocument]);
     }
 
-    private function activity(Request $request, Document $document): JsonResponse
-    {
-        $profile = $request->attributes->get('authenticated_profile');
-        abort_unless($profile?->role === Profile::ROLE_IRO_STAFF, 403);
-
-        $events = AuditLog::query()
-            ->with(['actor:id,full_name,role', 'documentFile:id,document_id,version'])
-            ->where('document_id', $document->id)
-            ->whereIn('action', self::SUBMISSION_ACTIVITY_ACTIONS)
-            ->oldest('created_at')
-            ->get()
-            ->map(fn (AuditLog $log) => $this->activityRow($log))
-            ->values();
-
-        return response()->json(['success' => true, 'events' => $events]);
-    }
-
     private function row(AuditLog $log, $filesByVersion): array
     {
         $file = $log->documentFile ?: $filesByVersion->get((int) ($log->metadata['review_version'] ?? 0));
@@ -215,29 +170,6 @@ class DepartmentHistoryController extends Controller
                 'version' => $version,
                 'mime_type' => $file->mime_type,
             ] : null,
-        ];
-    }
-
-    private function activityRow(AuditLog $log): array
-    {
-        $metadata = $log->metadata ?? [];
-        $version = $log->documentFile?->version
-            ?? $metadata['document_version']
-            ?? $metadata['review_version']
-            ?? null;
-
-        return [
-            'id' => $log->id,
-            'action' => $log->action,
-            'label' => $this->actionLabel($log->action, $version),
-            'actor' => $log->actor?->full_name ?? 'System',
-            'actor_role' => $log->actor?->role ?? ($metadata['actor']['role'] ?? null),
-            'created_at' => $log->created_at?->toISOString(),
-            'version' => $version ? (int) $version : null,
-            'previous_status' => $metadata['previous_status'] ?? null,
-            'new_status' => $metadata['new_status'] ?? null,
-            'destination' => $metadata['destination'] ?? $metadata['new_destination'] ?? null,
-            'reason' => $metadata['reason'] ?? $metadata['remarks'] ?? $metadata['legal_notes'] ?? null,
         ];
     }
 

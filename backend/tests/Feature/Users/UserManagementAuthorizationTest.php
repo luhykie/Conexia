@@ -20,16 +20,6 @@ class UserManagementAuthorizationTest extends SecurityTestCase
         )->assertOk();
 
         $this->getJson(
-            '/api/users?role=legal_counsel',
-            $this->authHeaders($this->profile(Profile::ROLE_IRO_STAFF))
-        )->assertOk();
-
-        $this->getJson(
-            '/api/users',
-            $this->authHeaders($this->profile(Profile::ROLE_IRO_STAFF))
-        )->assertForbidden();
-
-        $this->getJson(
             '/api/users',
             $this->authHeaders($this->profile(Profile::ROLE_DEPARTMENT_STAFF))
         )->assertForbidden();
@@ -61,7 +51,7 @@ class UserManagementAuthorizationTest extends SecurityTestCase
     public function test_iro_admin_cannot_escalate_user_to_super_admin(): void
     {
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
-        $user = $this->profile(Profile::ROLE_IRO_STAFF);
+        $user = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
 
         $this->patchJson(
             "/api/users/{$user->id}/assignment",
@@ -73,7 +63,7 @@ class UserManagementAuthorizationTest extends SecurityTestCase
     public function test_super_admin_can_manage_users(): void
     {
         $superAdmin = $this->profile(Profile::ROLE_SUPER_ADMIN);
-        $user = $this->profile(Profile::ROLE_IRO_STAFF);
+        $user = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
 
         $this->patchJson(
             "/api/users/{$user->id}/status",
@@ -89,7 +79,7 @@ class UserManagementAuthorizationTest extends SecurityTestCase
         $departmentUser = $this->profile(
             Profile::ROLE_DEPARTMENT_STAFF
         );
-        $target = $this->profile(Profile::ROLE_IRO_STAFF);
+        $target = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
 
         $this->patchJson(
             "/api/users/{$target->id}/status",
