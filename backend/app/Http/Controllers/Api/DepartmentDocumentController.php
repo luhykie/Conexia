@@ -121,6 +121,15 @@ class DepartmentDocumentController extends Controller
             'partner_department_id' => ['nullable', 'uuid', 'exists:departments,id'],
         ]);
 
+        if (
+            !empty($validated['partner_department_id']) &&
+            $validated['partnership_scope'] !== 'Local'
+        ) {
+            throw ValidationException::withMessages([
+                'partner_department_id' => 'Partner departments are only available for Local submissions.',
+            ]);
+        }
+
         $document = $this->createDocumentWithTrackingNumber(
             $validated,
             $profile
@@ -144,7 +153,7 @@ class DepartmentDocumentController extends Controller
 
                     $partnerDepartmentId = $validated['partner_department_id'] ?? null;
                     if ($partnerDepartmentId === $profile->department_id) {
-                        throw ValidationException::withMessages(['partner_department_id' => 'Select a different partner department.']);
+                        throw ValidationException::withMessages(['partner_department_id' => 'Please select a different partner department.']);
                     }
                     $document = Document::query()->create([
                         ...$validated,

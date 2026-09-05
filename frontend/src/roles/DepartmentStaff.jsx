@@ -27,6 +27,7 @@ import { DocumentChat } from "../components/DocumentChat";
 import { DepartmentalPdfReview } from "../components/DepartmentalPdfReview";
 import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations as SharedDepartmentalVersionAnnotations } from "../components/DocumentReviewPanel";
 import { PreSubmissionModal } from "../components/PreSubmissionModal";
+import { DepartmentAutocomplete } from "../components/DepartmentAutocomplete";
 import DepartmentSettingsPage from "../features/department-staff/settings/Page";
 import {
   createDepartmentDocument,
@@ -37,6 +38,7 @@ import {
   getDepartmentDiscussion,
   getDepartmentDocuments,
   getDepartmentHistory,
+  markDepartmentDocumentViewed,
   requestDepartmentCorrection,
   routeDepartmentReviewToAdmin,
   sendDepartmentDiscussionMessage,
@@ -44,11 +46,9 @@ import {
   updateDepartmentReviewHighlight,
 } from "../services/departmentStaffService";
 import { uploadDocumentFile } from "../services/documentFileService";
-import { apiGet } from "../api/apiClient";
 import { reportClientError } from "../utils/reportClientError";
 
 const partnershipTypes = [
-  ["Departmental", Building2],
   ["Local", MapPin],
   ["International", Globe2],
 ];
@@ -105,7 +105,8 @@ export function DepartmentStaff({ page, account }) {
 // Handles the department upload workflow for new agreements.
 function SubmissionPage({ account }) {
   const [form, setForm] = React.useState({
-    partnershipType: "Departmental",
+    partnershipType: "Local",
+    departmentToDepartment: false,
     partnerDepartmentId: "",
     partnerInstitution: "",
     agreementType: "MOA",
@@ -141,14 +142,6 @@ function SubmissionPage({ account }) {
     React.useState("");
   const [preSubmissionAnswers, setPreSubmissionAnswers] =
     React.useState(null);
-  const [departments, setDepartments] = React.useState([]);
-
-  React.useEffect(() => {
-    apiGet("/departments?per_page=100")
-      .then((response) => setDepartments(response.data ?? response.departments ?? []))
-      .catch(() => setDepartments([]));
-  }, []);
-
   React.useEffect(() => {
     const storedDraft = sessionStorage.getItem("department-submission-draft");
     if (!storedDraft) return;
@@ -157,7 +150,8 @@ function SubmissionPage({ account }) {
       const draft = JSON.parse(storedDraft);
       setPreSubmissionAnswers(draft);
       setForm({
-        partnershipType: draft.partnerClassification === "Departmental" ? "Departmental" : draft.partnerClassification === "international" ? "International" : "Local",
+        partnershipType: draft.partnerClassification === "international" ? "International" : "Local",
+        departmentToDepartment: Boolean(draft.departmentToDepartment),
         partnerDepartmentId: draft.partnerDepartmentId || "",
         partnerInstitution: draft.partnerInstitution || "",
         agreementType: draft.agreementType || "MOA",
@@ -200,6 +194,7 @@ function SubmissionPage({ account }) {
         partnerDepartmentId: "",
         partnerInstitution: "",
         partnerEmail: "",
+        departmentToDepartment: value === "Local" ? current.departmentToDepartment : false,
       }));
       setError("");
       setSuccess("");
@@ -207,17 +202,9 @@ function SubmissionPage({ account }) {
       return;
     }
 
-    if (name === "partnerDepartmentId") {
-      const department = departments.find((item) => item.id === value);
-      setForm((current) => ({
-        ...current,
-        partnerDepartmentId: value,
-        partnerInstitution: department?.name || "",
-        partnerEmail: "",
-      }));
+    if (name === "departmentToDepartment") {
+      setForm((current) => ({ ...current, departmentToDepartment: value, partnerDepartmentId: value ? current.partnerDepartmentId : "", partnerInstitution: value ? current.partnerInstitution : "" }));
       setError("");
-      setSuccess("");
-      setSubmittedTrackingNumber("");
       return;
     }
 
@@ -233,7 +220,7 @@ function SubmissionPage({ account }) {
 
   function continueToUpload() {
     if (
-      form.partnershipType === "Departmental" &&
+      form.partnershipType === "Local" && form.departmentToDepartment &&
       !form.partnerDepartmentId
     ) {
       setError("Please select a partner department.");
@@ -241,7 +228,7 @@ function SubmissionPage({ account }) {
     }
 
     if (
-      form.partnershipType !== "Departmental" &&
+      !(form.partnershipType === "Local" && form.departmentToDepartment) &&
       !form.partnerInstitution.trim()
     ) {
       setError("Please enter the partner institution name.");
@@ -340,12 +327,10 @@ function SubmissionPage({ account }) {
   async function submitDocument(event) {
     event.preventDefault();
 
-    if (!form.partnerInstitution.trim()) {
-      setError(
-        form.partnershipType === "Departmental"
-          ? "Please select a partner department."
-          : "Please enter the partner institution name.",
-      );
+    if (form.partnershipType === "Local" && form.departmentToDepartment && !form.partnerDepartmentId) {
+      setError(form.partnerInstitution.trim()
+        ? "Please select a valid registered department."
+        : "Please select a partner department.");
       return;
     }
 
@@ -366,12 +351,12 @@ function SubmissionPage({ account }) {
           partner_email:
             form.partnerEmail.trim() || null,
           partner_department_id:
-            form.partnershipType === "Departmental"
+            form.partnershipType === "Local" && form.departmentToDepartment
               ? form.partnerDepartmentId || null
               : null,
           description: (form.description.trim() || formatReviewFormDetails({
             ...form,
-            partnerClassification: form.partnershipType === "Departmental" ? "Departmental" : form.partnershipType.toLowerCase(),
+            partnerClassification: form.partnershipType.toLowerCase(),
           })).trim() || null,
           partnership_type: form.submissionType === "renewal" ? "Renewal" : "New Partnership",
           contact_person: form.contactPerson.trim() || null,
@@ -416,7 +401,8 @@ function SubmissionPage({ account }) {
     setSuccess("Submission successful.");
 
     setForm({
-      partnershipType: "Departmental",
+      partnershipType: "Local",
+      departmentToDepartment: false,
       partnerDepartmentId: "",
       partnerInstitution: "",
       agreementType: "MOA",
@@ -499,30 +485,49 @@ function SubmissionPage({ account }) {
                       }
                     >
                       <Icon size={17} />
-                      {type === "Departmental" ? "Departmental" : type}
+                      {type}
                     </button>
                   ))}
                 </div>
               </fieldset>
 
-              {form.partnershipType === "Departmental" ? (
+              {form.partnershipType === "Local" && (
+                <button
+                  type="button"
+                  className={`department-trigger department-form-wide ${form.departmentToDepartment ? "is-active" : ""}`}
+                  role="switch"
+                  aria-checked={form.departmentToDepartment}
+                  onClick={() => updateForm({
+                    target: { name: "departmentToDepartment", value: !form.departmentToDepartment },
+                  })}
+                  disabled={submitting}
+                >
+                  <span><b>Department-to-Department</b><small>{form.departmentToDepartment ? "Partner department required" : "Normal Local submission"}</small></span>
+                  <strong>{form.departmentToDepartment ? "On" : "Off"}</strong>
+                </button>
+              )}
+
+              {form.partnershipType === "Local" && form.departmentToDepartment ? (
                 <label>
-                  Which department are you collaborating with?
-                  <select
-                    name="partnerDepartmentId"
-                    value={form.partnerDepartmentId}
-                    onChange={updateForm}
-                    required
-                  >
-                    <option value="">
-                      Select department or program
-                    </option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.code ? `${department.code} — ` : ""}{department.name}
-                      </option>
-                    ))}
-                  </select>
+                  Partner Department
+                  <DepartmentAutocomplete
+                    value={form.partnerInstitution}
+                    selectedDepartmentId={form.partnerDepartmentId}
+                    ownDepartmentId={account?.department_id || account?.departmentId || account?.department?.id}
+                    disabled={submitting}
+                    onChange={(value) => setForm((current) => ({
+                      ...current,
+                      partnerInstitution: value,
+                      partnerDepartmentId: "",
+                      partnerEmail: "",
+                    }))}
+                    onSelect={(department) => setForm((current) => ({
+                      ...current,
+                      partnerDepartmentId: department.id,
+                      partnerInstitution: department.name,
+                      partnerEmail: department.email || "",
+                    }))}
+                  />
                 </label>
               ) : (
                 <label>
@@ -532,7 +537,7 @@ function SubmissionPage({ account }) {
                     value={form.partnerInstitution}
                     onChange={updateForm}
                     placeholder="e.g. Global Tech University"
-                    required
+                    required={form.partnershipType !== "Local" || !form.departmentToDepartment}
                   />
                 </label>
               )}
@@ -633,7 +638,7 @@ function SubmissionPage({ account }) {
                 <div className="pre-submission-info-banner">
                   <p><b>Partner:</b> {form.partnerInstitution}</p>
                   <p><b>Agreement:</b> {preSubmissionAnswers.agreementType} · {preSubmissionAnswers.submissionType === "renewal" ? "Renewal" : "New Partnership"}</p>
-                  <p><b>Classification:</b> {preSubmissionAnswers.partnerClassification === "Departmental" ? "Departmental" : preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() + preSubmissionAnswers.partnerClassification.slice(1)}</p>
+                  <p><b>Classification:</b> {preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() + preSubmissionAnswers.partnerClassification.slice(1)}</p>
                   <p><b>Title:</b> {preSubmissionAnswers.agreementTitle}</p>
                   <p><b>Requesting Office:</b> {preSubmissionAnswers.requestingOffice}</p>
                   <p><b>Contact:</b> {preSubmissionAnswers.contactPerson} · {preSubmissionAnswers.position}</p>
@@ -734,8 +739,8 @@ function SubmissionSummary({ form, account, selectedFile, compact = false }) {
         <SummaryField label="Title of Agreement" value={form.agreementTitle} />
         <SummaryField label="Type of Document" value={form.agreementType} />
         <SummaryField label="Submission Type" value={form.submissionType === "renewal" ? "Renewal" : "New Partnership"} />
-        <SummaryField label="Partner Classification" value={form.partnershipType === "Departmental" ? "Departmental" : form.partnershipType} />
-        <SummaryField label={form.partnershipType === "Departmental" ? "Collaborating Department / Program" : "Partner Organization"} value={form.partnerInstitution} />
+        <SummaryField label="Partner Classification" value={form.partnershipType} />
+        <SummaryField label={form.departmentToDepartment ? "Partner Department" : "Partner Organization"} value={form.partnerInstitution} />
       </SummarySection>
       <SummarySection title="Requesting Office Information">
         <SummaryField label="Office / Department" value={form.requestingOffice} />
@@ -821,7 +826,7 @@ function correctionFormFor(document) {
   return {
     title: document?.title ?? "",
     document_type: document?.document_type ?? "MOA",
-    partnership_scope: document?.partnership_scope ?? "Departmental",
+    partnership_scope: document?.partnership_scope ?? "Local",
     partner_institution: document?.partner_institution ?? "",
     partner_email: document?.partner_email ?? "",
     description: document?.description ?? "",
@@ -932,25 +937,6 @@ function MySubmissionsPage({ account }) {
   }, [reviewOpen, selectedDocument?.id, selectedDocument?.status]);
 
   const rows = documents.map((document) => [
-    document.tracking_number,
-
-    document.partner_institution,
-
-    document.document_type,
-
-    <span
-      key={`status-${document.id}`}
-      className={`badge ${
-        document.status === "Corrections Needed"
-          ? "danger"
-          : document.status === "Submitted"
-            ? "pending"
-            : "active"
-      }`}
-    >
-      {departmentalStatusLabel(document, document.department_id === accountDepartmentId)}
-    </span>,
-
     <button
       key={`view-${document.id}`}
       type="button"
@@ -967,8 +953,29 @@ function MySubmissionsPage({ account }) {
         setSuccess("");
       }}
     >
-      View & Preview
+      {document.tracking_number || "-"}
     </button>,
+    document.title || "-",
+    document.document_type || "-",
+    document.partnership_scope === "Departmental"
+      ? "Local"
+      : document.partnership_scope || document.partnership_type || "-",
+    document.submitted_at || document.updated_at
+      ? new Date(document.submitted_at || document.updated_at).toLocaleDateString()
+      : "-",
+    <span
+      key={`status-${document.id}`}
+      className={`badge ${
+        document.status === "Corrections Needed"
+          ? "danger"
+          : document.status === "Submitted"
+            ? "pending"
+            : "active"
+      }`}
+    >
+      {departmentalStatusLabel(document, document.department_id === accountDepartmentId)}
+    </span>,
+
   ]);
 
   // Resubmits a corrected document and clears the old Legal remarks.
@@ -1089,7 +1096,7 @@ function MySubmissionsPage({ account }) {
               <SubmissionDetail label="Partner Contact Email" value={selectedDocument.partner_email} />
             </SubmissionDetailSection>
             {selectedDocument.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{selectedDocument.description}</p></SubmissionDetailSection>}
-            <DepartmentalDocumentHistory documentId={selectedDocument.id} loadHistory={getDepartmentHistory} onViewVersion={setHistoryPreview} onCloseVersion={() => setHistoryPreview(null)} viewingVersion={Boolean(historyPreview)} Section={SubmissionDetailSection} />
+            <DepartmentalDocumentHistory documentId={selectedDocument.id} loadHistory={getDepartmentHistory} onViewVersion={setHistoryPreview} onCloseVersion={() => setHistoryPreview(null)} onViewVersionOpened={(version) => markDepartmentDocumentViewed(selectedDocument.id, version.file.id)} viewingVersion={Boolean(historyPreview)} versionDropdown Section={SubmissionDetailSection} />
             {historyPreview && <SharedDepartmentalVersionAnnotations version={historyPreview} Section={SubmissionDetailSection} />}
             {selectedDocument.legal_notes && <SubmissionDetailSection title="Legal Remarks"><div className="notice danger"><p>{selectedDocument.legal_notes}</p></div></SubmissionDetailSection>}
             {selectedDocument.partner_department_id && reviewIsSubmitted && <DepartmentalReviewPanel document={selectedDocument} review={departmentalReview} isCreator={isCreator} onReviewChange={setDepartmentalReview} onRemoveAnnotation={async (itemId) => { await deleteDepartmentReviewItem(selectedDocument.id, itemId); setDepartmentalReview(await getDepartmentReview(selectedDocument.id)); }} onDocumentChange={(document) => { setSelectedDocument(document); setDocuments((current) => current.map((item) => item.id === document.id ? document : item)); }} />}
@@ -1105,7 +1112,7 @@ function MySubmissionsPage({ account }) {
                 {editingCorrectionForm && <div className="correction-resubmission__grid">
                   <label className="correction-resubmission__wide">Agreement Title<input value={correctionForm.title} onChange={(event) => setCorrectionForm((current) => ({ ...current, title: event.target.value }))} disabled={processing} required /></label>
                   <label>Agreement Type<select value={correctionForm.document_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, document_type: event.target.value }))} disabled={processing}><option value="MOA">MOA</option><option value=""></option><option value=""></option></select></label>
-                  <label>Partnership Scope<select value={correctionForm.partnership_scope} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_scope: event.target.value }))} disabled={processing}><option value="Departmental">Departmental</option><option value="Local">Local</option><option value="International">International</option></select></label>
+                  <label>Partnership Scope<select value={correctionForm.partnership_scope} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_scope: event.target.value }))} disabled={processing}><option value="Local">Local</option><option value="International">International</option></select></label>
                   <label className="correction-resubmission__wide">Partner Organization<input value={correctionForm.partner_institution} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_institution: event.target.value }))} disabled={processing} required /></label>
                   <label className="correction-resubmission__wide">Partner Contact Email<input type="email" value={correctionForm.partner_email} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_email: event.target.value }))} disabled={processing} /></label>
                   <label>Submission Type<select value={correctionForm.partnership_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_type: event.target.value }))} disabled={processing}><option value="New Partnership">New Partnership</option><option value="Renewal">Renewal</option></select></label>
@@ -1234,11 +1241,12 @@ function MySubmissionsPage({ account }) {
             documents.length > 0 && (
               <DataTable
                 headers={[
-                  "Tracking #",
-                  "Partner",
-                  "Type",
+                  "Tracking Number",
+                  "Document Title",
+                  "Type of Document",
+                  "Partnership Type",
+                  "Date",
                   "Status",
-                  "Action",
                 ]}
                 rows={rows}
                 meta={meta}

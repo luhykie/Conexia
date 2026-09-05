@@ -8,7 +8,7 @@ export default function LegalCounselDashboardPage() {
     <DashboardView
       roleKey="legal"
       title="Legal Counsel Dashboard"
-      subtitle="Prioritized legal review, approval, return, and notarization workload."
+      subtitle="Prioritized legal review, approval, and correction workload."
     />
   );
 }

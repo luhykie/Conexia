@@ -116,10 +116,6 @@ export default function Page() {
   }
 
   const rows = documents.map((document) => [
-    document.tracking_number || "-",
-    document.partner_institution || "-",
-    document.document_type || "-",
-    document.status || "-",
     <button
       key={`view-${document.id}`}
       type="button"
@@ -130,8 +126,17 @@ export default function Page() {
         setSuccess("");
       }}
     >
-      View
+      {document.tracking_number || "-"}
     </button>,
+    document.title || "-",
+    document.document_type || "-",
+    document.partnership_scope === "Departmental"
+      ? "Local"
+      : document.partnership_scope || document.partnership_type || "-",
+    document.submitted_at || document.updated_at
+      ? new Date(document.submitted_at || document.updated_at).toLocaleDateString()
+      : "-",
+    document.status || "-",
   ]);
 
   return (
@@ -204,7 +209,14 @@ export default function Page() {
           )}
           {!loading && !error && documents.length > 0 && (
             <DataTable
-              headers={["Tracking #", "Partner", "Type", "Status", "Action"]}
+              headers={[
+                "Tracking Number",
+                "Document Title",
+                "Type of Document",
+                "Partnership Type",
+                "Date",
+                "Status",
+              ]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}

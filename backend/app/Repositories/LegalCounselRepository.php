@@ -28,25 +28,6 @@ class LegalCounselRepository
             );
     }
 
-    public function notarizationDocuments(
-        Profile $legalCounsel,
-        array $options
-    ): LengthAwarePaginator {
-        return $this->assignedDocuments($legalCounsel)
-            ->whereIn('status', [
-                Document::STATUS_APPROVED,
-                Document::STATUS_PENDING_NOTARIZATION,
-                Document::STATUS_NOTARIZED,
-            ])
-            ->tap(fn ($query) => $this->applyListOptions($query, $options))
-            ->paginate(
-                $options['per_page'],
-                ['*'],
-                'page',
-                $options['page']
-            );
-    }
-
     public function legalHistory(
         Profile $legalCounsel,
         array $options
@@ -59,8 +40,6 @@ class LegalCounselRepository
                     Document::STATUS_CORRECTION_REQUIRED,
                     Document::STATUS_CORRECTIONS_NEEDED,
                     Document::STATUS_APPROVED,
-                    Document::STATUS_PENDING_NOTARIZATION,
-                    Document::STATUS_NOTARIZED,
                     Document::STATUS_ARCHIVED,
                 ])->orWhereHas('latestLegalCorrection');
             })
@@ -107,6 +86,8 @@ class LegalCounselRepository
             'tracking_number' => $document->tracking_number,
             'title' => $document->title,
             'document_type' => $document->document_type,
+            'partnership_type' => $document->partnership_type,
+            'partnership_scope' => $document->partnership_scope,
             'partner_institution' => $document->partner_institution,
             'partner_email' => $document->partner_email,
             'description' => $document->description,
@@ -123,12 +104,6 @@ class LegalCounselRepository
                 $document->assigned_legal_counsel,
             'status' => $document->status,
             'legal_notes' => $document->legal_notes,
-            'notarial_reference_number' =>
-                $document->notarial_reference_number,
-            'notarization_date' =>
-                $document->notarization_date?->format('Y-m-d'),
-            'notary_signature_code' =>
-                $document->notary_signature_code,
             'submitted_at' =>
                 $document->submitted_at?->toISOString(),
             'updated_at' =>

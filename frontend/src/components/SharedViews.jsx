@@ -140,16 +140,27 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
     }),
   );
 
-  const showDocumentTitle = roleKey === "admin";
-  const showEntityName = roleKey !== "admin";
-  const activityRows = (dashboard?.recent_activity ?? []).map((item) => [
-    item.tracking_number || "-",
-    ...(showDocumentTitle ? [item.title || "-"] : []),
-    ...(showEntityName ? [item.entity_name || item.department?.code || "-"] : []),
-    item.type || "-",
-    formatDateTime(item.timestamp),
-    item.status || "-",
-  ]);
+  const standardizedActivity = roleKey === "department" || roleKey === "legal";
+  const activityRows = (dashboard?.recent_activity ?? []).map((item) =>
+    standardizedActivity
+      ? [
+          item.tracking_number || "-",
+          item.title || "-",
+          item.document_type || item.type || "-",
+          item.partnership_scope === "Departmental"
+            ? "Local"
+            : item.partnership_scope || "-",
+          formatDateTime(item.timestamp),
+          item.status || "-",
+        ]
+      : [
+          item.tracking_number || "-",
+          ...(roleKey === "admin" ? [item.title || "-"] : [item.entity_name || item.department?.code || "-"]),
+          item.type || "-",
+          formatDateTime(item.timestamp),
+          item.status || "-",
+        ],
+  );
   const departmentApiUnavailable = roleKey === "department" && Boolean(error);
 
   return (
@@ -170,16 +181,22 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
           )}
           {!loading && !error && activityRows.length > 0 && (
             <DataTable
-              headers={[
-                roleKey === "admin" ? "Tracking Number" : "Submission ID",
-                ...(showDocumentTitle ? ["Document Title"] : []),
-                ...(showEntityName
-                  ? ["Entity Name"]
-                  : []),
-                "Type",
-                "Timestamp",
-                "Status",
-              ]}
+              headers={standardizedActivity
+                ? [
+                    "Tracking Number",
+                    "Document Title",
+                    "Type of Document",
+                    "Partnership Type",
+                    "Date",
+                    "Status",
+                  ]
+                : [
+                    roleKey === "admin" ? "Tracking Number" : "Submission ID",
+                    ...(roleKey === "admin" ? ["Document Title"] : ["Entity Name"]),
+                    "Type",
+                    "Timestamp",
+                    "Status",
+                  ]}
               rows={activityRows}
             />
           )}
@@ -484,7 +501,6 @@ function ExpiryFilters({ filters, updateFilter }) {
           }
         >
           <option value="all">All</option>
-          <option value="Departmental">Departmental</option>
           <option value="Local">Local</option>
           <option value="International">International</option>
         </select>

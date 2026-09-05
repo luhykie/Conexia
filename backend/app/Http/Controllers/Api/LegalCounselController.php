@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DecisionRequest;
-use App\Http\Requests\NotarizationRequest;
 use App\Models\Document;
 use App\Models\Profile;
 use App\Services\LegalCounselService;
@@ -58,68 +57,6 @@ class LegalCounselController extends Controller
 
             return $this->success(
                 'Legal decision saved successfully.',
-                $document,
-                ['document' => $document]
-            );
-        });
-    }
-
-    public function notarizationDocuments(
-        Request $request
-    ): JsonResponse {
-        return $this->run(function () use ($request) {
-            $result = $this->legalCounsel
-                ->notarizationDocuments(
-                    $this->profile($request),
-                    $this->options($request)
-                );
-            $documents = $result['items'];
-
-            return $this->success(
-                'Notarization documents loaded successfully.',
-                $documents,
-                [
-                    'documents' => $documents,
-                    'meta' => $result['meta'],
-                ]
-            );
-        });
-    }
-
-    public function submitForNotarization(
-        NotarizationRequest $request,
-        string $id
-    ): JsonResponse {
-        return $this->run(function () use ($request, $id) {
-            $document = $this->legalCounsel
-                ->submitForNotarization(
-                    $this->profile($request),
-                    $id,
-                    $request->validated()
-                );
-
-            return $this->success(
-                'Document submitted for notarization.',
-                $document,
-                ['document' => $document]
-            );
-        });
-    }
-
-    public function completeNotarization(
-        NotarizationRequest $request,
-        string $id
-    ): JsonResponse {
-        return $this->run(function () use ($request, $id) {
-            $document = $this->legalCounsel
-                ->completeNotarization(
-                    $this->profile($request),
-                    $id,
-                    $request->validated()
-                );
-
-            return $this->success(
-                'Document notarization completed.',
                 $document,
                 ['document' => $document]
             );

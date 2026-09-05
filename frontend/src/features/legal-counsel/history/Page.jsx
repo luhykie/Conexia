@@ -124,8 +124,6 @@ export default function LegalCounselHistoryPage() {
               "Correction Required",
               "Corrections Needed",
               "Approved",
-              "Pending Notarization",
-              "Notarized",
               "Archived",
             ]}
             showDepartment

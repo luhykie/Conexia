@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, History, MessageSquareText, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, History, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -36,6 +36,27 @@ const initialDocumentHistoryState = {
   isMenuOpen: false,
   previewResetCount: 0,
 };
+
+const importantHistoryActions = new Set([
+  "document.viewed",
+  "document_file.uploaded",
+  "department.submission.created",
+  "iro_admin.document.created",
+  "department.revision.resubmitted",
+  "department.review.routed",
+  "department.document.routed_to_iro_admin",
+  "department.review.correction_requested",
+  "legal.review.correction_requested",
+  "iro_staff.document.returned_for_correction",
+  "iro_admin.review.returned_for_revision",
+  "department.review.approved",
+  "legal.review.approved",
+  "iro_admin.review.validated_and_routed_to_legal",
+  "iro_admin.legal_correction.routed_to_department",
+  "iro_admin.document.reassigned",
+  "document_file.annotated",
+  "document_file.annotation_comment_updated",
+]);
 
 function reduceDocumentHistoryState(state, action) {
   switch (action.type) {
@@ -77,12 +98,13 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
   const [open, setOpen] = React.useState(false);
   const [original, setOriginal] = React.useState(null);
   const [versions, setVersions] = React.useState([]);
+  const [highlightedVersions, setHighlightedVersions] = React.useState([]);
   const [approvedDocument, setApprovedDocument] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
   React.useEffect(() => {
-    setOpen(false); setOriginal(null); setVersions([]); setApprovedDocument(null); setError("");
+    setOpen(false); setOriginal(null); setVersions([]); setHighlightedVersions([]); setApprovedDocument(null); setError("");
   }, [documentId]);
 
   async function toggle() {
@@ -94,6 +116,7 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
       const response = await loadHistory(documentId);
       setOriginal(response.original ?? null);
       setVersions(response.versions ?? []);
+      setHighlightedVersions(response.highlighted_versions ?? []);
       setApprovedDocument(response.approved_document ?? null);
     } catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
@@ -118,7 +141,9 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
           const isOriginal = version.file.id === original?.file?.id;
           const isApproved = version.file.id === approvedDocument?.file?.id;
           const selectedVersion = isApproved ? { ...version, ...approvedDocument } : isOriginal ? { ...version, ...original } : version;
-          const labels = [isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`];
+          const labels = [version.isHighlightedVersion
+            ? (isOriginal ? "Original — Highlighted Version" : `Revision ${version.file.version} — Highlighted Version`)
+            : (isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`)];
           if (isApproved) labels.push("Approved");
           if (version.latest) labels.push("Latest");
           const details = [version.file.filename, version.status || null];
@@ -128,11 +153,21 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
         })}
         {!chronologicalVersions.length && !loading && !error && <p>No document versions found.</p>}
       </div>
+      {highlightedVersions.length > 0 && <div className="department-history__group"><b>Highlighted Versions</b>
+        {highlightedVersions.map((version) => <HistoryVersionRow
+          key={`highlighted-${version.file.id}`}
+          version={version}
+          label={`Highlighted Version ${version.file.version}`}
+          detail={`${version.annotations.length} saved annotation${version.annotations.length === 1 ? "" : "s"} - ${version.file.filename}`}
+          action="View Highlighted Version"
+          onViewVersion={onViewVersion}
+        />)}
+      </div>}
     </div>}
   </div></Section>;
 }
 
-function VersionDropdownHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, highlightsVisible, liveAnnotations, canManageAnnotations, onUpdateComment, onRequestRemove, Section = SubmissionDetailSection }) {
+function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onViewVersion, onCloseVersion, onViewVersionOpened, viewingVersion, highlightsVisible, liveAnnotations, canManageAnnotations, onUpdateComment, onRequestRemove, Section = SubmissionDetailSection }) {
   const [versions, setVersions] = React.useState([]);
   const [viewEvents, setViewEvents] = React.useState([]);
   const [original, setOriginal] = React.useState(null);
@@ -143,13 +178,10 @@ function VersionDropdownHistory({ documentId, loadHistory, onViewVersion, onClos
   );
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const dropdownRef = React.useRef(null);
-  const triggerRef = React.useRef(null);
   const handledPreviewResetRef = React.useRef(0);
   const {
     selectedVersion,
     isHistoryExpanded: isExpanded,
-    isMenuOpen,
     previewResetCount,
   } = historyState;
 
@@ -159,35 +191,35 @@ function VersionDropdownHistory({ documentId, loadHistory, onViewVersion, onClos
     loadHistory(documentId)
       .then((response) => {
         if (!active) return;
-        const loadedVersions = newestVersions(response.versions ?? []);
+        const responseVersions = (response.versions ?? []).filter((version) => version?.file?.id);
+        const highlightedVersions = response.highlighted_versions?.length
+          ? response.highlighted_versions
+          : responseVersions
+            .filter((version) => (version.annotations ?? []).length > 0)
+            .map((version) => ({ ...version, isHighlightedVersion: true }));
+        const loadedVersions = newestVersions([
+          ...responseVersions,
+          ...highlightedVersions.map((version) => ({
+            ...version,
+            isHighlightedVersion: true,
+            historyCreatedAt: version.annotations?.reduce((latest, annotation) => {
+              const timestamp = annotation.created_at || annotation.updated_at;
+              return timestamp && (!latest || Date.parse(timestamp) > Date.parse(latest)) ? timestamp : latest;
+            }, null) || version.file.created_at,
+          })),
+        ]);
         setVersions(loadedVersions);
-        setViewEvents(response.view_events ?? []);
+        setViewEvents(response.view_events ?? response.events ?? []);
         setOriginal(response.original ?? null);
         setApprovedDocument(response.approved_document ?? null);
-        dispatchHistory({ type: "set-initial-version", version: String(loadedVersions.find((version) => version.latest)?.file.version ?? loadedVersions[0]?.file.version ?? "all") });
+        if (loadedVersions.length) {
+          dispatchHistory({ type: "set-initial-version", version: versionOptionKey(loadedVersions[0]) });
+        }
       })
       .catch((requestError) => active && setError(requestError.message))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [documentId, loadHistory]);
-
-  React.useEffect(() => {
-    if (!isMenuOpen) return undefined;
-    function closeOnOutsideClick(event) {
-      if (!dropdownRef.current?.contains(event.target)) dispatchHistory({ type: "close-menu" });
-    }
-    function closeOnEscape(event) {
-      if (event.key !== "Escape") return;
-      dispatchHistory({ type: "close-menu" });
-      triggerRef.current?.focus();
-    }
-    document.addEventListener("mousedown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [isMenuOpen]);
 
   React.useLayoutEffect(() => {
     if (previewResetCount === handledPreviewResetRef.current) return;
@@ -201,63 +233,86 @@ function VersionDropdownHistory({ documentId, loadHistory, onViewVersion, onClos
     if (!sameVersion && viewingVersion) onCloseVersion();
     dispatchHistory({ type: "select-option", version });
     if (!collapsing) {
-      const nextVersion = version === "all"
-        ? versions.find((item) => item.latest) ?? versions[0]
-        : versions.find((item) => String(item.file.version) === version);
+      const nextVersion = versions.find((item) => versionOptionKey(item) === version);
       if (nextVersion) onViewVersion(
         historyVersionDetails(nextVersion, original, approvedDocument),
         { forcePreview: true },
       );
+      if (nextVersion && onViewVersionOpened) {
+        onViewVersionOpened(nextVersion)
+          .then((response) => {
+            if (response?.event) {
+              setViewEvents((current) => current.some((event) => event.id === response.event.id)
+                ? current
+                : [...current, response.event]);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }
 
-  function toggleHistoryControl() {
-    dispatchHistory({
-      type: isExpanded ? "select-option" : "toggle-menu",
-      ...(isExpanded ? { version: selectedVersion } : {}),
-    });
-  }
-
-  const visibleVersions = selectedVersion === "all" ? versions : versions.filter((version) => String(version.file.version) === selectedVersion);
+  const selectedDocument = versions.find((version) => versionOptionKey(version) === selectedVersion);
+  const timelineEvents = viewEvents.filter((event) => importantHistoryActions.has(event.action));
   const contentId = `admin-document-history-${documentId}`;
-  const optionsId = `${contentId}-options`;
 
   return <Section title="Document History"><div className="department-history iro-admin-version-history">
-    <div className="document-filter-control submission-history-filter" ref={dropdownRef}>
-      <button ref={triggerRef} type="button" className="submission-history-filter__toggle" disabled={loading || Boolean(error)} aria-label="Document version history" aria-haspopup="true" aria-expanded={isMenuOpen || isExpanded} aria-controls={`${optionsId} ${contentId}`} data-menu-open={isMenuOpen} onClick={toggleHistoryControl}>
-        {selectedVersion === "all" ? "All Versions" : selectedVersion ? `Version ${selectedVersion}` : "Current Version"}
-        <ChevronDown size={18} aria-hidden="true" />
-      </button>
-      <div id={optionsId} className="submission-history-filter__options" role="menu" aria-label="Document versions">
-        {["all", ...versions.map((version) => String(version.file.version))].map((version) => <button key={version} type="button" aria-pressed={selectedVersion === version} onClick={() => toggleVersion(version)}>{version === "all" ? "All Versions" : `Version ${version}`}</button>)}
-      </div>
+    {documentTitle && <p className="department-history__document-title"><b>Document:</b> {documentTitle}</p>}
+    <div className="document-version-select">
+      <label htmlFor={`${contentId}-version`}>Document Version</label>
+      <select
+        id={`${contentId}-version`}
+        value={selectedVersion}
+        disabled={loading || Boolean(error)}
+        onChange={(event) => toggleVersion(event.target.value)}
+      >
+        <option value="" disabled>Select Document</option>
+        {versions.map((version) => {
+          const versionKey = versionOptionKey(version);
+          const timestamp = versionHistoryTimestamp(version);
+          return <option key={versionOptionKey(version)} value={versionKey}>{versionOptionLabel(version, original, approvedDocument)}{timestamp ? ` — ${new Date(timestamp).toLocaleString()}` : ""}</option>;
+        })}
+      </select>
     </div>
     {loading && <p>Loading history...</p>}
     {error && <p className="auth-error">{error}</p>}
     <div id={contentId} className={`department-history__events submission-activity-history__entries${isExpanded ? " is-expanded" : ""}`} aria-hidden={!isExpanded}>
-      <div className="department-history__group"><b>Documents &amp; Revisions</b>
-        {visibleVersions.map((version) => {
+      <div className="department-history__group"><b>Selected Document</b>
+        {selectedDocument ? (() => {
+          const version = selectedDocument;
           const selected = historyVersionDetails(version, original, approvedDocument);
+          if (!selected?.file) return null;
           const isOriginal = selected.file.id === original?.file?.id;
           const isApproved = selected.file.id === approvedDocument?.file?.id;
-          const labels = [isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`];
+          const labels = [version.isHighlightedVersion
+            ? (isOriginal ? "Original — Highlighted Version" : `Revision ${version.file.version} — Highlighted Version`)
+            : (isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`)];
           if (isApproved) labels.push("Approved");
           if (version.latest) labels.push("Latest");
-          const details = [version.file.filename, version.status || null, version.file.created_at ? new Date(version.file.created_at).toLocaleString() : null];
+          const details = [version.file.filename, version.status || null, versionHistoryTimestamp(version) ? new Date(versionHistoryTimestamp(version)).toLocaleString() : null];
           return <HistoryVersionRow key={`version-${version.file.id}`} version={selected} label={labels.join(" - ")} detail={details.filter(Boolean).join(" - ")} />;
-        })}
-        {!visibleVersions.length && !loading && !error && <p>No document versions found.</p>}
+        })() : !loading && !error && <p>Select a document version to view it.</p>}
       </div>
-      {viewEvents.map((event) => <article key={event.id} className="submission-activity-history__event document-view-history-event">
-        <History size={16} aria-hidden="true" />
-        <div>
-          <b>{event.label}</b>
-          <small>{event.actor || "System"} · {event.created_at ? new Date(event.created_at).toLocaleString() : "Date unavailable"}</small>
-        </div>
-      </article>)}
-      {visibleVersions.map((version) => {
+      <div className="department-history__group"><b>History Timeline</b>
+      {timelineEvents.map((event) => <article key={event.id} className={`submission-activity-history__event${event.action === "document.viewed" ? " document-view-history-event" : ""}`}>
+          <History size={16} aria-hidden="true" />
+          <div>
+            <b>{event.label}</b>
+            <small>{[event.actor, event.actor_department, event.actor_role].filter(Boolean).join(" · ")} · {event.created_at ? new Date(event.created_at).toLocaleString() : "Date unavailable"}</small>
+            {event.version && <p>Version {event.version}</p>}
+            {(event.previous_status || event.new_status) && <p>{[event.previous_status, event.new_status].filter(Boolean).join(" → ")}</p>}
+            {event.destination && <p>Destination: {typeof event.destination === "string" ? event.destination : JSON.stringify(event.destination)}</p>}
+            {event.reason && <p>Reason: {event.reason}</p>}
+          </div>
+        </article>)}
+      {!timelineEvents.length && !loading && !error && <p>No important history events found.</p>}
+      </div>
+      {selectedDocument && (() => {
+        const version = selectedDocument;
         const selected = historyVersionDetails(version, original, approvedDocument);
-        const isActivePreview = highlightsVisible && viewingVersion?.file.id === version.file.id;
+        if (!selected?.file) return null;
+        const isActivePreview = viewingVersion?.file?.id === version.file?.id
+          && (highlightsVisible === undefined || highlightsVisible);
         const annotations = isActivePreview
           ? liveAnnotations
           : numberAnnotations(version.annotations ?? []);
@@ -270,19 +325,44 @@ function VersionDropdownHistory({ documentId, loadHistory, onViewVersion, onClos
           onUpdateComment={onUpdateComment}
           onRequestRemove={onRequestRemove}
         />;
-      })}
+      })()}
     </div>
   </div></Section>;
 }
 
 function newestVersions(versions) {
-  return [...versions].sort((left, right) => Number(right.file.version) - Number(left.file.version));
+  return [...versions].sort((left, right) => {
+    const rightTime = Date.parse(versionHistoryTimestamp(right) || "");
+    const leftTime = Date.parse(versionHistoryTimestamp(left) || "");
+    if (Number.isFinite(rightTime) && Number.isFinite(leftTime) && rightTime !== leftTime) return rightTime - leftTime;
+    return Number(right.file.version) - Number(left.file.version);
+  });
+}
+
+function versionHistoryTimestamp(version) {
+  return version.historyCreatedAt || version.file.created_at;
+}
+
+function versionOptionKey(version) {
+  return `${version.file.id}${version.isHighlightedVersion ? "-highlighted" : ""}`;
 }
 
 function historyVersionDetails(version, original, approvedDocument) {
+  if (version.isHighlightedVersion) return version;
   if (version.file.id === approvedDocument?.file?.id) return { ...version, ...approvedDocument };
   if (version.file.id === original?.file?.id) return { ...version, ...original };
   return version;
+}
+
+function versionOptionLabel(version, original, approvedDocument) {
+  const details = historyVersionDetails(version, original, approvedDocument);
+  if (version.isHighlightedVersion) {
+    if (details.file.id === original?.file?.id) return "Original — Highlighted Version";
+    return `Revision ${details.file.version} — Highlighted Version`;
+  }
+  if (details.file.id === original?.file?.id) return "Original Document";
+  if (details.file.id === approvedDocument?.file?.id) return "Approved Document";
+  return `Revision ${details.file.version}`;
 }
 
 export function DepartmentalVersionAnnotations({ version, Section = SubmissionDetailSection, showHighlightNumbers = false, canManage = false, onUpdateComment, onRequestRemove }) {
@@ -290,6 +370,11 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
   const [draftComment, setDraftComment] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [annotations, setAnnotations] = React.useState(version?.annotations ?? []);
+
+  React.useEffect(() => {
+    setAnnotations(version?.annotations ?? []);
+  }, [version]);
 
   if (!version) return null;
 
@@ -301,6 +386,9 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
     setError("");
     try {
       await onUpdateComment(item.id, nextComment);
+      setAnnotations((current) => current.map((annotation) => annotation.id === item.id
+        ? { ...annotation, comment: nextComment, updated_at: new Date().toISOString() }
+        : annotation));
       setEditingId("");
       setDraftComment("");
     } catch (requestError) {
@@ -313,8 +401,8 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
   return <Section title={`${version.label} Annotations`}><div className="department-history__annotations">
     <p><b>{version.status}</b>{version.approved_at ? ` · Approved ${new Date(version.approved_at).toLocaleString()}` : ""}</p>
     {error && <p className="auth-error" role="alert">{error}</p>}
-    {!version.annotations?.length && <p>No saved annotations for this version.</p>}
-    {(version.annotations ?? []).map((item) => <article key={item.id}>
+    {!annotations.length && <p>No saved annotations for this version.</p>}
+    {annotations.map((item) => <article key={item.id}>
       <small>{showHighlightNumbers && <b className="departmental-review__marker">Highlight #{item.display_number}</b>}{item.department || annotationRoleLabel(item.actor_role) || "Department"} · {item.author || "Staff"} · {version.status || "Status unavailable"}{(item.updated_at || item.created_at) ? ` · ${new Date(item.updated_at || item.created_at).toLocaleString()}` : ""}</small>
       {(item.selected_text || item.highlight) && <blockquote>{item.selected_text || item.highlight}</blockquote>}
       {editingId === item.id ? <form className="iro-admin-annotation-edit" onSubmit={(event) => saveComment(event, item)}>
@@ -549,17 +637,21 @@ export function DocumentReviewPage({ documentId }) {
     const orderedFiles = [...files].sort(
       (left, right) => Number(left.version) - Number(right.version),
     );
-    const versions = await Promise.all(orderedFiles.map(async (file) => {
-      const response = await getDocumentAnnotations(documentId, file.id);
-      const versionAnnotations = response.annotations ?? response.data ?? [];
+    const historyVersionsByFileId = new Map(
+      (authoritativeHistory.versions ?? []).map((version) => [version.file?.id, version]),
+    );
+    const versions = orderedFiles.map((file) => {
+      const historyVersion = historyVersionsByFileId.get(file.id);
       return {
         file,
-        label: `Version ${file.version} — ${file.version === 1 ? "Original Submission" : "Revised Submission"}`,
-        status: file.id === latestFile?.id ? document?.status : "Previous Version",
-        latest: file.id === latestFile?.id,
-        annotations: versionAnnotations,
+        label: historyVersion?.label
+          ?? `Version ${file.version} — ${file.version === 1 ? "Original Submission" : "Revised Submission"}`,
+        status: historyVersion?.status
+          ?? (file.id === latestFile?.id ? document?.status : "Previous Version"),
+        latest: historyVersion?.latest ?? file.id === latestFile?.id,
+        annotations: historyVersion?.annotations ?? [],
       };
-    }));
+    });
     const highlightedVersions = versions
       .filter((version) => version.annotations.length > 0)
       .map((version) => ({ ...version, history_view: "highlighted" }));

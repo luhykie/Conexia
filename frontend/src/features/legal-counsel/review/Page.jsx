@@ -8,13 +8,14 @@ import {
 } from "../../../components/DocumentFilters";
 import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
 import { DepartmentalPdfReview } from "../../../components/DepartmentalPdfReview";
-import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations, PdfViewer, getPdfTextSelection } from "../../../components/DocumentReviewPanel";
+import { DepartmentalDocumentHistory, PdfViewer, getPdfTextSelection } from "../../../components/DocumentReviewPanel";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { SubmissionDetails, SubmissionDetailSection } from "../../../components/SubmissionDetails";
 import { DocumentChat } from "../../../components/DocumentChat";
 import {
   getReviewDocuments,
+  markLegalDocumentViewed,
   submitLegalDecision,
 } from "../../../services/legalCounselServices";
 import { getIroDocumentHistory } from "../../../services/iroAdminService";
@@ -180,12 +181,33 @@ export default function LegalCounselReviewPage() {
     setProcessing(false);
   }
 
+  async function updateHistoryAnnotation(documentId, fileId, annotationId, comment) {
+    if (!fileId) throw new Error("Select a saved document version before commenting.");
+    const response = await updateDocumentAnnotation(documentId, fileId, annotationId, comment);
+    return response.annotation ?? response.data;
+  }
+
+  async function removeHistoryAnnotation(documentId, fileId, annotationId) {
+    if (!fileId) throw new Error("Select a saved document version before removing a highlight.");
+    await removeDocumentAnnotation(documentId, fileId, annotationId);
+  }
+
   const rows = documents.map((document) => [
-    document.tracking_number,
-    document.partner_institution,
-    document.document_type,
-    document.updated_at
-      ? new Date(document.updated_at).toLocaleDateString()
+    <button
+      key={`open-${document.id}`}
+      type="button"
+      className="table-action"
+      onClick={() => setSelectedDocument(document)}
+    >
+      {document.tracking_number || "-"}
+    </button>,
+    document.title || "-",
+    document.document_type || "-",
+    document.partnership_scope === "Departmental"
+      ? "Local"
+      : document.partnership_scope || document.partnership_type || "-",
+    document.submitted_at || document.updated_at
+      ? new Date(document.submitted_at || document.updated_at).toLocaleDateString()
       : "-",
     <span
       key={`status-${document.id}`}
@@ -195,14 +217,6 @@ export default function LegalCounselReviewPage() {
     >
       {document.status}
     </span>,
-    <button
-      key={`open-${document.id}`}
-      type="button"
-      className="table-action"
-      onClick={() => setSelectedDocument(document)}
-    >
-      Open
-    </button>,
   ]);
 
   return (
@@ -241,12 +255,12 @@ export default function LegalCounselReviewPage() {
           {!loading && documents.length > 0 && (
             <DataTable
               headers={[
-                "Tracking #",
-                "Partner",
-                "Document Type",
-                "Route Date",
+                "Tracking Number",
+                "Document Title",
+                "Type of Document",
+                "Partnership Type",
+                "Date",
                 "Status",
-                "Action",
               ]}
               rows={rows}
               meta={meta}
@@ -265,19 +279,24 @@ export default function LegalCounselReviewPage() {
         >
           ← Back to Review Queue
         </button>
-        <LegalDocumentPreview documentId={selectedDocument.id} historyVersion={historyVersion} onAnnotationsChange={setLegalAnnotations} onFilesChange={setSelectedFiles} />
+        <LegalDocumentPreview documentId={selectedDocument.id} historyVersion={historyVersion} onAnnotationsChange={setLegalAnnotations} onFilesChange={setSelectedFiles} onUpdateHistoryComment={(annotationId, comment) => updateHistoryAnnotation(selectedDocument.id, historyVersion?.file?.id, annotationId, comment)} />
       </main>
 
       <SubmissionDetails document={selectedDocument}>
             <DepartmentalDocumentHistory
               documentId={selectedDocument.id}
+              documentTitle={selectedDocument.title || selectedDocument.document_type || selectedDocument.tracking_number}
               loadHistory={getIroDocumentHistory}
               onViewVersion={setHistoryVersion}
               onCloseVersion={() => setHistoryVersion(null)}
+              onViewVersionOpened={(version) => markLegalDocumentViewed(selectedDocument.id, version.file.id)}
               viewingVersion={Boolean(historyVersion)}
+              canManageAnnotations={Boolean(historyVersion)}
+              onUpdateComment={(annotationId, comment) => updateHistoryAnnotation(selectedDocument.id, historyVersion?.file?.id, annotationId, comment)}
+              onRequestRemove={(annotationId) => removeHistoryAnnotation(selectedDocument.id, historyVersion?.file?.id, annotationId)}
+              versionDropdown
               Section={SubmissionDetailSection}
             />
-            {historyVersion && <DepartmentalVersionAnnotations version={historyVersion} Section={SubmissionDetailSection} />}
             {false && <div className="legal-review-document-summary">
               <FileText />
               <div><b>{selectedDocument.title}</b><p>{selectedDocument.tracking_number} · {selectedDocument.document_type}</p></div>
@@ -367,7 +386,7 @@ export default function LegalCounselReviewPage() {
   );
 }
 
-function LegalDocumentPreview({ documentId, historyVersion, onAnnotationsChange, onFilesChange }) {
+function LegalDocumentPreview({ documentId, historyVersion, onAnnotationsChange, onFilesChange, onUpdateHistoryComment }) {
   const [files, setFiles] = React.useState([]);
   const [filesLoading, setFilesLoading] = React.useState(true);
   const [fileId, setFileId] = React.useState("");
@@ -423,8 +442,7 @@ function LegalDocumentPreview({ documentId, historyVersion, onAnnotationsChange,
   if (!fileId) return <Panel title="Document Preview"><p>No attached document is available for preview.</p></Panel>;
   if (!selectedFile?.mime_type?.includes("pdf")) return <DocumentFilesPanel documentId={documentId} embeddedPreview previewFileId={fileId} />;
   return <Panel title="Document Preview">
-    {files.length > 1 && !historyVersion && <label className="legal-review-version">Document Version<select value={fileId} onChange={(event) => setFileId(event.target.value)}>{files.map((file) => <option key={file.id} value={file.id}>Version {file.version} — {file.filename}</option>)}</select></label>}
-    <DepartmentalPdfReview documentId={documentId} fileId={fileId} items={historyVersion?.annotations ?? []} annotations={historyVersion ? null : annotations} canAnnotate={!historyVersion} onCreateAnnotation={async (payload) => { const response = await createDocumentAnnotation(documentId, fileId, payload); const annotation = response.annotation ?? response.data; setAnnotations((current) => [...current, annotation]); onAnnotationsChange((current) => [...current, annotation]); }} onRemoveAnnotation={removeAnnotation} />
+    <DepartmentalPdfReview documentId={documentId} fileId={fileId} items={historyVersion?.annotations ?? []} annotations={historyVersion ? null : annotations} canAnnotate={!historyVersion} canComment={Boolean(historyVersion)} onUpdateAnnotationComment={onUpdateHistoryComment} onCreateAnnotation={async (payload) => { const response = await createDocumentAnnotation(documentId, fileId, payload); const annotation = response.annotation ?? response.data; setAnnotations((current) => [...current, annotation]); onAnnotationsChange((current) => [...current, annotation]); }} onRemoveAnnotation={removeAnnotation} />
   </Panel>;
 }
 

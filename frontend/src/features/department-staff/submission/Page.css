@@ -72,6 +72,49 @@
   grid-column: 1 / -1;
 }
 
+.department-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 12px 15px;
+  border: 1px solid #cbd5d1;
+  border-radius: 8px;
+  background: #fff;
+  color: #17352b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.department-trigger span {
+  display: grid;
+  gap: 3px;
+}
+
+.department-trigger small {
+  color: #68757b;
+  font-weight: 400;
+}
+
+.department-trigger strong {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2f0;
+  color: #68757b;
+  font-size: 12px;
+}
+
+.department-trigger.is-active {
+  border-color: #0b6d43;
+  background: #f4faf6;
+}
+
+.department-trigger.is-active strong {
+  background: #0b6d43;
+  color: #fff;
+}
+
 .department-summary-card {
   display: grid;
   align-content: start;

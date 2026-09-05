@@ -1,8 +1,4 @@
-import {
-  apiGet,
-  apiPatch,
-  withQuery,
-} from "../api/apiClient";
+import { apiGet, apiPost, apiPatch, withQuery } from "../api/apiClient";
 
 export function getLegalDashboard() {
   return apiGet("/legal/dashboard");
@@ -19,24 +15,12 @@ export function submitLegalDecision(documentId, payload) {
   );
 }
 
-export function getNotarizationDocuments(params = {}) {
-  return apiGet(withQuery("/legal/documents/notarization", params));
-}
-
-export function submitForNotarization(documentId, payload) {
-  return apiPatch(
-    `/legal/documents/${documentId}/notarization/submit`,
-    payload
-  );
-}
-
-export function completeNotarization(documentId, payload) {
-  return apiPatch(
-    `/legal/documents/${documentId}/notarization/complete`,
-    payload
-  );
-}
-
 export function getLegalHistory(params = {}) {
   return apiGet(withQuery("/legal/history", params));
+}
+
+export function markLegalDocumentViewed(documentId, documentFileId) {
+  return apiPost(`/iro/documents/${documentId}/history/viewed`, {
+    document_file_id: documentFileId,
+  });
 }

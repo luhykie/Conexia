@@ -296,7 +296,7 @@ export default function IroAdminEngagementsPage() {
                   </EditField>
                   <EditField label="Partnership Scope">
                     <select name="partnership_scope" value={editForm.partnership_scope} onChange={updateEditForm} required>
-                      <option value="Departmental">Departmental</option><option value="Local">Local</option><option value="International">International</option>
+                      <option value="Local">Local</option><option value="International">International</option>
                     </select>
                   </EditField>
                   <EditField label="Responsible Office">

@@ -6,7 +6,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export function DepartmentalPdfReview({ documentId, fileId = null, items = [], annotations = null, onCreateItem, onUpdateHighlight, onCreateAnnotation, onUpdateAnnotation, onRemoveAnnotation, canAnnotate = false }) {
+export function DepartmentalPdfReview({ documentId, fileId = null, items = [], annotations = null, onCreateItem, onUpdateHighlight, onCreateAnnotation, onUpdateAnnotation, onRemoveAnnotation, onUpdateAnnotationComment, canAnnotate = false, canComment = false }) {
   const [pages, setPages] = React.useState([]);
   const [error, setError] = React.useState("");
   const [selection, setSelection] = React.useState(null);
@@ -124,6 +124,22 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], a
     } catch (updateError) {
       setError(updateError.message || "Unable to remove this highlight.");
     }
+
+  }
+
+  async function saveExistingComment() {
+    if (!activeHighlight || !comment.trim() || !onUpdateAnnotationComment || saving) return;
+    setSaving(true);
+    try {
+      await onUpdateAnnotationComment(activeHighlight.item.id, comment.trim());
+      setActiveHighlight(null);
+      setComment("");
+      setCommentOpen(false);
+    } catch (updateError) {
+      setError(updateError.message || "Unable to save this comment.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return <section className="departmental-pdf-review" ref={viewerRef}>
@@ -140,7 +156,18 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], a
       <label>Review comment<textarea autoFocus value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Explain what needs attention…" maxLength={2000} /></label>
       <footer><button type="button" className="outline" onClick={() => { setSelection(null); setCommentOpen(false); setComment(""); }}>Cancel</button><button type="button" disabled={saving || !comment.trim()} onClick={() => add("highlight")}>{saving ? "Saving…" : "Save Highlight"}</button></footer>
     </div>}
-    {activeHighlight && canAnnotate && <div className="departmental-pdf-toolbar departmental-pdf-toolbar--manage" onMouseDown={(event) => event.stopPropagation()} style={{ left: activeHighlight.position.left, top: activeHighlight.position.top }}><b>Highlight #{activeHighlight.item.display_number || ""}</b><button type="button" className="departmental-pdf-toolbar__remove" onMouseDown={removeActiveHighlight} onClick={(event) => event.preventDefault()}>Remove</button><button type="button" className="outline" onClick={() => setActiveHighlight(null)}>Close</button></div>}
+    {activeHighlight && (canAnnotate || canComment) && <div className="departmental-pdf-toolbar departmental-pdf-toolbar--manage" onMouseDown={(event) => event.stopPropagation()} style={{ left: activeHighlight.position.left, top: activeHighlight.position.top }}>
+      <b>Highlight #{activeHighlight.item.display_number || ""}</b>
+      {canComment && <button type="button" className="outline" onClick={() => { setComment(activeHighlight.item.comment || ""); setCommentOpen(true); }}>Comment</button>}
+      {canAnnotate && <button type="button" className="departmental-pdf-toolbar__remove" onMouseDown={removeActiveHighlight} onClick={(event) => event.preventDefault()}>Remove</button>}
+      <button type="button" className="outline" onClick={() => setActiveHighlight(null)}>Close</button>
+    </div>}
+    {activeHighlight && canComment && commentOpen && <div className="departmental-pdf-toolbar departmental-pdf-toolbar--comment" onMouseDown={(event) => event.stopPropagation()} style={{ left: activeHighlight.position.left, top: activeHighlight.position.top }}>
+      <header><b>Comment on Highlight</b><button type="button" aria-label="Cancel comment" onClick={() => { setCommentOpen(false); setComment(""); }}>×</button></header>
+      <blockquote>{activeHighlight.item.selected_text || activeHighlight.item.highlight}</blockquote>
+      <label>Review comment<textarea autoFocus value={comment} onChange={(event) => setComment(event.target.value)} maxLength={2000} rows={3} required /></label>
+      <footer><button type="button" className="outline" onClick={() => { setCommentOpen(false); setComment(""); }}>Cancel</button><button type="button" disabled={saving || !comment.trim()} onClick={saveExistingComment}>{saving ? "Saving…" : "Save Comment"}</button></footer>
+    </div>}
   </section>;
 }
 

@@ -27,7 +27,6 @@ export function isOperationalWorkflowPage(pageId) {
     "log-review",
     "reassign",
     "review",
-    "notarization",
   ].includes(pageId);
 }
 

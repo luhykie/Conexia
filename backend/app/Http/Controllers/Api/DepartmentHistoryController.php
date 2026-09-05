@@ -13,9 +13,33 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Cache;
 
 class DepartmentHistoryController extends Controller
 {
+    public function viewed(Request $request, Document $document): JsonResponse
+    {
+        $profile = $this->detailedHistoryViewer($request, $document);
+        $data = $request->validate(['document_file_id' => ['required', 'uuid']]);
+        $file = DocumentFile::query()
+            ->where('document_id', $document->id)
+            ->whereKey($data['document_file_id'])
+            ->whereNull('deleted_at')
+            ->firstOrFail();
+        $dedupeKey = sprintf('document-view:%s:%s:%s', $document->id, $file->id, $profile->id);
+        $view = Cache::remember($dedupeKey, now()->addMinutes(5), function () use ($document, $file, $profile) {
+            return AuditLog::query()->create([
+                'actor_id' => $profile->id,
+                'document_id' => $document->id,
+                'document_file_id' => $file->id,
+                'action' => 'document.viewed',
+                'metadata' => ['document_version' => $file->version],
+            ]);
+        });
+
+        return response()->json(['success' => true, 'event' => $this->row($view->load(['actor:id,full_name,role,department_id', 'actor.department:id,name,code', 'documentFile:id,document_id,original_filename,version,mime_type']), collect([$file->version => $file]))]);
+    }
+
     public function history(Request $request, Document $document): JsonResponse
     {
         return $this->index($request, $document);
@@ -59,11 +83,9 @@ class DepartmentHistoryController extends Controller
             ->map(fn ($entries) => $entries->pluck('item'));
 
         $logs = AuditLog::query()
-            ->with(['actor:id,full_name,role', 'documentFile:id,document_id,original_filename,version,mime_type'])
+            ->with(['actor:id,full_name,role,department_id', 'actor.department:id,name,code', 'documentFile:id,document_id,original_filename,version,mime_type'])
             ->where('document_id', $document->id)
             ->whereNotIn('action', [
-                'document_file.annotated',
-                'document_file.annotation_comment_updated',
                 'document_file.annotation_removed',
             ])
             ->oldest('created_at')
@@ -139,14 +161,23 @@ class DepartmentHistoryController extends Controller
     private function row(AuditLog $log, $filesByVersion): array
     {
         $file = $log->documentFile ?: $filesByVersion->get((int) ($log->metadata['review_version'] ?? 0));
-        $version = $file?->version;
+        $version = $file?->version ?? $log->metadata['document_version'] ?? $log->metadata['review_version'] ?? null;
         $labels = [
             'department.submission.created' => 'Submission created',
             'document.viewed' => 'Document viewed',
             'department.review.routed' => 'Sent to Partner Department',
             'department.review.correction_requested' => 'Correction requested',
+            'legal.review.correction_requested' => 'Correction requested',
+            'iro_staff.document.returned_for_correction' => 'Correction requested',
+            'iro_admin.review.returned_for_revision' => 'Correction requested',
             'department.revision.resubmitted' => 'Sent for Partner Re-Review',
             'department.review.approved' => 'Approved',
+            'legal.review.approved' => 'Approved',
+            'iro_admin.review.validated_and_routed_to_legal' => 'Routed to Legal Counsel',
+            'iro_admin.legal_correction.routed_to_department' => 'Routed to Department',
+            'iro_admin.document.reassigned' => 'Rerouted',
+            'document_file.annotated' => 'Highlighted version saved',
+            'document_file.annotation_comment_updated' => 'Comment added',
         ];
 
         $label = $log->action === 'document_file.uploaded'
@@ -159,6 +190,7 @@ class DepartmentHistoryController extends Controller
             'label' => $label,
             'actor' => $log->actor?->full_name ?? 'System',
             'actor_role' => $log->actor?->role,
+            'actor_department' => $log->actor?->department?->name ?? $log->actor?->department?->code,
             'created_at' => $log->created_at?->toISOString(),
             'previous_status' => $log->metadata['previous_status'] ?? null,
             'new_status' => $log->metadata['new_status'] ?? null,

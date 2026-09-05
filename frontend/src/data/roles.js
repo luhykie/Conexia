@@ -46,7 +46,7 @@ export const roles = {
   legal: {
     label: "LEGAL COUNSEL",
     subtitle:
-      "Review agreements, approve or return documents, and record notarization.",
+      "Review agreements, approve or return documents, and route completed approvals to IRO Admin.",
     theme: "LEGAL COUNSEL PORTAL",
     user: "Legal Counsel",
     title: "LEGAL COUNSEL",
@@ -89,7 +89,6 @@ export const navItems = {
   legal: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["review", "Review Queue", ClipboardCheck],
-    ["notarization", "Notarization Tracker", FileText],
     ["expiry", "Expiry", CalendarClock],
     ["history", "My Action History", History],
   ],

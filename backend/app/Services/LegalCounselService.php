@@ -96,91 +96,6 @@ class LegalCounselService
         });
     }
 
-    public function notarizationDocuments(
-        Profile $legalCounsel,
-        array $options
-    ): array {
-        $documents = $this->documents
-            ->notarizationDocuments($legalCounsel, $options);
-
-        return [
-            'items' => $documents
-            ->map(fn (Document $document): array =>
-                $this->documents->toArray($document)
-            )
-            ->values()
-            ->all(),
-            'meta' => Pagination::meta($documents),
-        ];
-    }
-
-    public function submitForNotarization(
-        Profile $legalCounsel,
-        string $documentId,
-        array $data
-    ): array {
-        return DB::transaction(function () use (
-            $legalCounsel,
-            $documentId,
-            $data
-        ): array {
-            $document = $this->findDocument(
-                $documentId,
-                $legalCounsel
-            );
-
-            if (
-                $document->status !==
-                Document::STATUS_APPROVED
-            ) {
-                throw ValidationException::withMessages([
-                    'status' => 'Only approved documents can be submitted for notarization.',
-                ]);
-            }
-
-            $this->applyNotarizationData($document, $data);
-            $document->status =
-                Document::STATUS_PENDING_NOTARIZATION;
-
-            return $this->documents->toArray(
-                $this->documents->save($document)
-            );
-        });
-    }
-
-    public function completeNotarization(
-        Profile $legalCounsel,
-        string $documentId,
-        array $data
-    ): array {
-        return DB::transaction(function () use (
-            $legalCounsel,
-            $documentId,
-            $data
-        ): array {
-            $document = $this->findDocument(
-                $documentId,
-                $legalCounsel
-            );
-
-            if (
-                $document->status !==
-                Document::STATUS_PENDING_NOTARIZATION
-            ) {
-                throw ValidationException::withMessages([
-                    'status' => 'Only pending notarization documents can be completed.',
-                ]);
-            }
-
-            $this->applyNotarizationData($document, $data);
-            $document->status = Document::STATUS_NOTARIZED;
-
-            return $this->documents->toArray(
-                $this->documents->save($document)
-            );
-        });
-    }
-
     public function history(
         Profile $legalCounsel,
         array $options
@@ -216,18 +131,6 @@ class LegalCounselService
         }
 
         return $document;
-    }
-
-    private function applyNotarizationData(
-        Document $document,
-        array $data
-    ): void {
-        $document->notarial_reference_number =
-            $data['notarial_reference_number'];
-        $document->notarization_date =
-            $data['notarization_date'];
-        $document->notary_signature_code =
-            $data['notary_signature_code'];
     }
 
     private function historyItem(Document $document): array

@@ -29,6 +29,12 @@ export function getDepartmentHistory(documentId) {
   return apiGet(`/department/documents/${documentId}/history`);
 }
 
+export function markDepartmentDocumentViewed(documentId, documentFileId) {
+  return apiPost(`/department/documents/${documentId}/history/viewed`, {
+    document_file_id: documentFileId,
+  });
+}
+
 export function createDepartmentReviewItem(documentId, payload) {
   return apiPost(`/department/documents/${documentId}/review/items`, payload);
 }

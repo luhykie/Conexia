@@ -2453,6 +2453,11 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .department-history__version { border-left: 3px solid #1e6f4b !important; }
 .department-history__group { width: 100%; display: grid; gap: 7px; padding-top: 10px; border-top: 1px solid #dbe5df; color: var(--green-950); font-size: 13px; }
 .department-history__group > p { margin: 0; color: var(--muted); font-size: 12px; }
+.department-history__document-title { margin: 0; color: var(--green-950); font-size: 13px; }
+.document-version-select { display: grid; gap: 5px; width: 100%; padding-bottom: 8px; border-bottom: 1px solid #dbe5df; }
+.document-version-select label { color: var(--green-950); font-size: 12px; font-weight: 700; }
+.document-version-select select { width: 100%; min-height: 38px; border: 1px solid #c9d8cf; border-radius: 6px; padding: 7px 34px 7px 11px; background: #fff; color: var(--green-950); font-size: 13px; }
+.document-version-select select:focus { outline: 2px solid rgba(39, 132, 91, .25); outline-offset: 1px; border-color: var(--green-700); }
 .department-history__annotations { display: grid; gap: 8px; max-height: 260px; overflow: auto; }
 .department-history__annotations > p { margin: 0; font-size: 12px; color: var(--muted); }
 .department-history__annotations article { padding: 8px; border: 1px solid #dbe5df; border-radius: 7px; background: #fbfdfc; }
@@ -2496,6 +2501,7 @@ textarea { padding-top: var(--space-3); resize: vertical; }
 .departmental-pdf-toolbar__remove { color: #991b1b !important; }
 .departmental-review__marker { display: inline-block; margin-right: 5px; padding: 2px 5px; border-radius: 4px; background: #e8f5ee; color: #075b3b; }
 .departmental-review__delete { float: right; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0 !important; border-color: #f3c5c5; color: #b42318; background: #fffafa; }
+.department-autocomplete { position: relative; }.department-autocomplete__inline { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 12px; overflow: hidden; pointer-events: none; white-space: pre; }.department-autocomplete__inline span { color: transparent; }.department-autocomplete__inline em { color: #91a49b; font-style: normal; }.department-autocomplete > input { position: relative; z-index: 1; background: transparent; }.department-autocomplete > input:focus { background: transparent; }.department-autocomplete__status { display: block; margin-top: 4px; color: var(--muted); }
 .submission-discussion { position: fixed; right: 24px; bottom: 24px; z-index: 1000; }
 .submission-discussion__launcher { border-radius: 999px; box-shadow: 0 6px 20px rgba(8,61,42,.25); display:flex; gap:8px; align-items:center; }
 .submission-discussion__launcher span { background:#fff; color:var(--green-950); border-radius:999px; padding:1px 6px; font-size:12px; }

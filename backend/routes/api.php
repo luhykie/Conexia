@@ -83,31 +83,6 @@ Route::middleware([
         );
 
         Route::get(
-            '/documents/notarization',
-            [LegalCounselController::class, 'notarizationDocuments']
-        );
-
-        Route::patch(
-            '/documents/{id}/submit-notarization',
-            [LegalCounselController::class, 'submitForNotarization']
-        );
-
-        Route::patch(
-            '/documents/{id}/complete-notarization',
-            [LegalCounselController::class, 'completeNotarization']
-        );
-
-        Route::patch(
-            '/documents/{id}/notarization/submit',
-            [LegalCounselController::class, 'submitForNotarization']
-        );
-
-        Route::patch(
-            '/documents/{id}/notarization/complete',
-            [LegalCounselController::class, 'completeNotarization']
-        );
-
-        Route::get(
             '/history',
             [LegalCounselController::class, 'history']
         );
@@ -335,6 +310,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
 
                 Route::get('/department/documents/{document}/history', [DepartmentHistoryController::class, 'index']);
+                Route::post('/department/documents/{document}/history/viewed', [DepartmentHistoryController::class, 'viewed']);
 
                 Route::get('/department/documents/{document}/review', [DepartmentReviewController::class, 'show']);
                 Route::post('/department/documents/{document}/review/items', [DepartmentReviewController::class, 'storeItem']);
@@ -495,6 +471,12 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 .':'.Profile::ROLE_IRO_ADMIN
                 .','.Profile::ROLE_LEGAL_COUNSEL
         )->get('/iro/documents/{document}/history', [DepartmentHistoryController::class, 'history']);
+
+        Route::middleware(
+            EnsureRole::class
+                .':'.Profile::ROLE_IRO_ADMIN
+                .','.Profile::ROLE_LEGAL_COUNSEL
+        )->post('/iro/documents/{document}/history/viewed', [DepartmentHistoryController::class, 'viewed']);
 
         Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN

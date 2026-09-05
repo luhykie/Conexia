@@ -2,7 +2,6 @@ import React from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Building2,
   CheckCircle2,
   Globe2,
   MapPin,
@@ -15,10 +14,12 @@ import { createDepartmentDocument } from "../../../services/departmentStaffServi
 import { getDepartments } from "../../../services/departmentService";
 import { uploadDocumentFile } from "../../../services/documentFileService";
 import { reportClientError } from "../../../utils/reportClientError";
+import { DepartmentAutocomplete } from "../../../components/DepartmentAutocomplete";
 import "./Page.css";
 
 const initialForm = {
-  partnershipType: "Departmental",
+  partnershipType: "Local",
+  departmentToDepartment: false,
   partnerDepartmentId: "",
   partnerInstitution: "",
   agreementType: "MOA",
@@ -29,7 +30,6 @@ const initialForm = {
 };
 
 const partnershipTypes = [
-  ["Departmental", Building2],
   ["Local", MapPin],
   ["International", Globe2],
 ];
@@ -64,7 +64,8 @@ export default function Page({ account }) {
         } else if (answers.partnerClassification === "international") {
           mappedForm.partnershipType = "International";
         } else if (answers.partnerClassification === "interdepartmental") {
-          mappedForm.partnershipType = "Departmental";
+          mappedForm.partnershipType = "Local";
+          mappedForm.departmentToDepartment = true;
         }
 
         // Pre-fill agreement type
@@ -151,7 +152,7 @@ export default function Page({ account }) {
 
   function continueToUpload() {
     if (
-      form.partnershipType === "Departmental" &&
+      form.partnershipType === "Local" && form.departmentToDepartment &&
       !form.partnerDepartmentId
     ) {
       setError("Please select a partner department.");
@@ -159,7 +160,7 @@ export default function Page({ account }) {
     }
 
     if (
-      form.partnershipType !== "Departmental" &&
+      !(form.partnershipType === "Local" && form.departmentToDepartment) &&
       !form.partnerInstitution.trim()
     ) {
       setError("Please enter the partner institution name.");
@@ -189,7 +190,7 @@ export default function Page({ account }) {
     event.preventDefault();
 
     if (
-      form.partnershipType === "Departmental" &&
+      form.partnershipType === "Local" && form.departmentToDepartment &&
       !form.partnerDepartmentId
     ) {
       setError("Please select a partner department.");
@@ -197,7 +198,7 @@ export default function Page({ account }) {
     }
 
     if (
-      form.partnershipType !== "Departmental" &&
+      !(form.partnershipType === "Local" && form.departmentToDepartment) &&
       !form.partnerInstitution.trim()
     ) {
       setError("Please enter the partner institution name.");
@@ -220,8 +221,12 @@ export default function Page({ account }) {
       const response = await createDepartmentDocument({
         title: `${partnerName} ${form.agreementType}`,
         document_type: form.agreementType,
+        partnership_scope: form.partnershipType,
         partner_institution: partnerName,
         partner_email: form.partnerEmail.trim() || null,
+        partner_department_id: form.partnershipType === "Local" && form.departmentToDepartment
+          ? form.partnerDepartmentId
+          : null,
         description: form.description.trim() || null,
         ...expiryPayload(form),
       });
@@ -315,27 +320,31 @@ export default function Page({ account }) {
                 </div>
               </fieldset>
 
-              {form.partnershipType === "Departmental" ? (
+              {form.partnershipType === "Local" && (
+                <button
+                  type="button"
+                  className={`department-trigger department-form-wide ${form.departmentToDepartment ? "is-active" : ""}`}
+                  role="switch"
+                  aria-checked={form.departmentToDepartment}
+                  onClick={() => setForm((current) => ({ ...current, departmentToDepartment: !current.departmentToDepartment, partnerDepartmentId: !current.departmentToDepartment ? current.partnerDepartmentId : "", partnerInstitution: !current.departmentToDepartment ? current.partnerInstitution : "" }))}
+                  disabled={submitting}
+                >
+                  <span><b>Department-to-Department</b><small>{form.departmentToDepartment ? "Partner department required" : "Normal Local submission"}</small></span>
+                  <strong>{form.departmentToDepartment ? "On" : "Off"}</strong>
+                </button>
+              )}
+
+              {form.partnershipType === "Local" && form.departmentToDepartment ? (
                 <label>
                   Partner Department
-                  <select
-                    name="partnerDepartmentId"
-                    value={form.partnerDepartmentId}
-                    onChange={updateForm}
+                  <DepartmentAutocomplete
+                    value={form.partnerInstitution}
+                    selectedDepartmentId={form.partnerDepartmentId}
+                    ownDepartmentId={account?.department_id || account?.departmentId || account?.department?.id}
                     disabled={submitting || loadingDepartments}
-                    required
-                  >
-                    <option value="">
-                      {loadingDepartments
-                        ? "Loading departments..."
-                        : "Select department"}
-                    </option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {formatDepartmentName(department)}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => setForm((current) => ({ ...current, partnerInstitution: value, partnerDepartmentId: "" }))}
+                    onSelect={(department) => setForm((current) => ({ ...current, partnerDepartmentId: department.id, partnerInstitution: department.name, partnerEmail: department.email || "" }))}
+                  />
                 </label>
               ) : (
                 <label>
@@ -363,7 +372,7 @@ export default function Page({ account }) {
                     value={form.durationValue}
                     onChange={updateForm}
                     disabled={submitting}
-                    required
+                    required={!(form.partnershipType === "Local" && form.departmentToDepartment)}
                   />
                   <select name="durationUnit" value={form.durationUnit} onChange={updateForm} disabled={submitting}>
                     <option value="Years">Years</option>
@@ -375,14 +384,14 @@ export default function Page({ account }) {
               <label>
                 Partner Contact Email
                 <input
-                  className={form.partnershipType === "Departmental" ? "auto-filled-input" : ""}
+                  className={form.partnershipType === "Local" && form.departmentToDepartment ? "auto-filled-input" : ""}
                   name="partnerEmail"
                   type="email"
                   value={form.partnerEmail}
                   onChange={updateForm}
                   disabled={submitting}
-                  readOnly={form.partnershipType === "Departmental"}
-                  placeholder={form.partnershipType === "Departmental" ? "Auto-filled from department" : "contact@partner.edu"}
+                  readOnly={form.partnershipType === "Local" && form.departmentToDepartment}
+                  placeholder={form.partnershipType === "Local" && form.departmentToDepartment ? "Auto-filled from department" : "contact@partner.edu"}
                 />
               </label>
 
@@ -467,7 +476,7 @@ function SubmissionSummary({ form, account, selectedFile, compact = false }) {
     <aside className={compact ? "department-summary-card compact" : "department-summary-card"}>
       <h2>Review Summary</h2>
       <p>Partnership Type: <b>{form.partnershipType}</b></p>
-      <p>{form.partnershipType === "Departmental" ? "Partner Department" : "Partner / Institution"}: <b>{form.partnerInstitution || "-"}</b></p>
+      <p>{form.departmentToDepartment ? "Partner Department" : "Partner / Institution"}: <b>{form.partnerInstitution || "-"}</b></p>
       <p>Agreement Type: <b>{form.agreementType}</b></p>
       <p>Expected Duration: <b>{durationLabel(form)}</b></p>
       <p>Partner Contact: <b>{form.partnerEmail || "-"}</b></p>
