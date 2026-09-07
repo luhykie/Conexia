@@ -157,6 +157,20 @@ class WorkflowSummaryAuthorizationTest extends SecurityTestCase
         ]);
 
         $this->getJson(
+            '/api/iro/archive',
+            $this->authHeaders($iroAdmin)
+        )
+            ->assertOk()
+            ->assertJsonFragment([
+                'tracking_number' => 'ARCH-LOCAL',
+                'partnership_scope' => 'Local',
+            ])
+            ->assertJsonFragment([
+                'tracking_number' => 'ARCH-INTERNATIONAL',
+                'partnership_scope' => 'International',
+            ]);
+
+        $this->getJson(
             '/api/iro/archive?partnership_scope=International',
             $this->authHeaders($iroAdmin)
         )

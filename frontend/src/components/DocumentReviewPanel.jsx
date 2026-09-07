@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, History, MessageSquareText, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, History, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -12,6 +12,7 @@ import { DepartmentalPdfReview } from "./DepartmentalPdfReview";
 import {
   getActiveLegalCounselUsers,
   getIroDocumentHistory,
+  markIroDocumentVersionViewed,
   returnAdminReviewForRevision,
   validateAdminReview,
 } from "../services/iroAdminService";
@@ -68,6 +69,8 @@ function reduceDocumentHistoryState(state, action) {
       return { ...state, isMenuOpen: !state.isMenuOpen };
     case "close-menu":
       return { ...state, isMenuOpen: false };
+    case "toggle-details":
+      return { ...state, isHistoryExpanded: !state.isHistoryExpanded };
     case "select-option": {
       const sameVersion = action.version === state.selectedVersion;
       const isHistoryExpanded = sameVersion
@@ -167,7 +170,7 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
   </div></Section>;
 }
 
-function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onViewVersion, onCloseVersion, onViewVersionOpened, viewingVersion, highlightsVisible, liveAnnotations, canManageAnnotations, onUpdateComment, onRequestRemove, Section = SubmissionDetailSection }) {
+function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onViewVersion, onCloseVersion, onViewVersionOpened, viewingVersion, highlightsVisible, liveAnnotations, canManageAnnotations, onUpdateComment, onRequestRemove, explicitDisclosure = false, Section = SubmissionDetailSection }) {
   const [versions, setVersions] = React.useState([]);
   const [viewEvents, setViewEvents] = React.useState([]);
   const [original, setOriginal] = React.useState(null);
@@ -273,13 +276,26 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
   );
   const timelineModalPages = Math.max(1, Math.ceil(timelineEvents.length / timelineModalPageSize));
   const contentId = `admin-document-history-${documentId}`;
+  const historyTitle = explicitDisclosure ? <span className="document-history-heading">
+    <span>Document History</span>
+    <button
+      type="button"
+      className="outline document-history-heading__toggle"
+      aria-expanded={isExpanded}
+      aria-controls={contentId}
+      aria-label={`${isExpanded ? "Hide" : "Show"} document history details`}
+      onClick={() => dispatchHistory({ type: "toggle-details" })}
+    >
+      <ChevronDown size={16} aria-hidden="true" />
+    </button>
+  </span> : "Document History";
 
   React.useEffect(() => {
     setTimelineModalOpen(false);
     setTimelineModalPage(1);
   }, [selectedVersion]);
 
-  return <Section title="Document History"><div className="department-history iro-admin-version-history">
+  return <Section title={historyTitle}><div className="department-history iro-admin-version-history">
     {documentTitle && <p className="department-history__document-title"><b>Document:</b> {documentTitle}</p>}
     <div className="document-version-select">
       <label htmlFor={`${contentId}-version`}>Document Version</label>
@@ -688,7 +704,13 @@ export function DocumentReviewPage({ documentId }) {
     const versions = orderedFiles.map((file) => {
       const historyVersion = historyVersionsByFileId.get(file.id);
       return {
-        file,
+        file: {
+          ...file,
+          created_at:
+            historyVersion?.file?.created_at ||
+            file.created_at ||
+            file.uploaded_at,
+        },
         label: historyVersion?.label
           ?? `Version ${file.version} — ${file.version === 1 ? "Original Submission" : "Revised Submission"}`,
         status: historyVersion?.status
@@ -718,9 +740,7 @@ export function DocumentReviewPage({ documentId }) {
 
     return {
       versions,
-      view_events: (authoritativeHistory.events ?? []).filter(
-        (event) => event.action === "document.viewed",
-      ),
+      view_events: authoritativeHistory.events ?? [],
       original: originalVersion
         ? { ...originalVersion, annotations: [], history_view: "original" }
         : null,
@@ -836,7 +856,7 @@ export function DocumentReviewPage({ documentId }) {
               <SubmissionDetail label="Contact Number" value={document.contact_number} />
             </SubmissionDetailSection>
             {document.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{document.description}</p></SubmissionDetailSection>}
-            <DepartmentalDocumentHistory documentId={documentId} loadHistory={loadDepartmentalHistory} onViewVersion={viewHistoryVersion} onCloseVersion={closeHistoryVersion} viewingVersion={historyVersion} highlightsVisible={historyHighlightsVisible} liveAnnotations={numberedAnnotations} canManageAnnotations={canAnnotateSelectedVersion} onUpdateComment={updateAnnotationComment} onRequestRemove={requestAnnotationRemoval} Section={SubmissionDetailSection} versionDropdown />
+            <DepartmentalDocumentHistory documentId={documentId} loadHistory={loadDepartmentalHistory} onViewVersion={viewHistoryVersion} onCloseVersion={closeHistoryVersion} onViewVersionOpened={(version) => version?.file?.id ? markIroDocumentVersionViewed(documentId, version.file.id) : Promise.resolve(null)} viewingVersion={historyVersion} highlightsVisible={historyHighlightsVisible} liveAnnotations={numberedAnnotations} canManageAnnotations={canAnnotateSelectedVersion} onUpdateComment={updateAnnotationComment} onRequestRemove={requestAnnotationRemoval} explicitDisclosure Section={SubmissionDetailSection} versionDropdown />
           {fileId && actionable && <section className="review-actions" aria-label="IRO Admin review decisions">
             <label className="review-action-fields">Remarks<textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} rows={2} maxLength={2000} /></label>
             <div className="review-action-buttons">

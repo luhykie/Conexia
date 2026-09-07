@@ -101,8 +101,10 @@ export default function IroAdminReassignPage() {
   }
 
   const rows = documents.map((document) => [
-    document.tracking_number,
-    document.department?.code || document.department?.name || "Unassigned",
+    document.title || "-",
+    document.tracking_number || "-",
+    document.partnership_scope || "-",
+    document.document_type || "-",
     getAssignmentName(document),
     document.status || "-",
     <button
@@ -189,8 +191,10 @@ export default function IroAdminReassignPage() {
           {!loading && !error && rows.length > 0 && (
             <DataTable
               headers={[
+                "Partner/Institution",
                 "Tracking Number",
-                "Department",
+                "Partnership Scope",
+                "Document Type",
                 "Current Assignee",
                 "Status",
                 "Action",

@@ -126,13 +126,10 @@ export default function IroAdminArchivePage() {
 
   const stats = summary?.stats ?? {};
   const rows = (summary?.records ?? []).map((record) => [
-    record.tracking_number || "-",
     record.partner_institution || "-",
+    record.tracking_number || "-",
+    record.partnership_scope || "-",
     record.document_type || "-",
-    record.distribution_date
-      ? new Date(record.distribution_date).toLocaleDateString()
-      : "-",
-    record.completion || "-",
     record.status || "-",
     <button
       type="button"
@@ -203,13 +200,12 @@ export default function IroAdminArchivePage() {
         {!loading && !error && rows.length > 0 && (
           <DataTable
             headers={[
+              "Partner/Institution",
               "Tracking Number",
-              "Partner Name",
-              "Type",
-              "Distribution Date",
-              "Completion",
+              "Partnership Scope",
+              "Document Type",
               "Status",
-              "Actions",
+              "Action",
             ]}
             rows={rows}
             meta={meta}

@@ -181,9 +181,9 @@ export default function IroAdminEngagementsPage() {
 
   const rows = documents.map((document) => [
     document.title || "-",
-    `${document.document_type || "-"} / ${
-      document.department?.code || document.department?.name || "Unassigned"
-    }`,
+    document.tracking_number || "-",
+    document.partnership_scope || "-",
+    document.document_type || "-",
     document.expiry_date || document.expected_duration || "-",
     document.status || "-",
     <button
@@ -231,8 +231,10 @@ export default function IroAdminEngagementsPage() {
           {!loading && !error && rows.length > 0 && (
             <DataTable
               headers={[
-                "Document Title",
-                "Type / Department",
+                "Partner/Institution",
+                "Tracking Number",
+                "Partnership Scope",
+                "Document Type",
                 "Validity Period",
                 "Status",
                 "Action",

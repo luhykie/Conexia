@@ -66,3 +66,9 @@ export function getActiveLegalCounselUsers(params = {}) {
 export function getIroDocumentHistory(documentId) {
   return apiGet(`/iro/documents/${documentId}/history`);
 }
+
+export function markIroDocumentVersionViewed(documentId, documentFileId) {
+  return apiPost(`/iro/documents/${documentId}/history/viewed`, {
+    document_file_id: documentFileId,
+  });
+}

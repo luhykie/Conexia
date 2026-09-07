@@ -15,6 +15,8 @@ export function DocumentFilters({
   partnershipScopeOptions = partnershipScopes,
   showDateRange = true,
   showTitleFilter = false,
+  titleFilterLabel = "Document Title",
+  titleFilterPlaceholder = "Filter by document title",
   showExpiryWindow = false,
   showDepartment = false,
   showAssignedLegal = false,
@@ -118,11 +120,11 @@ export function DocumentFilters({
         <div className="document-filters__advanced">
           {showTitleFilter && (
             <FilterText
-              label="Document Title"
+              label={titleFilterLabel}
               value={title}
               disabled={unsupported.title}
               onChange={setTitle}
-              placeholder="Filter by document title"
+              placeholder={titleFilterPlaceholder}
             />
           )}
 

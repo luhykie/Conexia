@@ -142,7 +142,15 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
 
   const standardizedActivity = roleKey === "department" || roleKey === "legal";
   const activityRows = (dashboard?.recent_activity ?? []).map((item) =>
-    standardizedActivity
+    roleKey === "admin"
+      ? [
+          item.title || "-",
+          item.tracking_number || "-",
+          item.partnership_scope || "-",
+          item.type || "-",
+          item.status || "-",
+        ]
+      : standardizedActivity
       ? [
           item.partner_institution || item.entity_name || "-",
           item.tracking_number || "-",
@@ -190,9 +198,17 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
                     "Status",
                     "Action",
                   ]
+                : roleKey === "admin"
+                  ? [
+                      "Partner/Institution",
+                      "Tracking Number",
+                      "Partnership Scope",
+                      "Document Type",
+                      "Status",
+                    ]
                 : [
-                    roleKey === "admin" ? "Tracking Number" : "Submission ID",
-                    ...(roleKey === "admin" ? ["Document Title"] : ["Entity Name"]),
+                    "Submission ID",
+                    "Entity Name",
                     "Type",
                     "Timestamp",
                     "Status",

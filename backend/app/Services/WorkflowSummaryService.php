@@ -235,6 +235,7 @@ class WorkflowSummaryService
             'tracking_number' => $document->tracking_number,
             'partner_institution' =>
                 $document->partner_institution ?? '-',
+            'partnership_scope' => $document->partnership_scope,
             'document_type' => $document->document_type ?? '-',
             'distribution_date' => $document->status === Document::STATUS_ARCHIVED
                 ? $document->archived_at?->toISOString()
