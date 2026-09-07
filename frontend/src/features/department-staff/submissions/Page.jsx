@@ -220,7 +220,6 @@ export default function Page() {
                 "Partnership Scope",
                 "Document Type",
                 "Status",
-                "View Status",
                 "Action",
               ]}
               rows={rows}

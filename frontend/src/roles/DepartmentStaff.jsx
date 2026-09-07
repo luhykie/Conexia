@@ -58,7 +58,6 @@ const departmentTableHeaders = [
   "Partnership Scope",
   "Document Type",
   "Status",
-  "View Status",
   "Action",
 ];
 
@@ -952,17 +951,6 @@ function MySubmissionsPage({ account }) {
     >
       {departmentalStatusLabel(document, document.department_id === accountDepartmentId)}
     </span>,
-    <button
-      type="button"
-      className="table-action"
-      onClick={() => {
-        setSelectedDocument(document);
-        setCorrectionForm(correctionFormFor(document));
-        setReviewOpen(true);
-      }}
-    >
-      View
-    </button>,
     document.status === "Corrections Needed" ? (
       <button type="button" className="table-action" onClick={resubmitDocument}>
         Resubmit

@@ -1,6 +1,4 @@
 import React from "react";
-import { FileText } from "lucide-react";
-
 import { DataTable } from "../../../components/DataTable";
 import {
   DocumentFilters,
@@ -193,6 +191,7 @@ export default function LegalCounselReviewPage() {
   }
 
   const rows = documents.map((document) => [
+    document.partner_institution || "-",
     <button
       key={`open-${document.id}`}
       type="button"
@@ -201,14 +200,10 @@ export default function LegalCounselReviewPage() {
     >
       {document.tracking_number || "-"}
     </button>,
-    document.title || "-",
-    document.document_type || "-",
     document.partnership_scope === "Departmental"
       ? "Local"
       : document.partnership_scope || document.partnership_type || "-",
-    document.submitted_at || document.updated_at
-      ? new Date(document.submitted_at || document.updated_at).toLocaleDateString()
-      : "-",
+    document.document_type || "-",
     <span
       key={`status-${document.id}`}
       className={`badge ${
@@ -217,6 +212,9 @@ export default function LegalCounselReviewPage() {
     >
       {document.status}
     </span>,
+    <button type="button" className="table-action" onClick={() => setSelectedDocument(document)}>
+      Review
+    </button>,
   ]);
 
   return (
@@ -255,12 +253,12 @@ export default function LegalCounselReviewPage() {
           {!loading && documents.length > 0 && (
             <DataTable
               headers={[
+                "Partner/Institution",
                 "Tracking Number",
-                "Document Title",
-                "Type of Document",
-                "Partnership Type",
-                "Date",
+                "Partnership Scope",
+                "Document Type",
                 "Status",
+                "Action",
               ]}
               rows={rows}
               meta={meta}
@@ -282,10 +280,9 @@ export default function LegalCounselReviewPage() {
         <LegalDocumentPreview documentId={selectedDocument.id} historyVersion={historyVersion} onAnnotationsChange={setLegalAnnotations} onFilesChange={setSelectedFiles} onUpdateHistoryComment={(annotationId, comment) => updateHistoryAnnotation(selectedDocument.id, historyVersion?.file?.id, annotationId, comment)} />
       </main>
 
-      <SubmissionDetails document={selectedDocument}>
+      <SubmissionDetails document={selectedDocument} hideTitle>
             <DepartmentalDocumentHistory
               documentId={selectedDocument.id}
-              documentTitle={selectedDocument.title || selectedDocument.document_type || selectedDocument.tracking_number}
               loadHistory={getIroDocumentHistory}
               onViewVersion={setHistoryVersion}
               onCloseVersion={() => setHistoryVersion(null)}
@@ -297,11 +294,6 @@ export default function LegalCounselReviewPage() {
               versionDropdown
               Section={SubmissionDetailSection}
             />
-            {false && <div className="legal-review-document-summary">
-              <FileText />
-              <div><b>{selectedDocument.title}</b><p>{selectedDocument.tracking_number} · {selectedDocument.document_type}</p></div>
-            </div>}
-
             {false && <dl className="legal-review-metadata">
               <LegalDetail label="Tracking Number" value={selectedDocument.tracking_number} />
               <LegalDetail label="Partnership Scope" value={selectedDocument.partnership_scope} />

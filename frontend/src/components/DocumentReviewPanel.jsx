@@ -178,6 +178,8 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
   );
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [timelineModalOpen, setTimelineModalOpen] = React.useState(false);
+  const [timelineModalPage, setTimelineModalPage] = React.useState(1);
   const handledPreviewResetRef = React.useRef(0);
   const {
     selectedVersion,
@@ -253,8 +255,29 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
   }
 
   const selectedDocument = versions.find((version) => versionOptionKey(version) === selectedVersion);
-  const timelineEvents = viewEvents.filter((event) => importantHistoryActions.has(event.action));
+  const selectedVersionId = selectedDocument?.file?.id;
+  const selectedVersionNumber = selectedDocument?.file?.version;
+  const timelineEvents = viewEvents
+    .filter((event) => importantHistoryActions.has(event.action))
+    .filter((event) => {
+      if (!selectedDocument) return false;
+      return event.file?.id === selectedVersionId
+        || String(event.version ?? "") === String(selectedVersionNumber);
+    })
+    .sort((left, right) => Date.parse(right.created_at || "") - Date.parse(left.created_at || ""));
+  const visibleTimelineEvents = timelineEvents.slice(0, 3);
+  const timelineModalPageSize = 10;
+  const timelineModalEvents = timelineEvents.slice(
+    (timelineModalPage - 1) * timelineModalPageSize,
+    timelineModalPage * timelineModalPageSize,
+  );
+  const timelineModalPages = Math.max(1, Math.ceil(timelineEvents.length / timelineModalPageSize));
   const contentId = `admin-document-history-${documentId}`;
+
+  React.useEffect(() => {
+    setTimelineModalOpen(false);
+    setTimelineModalPage(1);
+  }, [selectedVersion]);
 
   return <Section title="Document History"><div className="department-history iro-admin-version-history">
     {documentTitle && <p className="department-history__document-title"><b>Document:</b> {documentTitle}</p>}
@@ -276,7 +299,7 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
     </div>
     {loading && <p>Loading history...</p>}
     {error && <p className="auth-error">{error}</p>}
-    <div id={contentId} className={`department-history__events submission-activity-history__entries${isExpanded ? " is-expanded" : ""}`} aria-hidden={!isExpanded}>
+    <div id={contentId} className={`department-history__events submission-activity-history__entries${isExpanded ? " is-expanded" : ""}`}>
       <div className="department-history__group"><b>Selected Document</b>
         {selectedDocument ? (() => {
           const version = selectedDocument;
@@ -294,18 +317,9 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
         })() : !loading && !error && <p>Select a document version to view it.</p>}
       </div>
       <div className="department-history__group"><b>History Timeline</b>
-      {timelineEvents.map((event) => <article key={event.id} className={`submission-activity-history__event${event.action === "document.viewed" ? " document-view-history-event" : ""}`}>
-          <History size={16} aria-hidden="true" />
-          <div>
-            <b>{event.label}</b>
-            <small>{[event.actor, event.actor_department, event.actor_role].filter(Boolean).join(" · ")} · {event.created_at ? new Date(event.created_at).toLocaleString() : "Date unavailable"}</small>
-            {event.version && <p>Version {event.version}</p>}
-            {(event.previous_status || event.new_status) && <p>{[event.previous_status, event.new_status].filter(Boolean).join(" → ")}</p>}
-            {event.destination && <p>Destination: {typeof event.destination === "string" ? event.destination : JSON.stringify(event.destination)}</p>}
-            {event.reason && <p>Reason: {event.reason}</p>}
-          </div>
-        </article>)}
+      {visibleTimelineEvents.map((event) => <HistoryTimelineEvent key={event.id} event={event} />)}
       {!timelineEvents.length && !loading && !error && <p>No important history events found.</p>}
+      {timelineEvents.length > 3 && <button type="button" className="outline" onClick={() => { setTimelineModalPage(1); setTimelineModalOpen(true); }}>See More</button>}
       </div>
       {selectedDocument && (() => {
         const version = selectedDocument;
@@ -327,7 +341,38 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
         />;
       })()}
     </div>
-  </div></Section>;
+  </div>    {timelineModalOpen && <div className="department-history__modal-backdrop" role="presentation" onClick={() => setTimelineModalOpen(false)}>
+      <section className="department-history__modal" role="dialog" aria-modal="true" aria-labelledby={`${contentId}-timeline-title`} onClick={(event) => event.stopPropagation()}>
+        <header>
+          <div><h2 id={`${contentId}-timeline-title`}>History Timeline</h2><p>{versionOptionLabel(selectedDocument, original, approvedDocument)}</p></div>
+          <button type="button" className="outline" onClick={() => setTimelineModalOpen(false)} aria-label="Close history timeline"><X size={16} /></button>
+        </header>
+        <div className="department-history__modal-events">
+          {timelineModalEvents.map((event) => <HistoryTimelineEvent key={event.id} event={event} />)}
+        </div>
+        {timelineModalPages > 1 && <footer>
+          <button type="button" className="outline" disabled={timelineModalPage <= 1} onClick={() => setTimelineModalPage((page) => page - 1)}>Previous</button>
+          <span>Page {timelineModalPage} of {timelineModalPages}</span>
+          <button type="button" className="outline" disabled={timelineModalPage >= timelineModalPages} onClick={() => setTimelineModalPage((page) => page + 1)}>Next</button>
+        </footer>}
+      </section>
+    </div>}
+  </Section>;
+}
+
+function HistoryTimelineEvent({ event }) {
+  return <article className={`submission-activity-history__event${event.action === "document.viewed" ? " document-view-history-event" : ""}`}>
+    <History size={16} aria-hidden="true" />
+    <div>
+      <b>{event.label}</b>
+      <small>{[event.actor, event.actor_department, event.actor_role].filter(Boolean).join(" · ")} · {event.created_at ? new Date(event.created_at).toLocaleString() : "Date unavailable"}</small>
+      {event.file?.version || event.version ? <p>Version {event.file?.version || event.version}</p> : null}
+      {event.file?.filename && <p>Related document: {event.file.filename}</p>}
+      {(event.previous_status || event.new_status) && <p>{[event.previous_status, event.new_status].filter(Boolean).join(" → ")}</p>}
+      {event.destination && <p>Destination: {typeof event.destination === "string" ? event.destination : JSON.stringify(event.destination)}</p>}
+      {event.reason && <p>Reason: {event.reason}</p>}
+    </div>
+  </article>;
 }
 
 function newestVersions(versions) {

@@ -1,6 +1,4 @@
 import React from "react";
-import { ShieldCheck } from "lucide-react";
-
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import {
@@ -8,10 +6,6 @@ import {
   useDocumentFilters,
 } from "../../../components/DocumentFilters";
 import { getLegalHistory } from "../../../services/legalCounselServices";
-import {
-  getExpirySummary,
-  requestDocumentRenewal,
-} from "../../../services/workflowSummaryService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
@@ -21,9 +15,6 @@ export default function LegalCounselHistoryPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
-  const [expiryItems, setExpiryItems] = React.useState([]);
-  const [expiryError, setExpiryError] = React.useState("");
-  const [expiryProcessingId, setExpiryProcessingId] = React.useState(null);
   const {
     filters,
     queryParams,
@@ -63,47 +54,6 @@ export default function LegalCounselHistoryPage() {
     loadHistory();
   }, [page, queryParams]);
 
-  React.useEffect(() => {
-    async function loadExpiry() {
-      setExpiryError("");
-
-      try {
-        const response = await getExpirySummary();
-
-        setExpiryItems(
-          response.data?.records ?? response.data?.upcoming ?? [],
-        );
-      } catch (requestError) {
-        reportClientError("Unable to load legal expiry records:", requestError);
-        setExpiryError(requestError.message);
-        setExpiryItems([]);
-      }
-    }
-
-    loadExpiry();
-  }, []);
-
-  async function requestRenewal(record) {
-    if (!record?.id) return;
-
-    setExpiryProcessingId(record.id);
-    setExpiryError("");
-
-    try {
-      await requestDocumentRenewal(record.id);
-      const response = await getExpirySummary();
-
-      setExpiryItems(
-        response.data?.records ?? response.data?.upcoming ?? [],
-      );
-    } catch (requestError) {
-      reportClientError("Unable to flag document for renewal:", requestError);
-      setExpiryError(requestError.message);
-    } finally {
-      setExpiryProcessingId(null);
-    }
-  }
-
   return (
     <section className="page legal-page legal-counsel-history-page">
       <PageTitle
@@ -111,7 +61,7 @@ export default function LegalCounselHistoryPage() {
         subtitle="Audit Log & Activity"
       />
 
-      <div className="two-col">
+      <div>
         <Panel title="Audit Log & Activity">
           <DocumentFilters
             filters={filters}
@@ -205,61 +155,6 @@ export default function LegalCounselHistoryPage() {
           )}
         </Panel>
 
-        <Panel title="Expiring Soon">
-          {expiryError && <p className="auth-error">{expiryError}</p>}
-
-          {!expiryError && expiryItems.length === 0 && (
-            <p>No assigned documents are expiring soon.</p>
-          )}
-
-          {!expiryError &&
-            expiryItems.map((record) => (
-              <div
-                className={`notice ${
-                  record.classification === "expired" ? "danger" : "warn"
-                }`}
-                key={record.id}
-              >
-                <b>
-                  {record.partner_institution ||
-                    record.document_name ||
-                    record.tracking_number}
-                </b>
-                <p>
-                  {record.expiry} - {record.tracking_number}
-                </p>
-                <button
-                  className={
-                    record.classification === "expired"
-                      ? "primary"
-                      : "outline"
-                  }
-                  disabled={
-                    expiryProcessingId === record.id ||
-                    record.renewal_status === "renewal_requested"
-                  }
-                  onClick={() => requestRenewal(record)}
-                >
-                  {expiryProcessingId === record.id
-                    ? "Flagging..."
-                    : record.renewal_status === "renewal_requested"
-                      ? "Renewal Flagged"
-                      : "Flag for Renewal"}
-                </button>
-              </div>
-            ))}
-
-          <section className="dark-card">
-            <ShieldCheck />
-            <div>
-              <h2>Compliance Status</h2>
-              <p>
-                {expiryItems.length} assigned agreement
-                {expiryItems.length === 1 ? "" : "s"} require renewal attention.
-              </p>
-            </div>
-          </section>
-        </Panel>
       </div>
     </section>
   );

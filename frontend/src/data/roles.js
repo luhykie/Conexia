@@ -89,7 +89,6 @@ export const navItems = {
   legal: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["review", "Review Queue", ClipboardCheck],
-    ["expiry", "Expiry", CalendarClock],
     ["history", "My Action History", History],
   ],
 

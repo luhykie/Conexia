@@ -140,7 +140,7 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
     }),
   );
 
-  const standardizedActivity = roleKey === "department";
+  const standardizedActivity = roleKey === "department" || roleKey === "legal";
   const activityRows = (dashboard?.recent_activity ?? []).map((item) =>
     standardizedActivity
       ? [
@@ -151,7 +151,6 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
             : item.partnership_scope || "-",
           item.document_type || item.type || "-",
           item.status || "-",
-          "View",
           "-",
         ]
       : [
@@ -189,7 +188,6 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
                     "Partnership Scope",
                     "Document Type",
                     "Status",
-                    "View Status",
                     "Action",
                   ]
                 : [
