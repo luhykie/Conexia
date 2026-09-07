@@ -116,6 +116,7 @@ export default function Page() {
   }
 
   const rows = documents.map((document) => [
+    document.partner_institution || "-",
     <button
       key={`view-${document.id}`}
       type="button"
@@ -128,15 +129,19 @@ export default function Page() {
     >
       {document.tracking_number || "-"}
     </button>,
-    document.title || "-",
-    document.document_type || "-",
     document.partnership_scope === "Departmental"
       ? "Local"
       : document.partnership_scope || document.partnership_type || "-",
-    document.submitted_at || document.updated_at
-      ? new Date(document.submitted_at || document.updated_at).toLocaleDateString()
-      : "-",
+    document.document_type || "-",
     document.status || "-",
+    <button type="button" className="table-action" onClick={() => setSelectedDocument(document)}>
+      View
+    </button>,
+    document.status === "Corrections Needed" ? (
+      <button type="button" className="table-action" onClick={resubmitDocument}>
+        Resubmit
+      </button>
+    ) : "-",
   ]);
 
   return (
@@ -210,12 +215,13 @@ export default function Page() {
           {!loading && !error && documents.length > 0 && (
             <DataTable
               headers={[
+                "Partner/Institution",
                 "Tracking Number",
-                "Document Title",
-                "Type of Document",
-                "Partnership Type",
-                "Date",
+                "Partnership Scope",
+                "Document Type",
                 "Status",
+                "View Status",
+                "Action",
               ]}
               rows={rows}
               meta={meta}

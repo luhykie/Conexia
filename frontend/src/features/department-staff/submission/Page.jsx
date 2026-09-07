@@ -11,10 +11,9 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { Dropzone } from "../../../components/SharedViews";
 import { createDepartmentDocument } from "../../../services/departmentStaffService";
-import { getDepartments } from "../../../services/departmentService";
 import { uploadDocumentFile } from "../../../services/documentFileService";
 import { reportClientError } from "../../../utils/reportClientError";
-import { DepartmentAutocomplete } from "../../../components/DepartmentAutocomplete";
+import { DepartmentSelect } from "../../../components/DepartmentSelect";
 import "./Page.css";
 
 const initialForm = {
@@ -36,8 +35,6 @@ const partnershipTypes = [
 
 export default function Page({ account }) {
   const [form, setForm] = React.useState(initialForm);
-  const [departments, setDepartments] = React.useState([]);
-  const [loadingDepartments, setLoadingDepartments] = React.useState(false);
   const [selectedFile, setSelectedFile] = React.useState(null);
   const [step, setStep] = React.useState(1);
   const [submitting, setSubmitting] = React.useState(false);
@@ -83,28 +80,6 @@ export default function Page({ account }) {
     }
   }, []);
 
-  React.useEffect(() => {
-    async function loadDepartments() {
-      setLoadingDepartments(true);
-
-      try {
-        const response = await getDepartments({
-          per_page: 100,
-          sort: "code",
-          direction: "asc",
-        });
-        setDepartments(response.data ?? []);
-      } catch (requestError) {
-        reportClientError("Unable to load departments:", requestError);
-        setDepartments([]);
-      } finally {
-        setLoadingDepartments(false);
-      }
-    }
-
-    loadDepartments();
-  }, []);
-
   function updateForm(event) {
     const { name, value } = event.target;
 
@@ -115,25 +90,6 @@ export default function Page({ account }) {
         partnerDepartmentId: "",
         partnerInstitution: "",
         partnerEmail: "",
-      }));
-      setError("");
-      setSuccess("");
-      setSubmittedTrackingNumber("");
-      return;
-    }
-
-    if (name === "partnerDepartmentId") {
-      const department = departments.find(
-        (item) => item.id === value,
-      );
-
-      setForm((current) => ({
-        ...current,
-        partnerDepartmentId: value,
-        partnerInstitution: department
-          ? formatDepartmentName(department)
-          : "",
-        partnerEmail: department?.email || "",
       }));
       setError("");
       setSuccess("");
@@ -337,13 +293,20 @@ export default function Page({ account }) {
               {form.partnershipType === "Local" && form.departmentToDepartment ? (
                 <label>
                   Partner Department
-                  <DepartmentAutocomplete
-                    value={form.partnerInstitution}
-                    selectedDepartmentId={form.partnerDepartmentId}
+                  <DepartmentSelect
+                    value={form.partnerDepartmentId}
                     ownDepartmentId={account?.department_id || account?.departmentId || account?.department?.id}
-                    disabled={submitting || loadingDepartments}
-                    onChange={(value) => setForm((current) => ({ ...current, partnerInstitution: value, partnerDepartmentId: "" }))}
-                    onSelect={(department) => setForm((current) => ({ ...current, partnerDepartmentId: department.id, partnerInstitution: department.name, partnerEmail: department.email || "" }))}
+                    disabled={submitting}
+                    onChange={(event) => {
+                      const departmentId = event.target.value;
+                      const department = event.target.selectedOptions[0];
+                      setForm((current) => ({
+                        ...current,
+                        partnerDepartmentId: departmentId,
+                        partnerInstitution: departmentId ? department.textContent : "",
+                        partnerEmail: "",
+                      }));
+                    }}
                   />
                 </label>
               ) : (
@@ -486,16 +449,6 @@ function SubmissionSummary({ form, account, selectedFile, compact = false }) {
       <p>Initial Status: <b>Submitted</b></p>
     </aside>
   );
-}
-
-function formatDepartmentName(department) {
-  if (!department) {
-    return "";
-  }
-
-  return department.code
-    ? `${department.code} - ${department.name}`
-    : department.name;
 }
 
 function isValidDuration(form) {

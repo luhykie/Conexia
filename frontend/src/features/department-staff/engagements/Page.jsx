@@ -20,7 +20,15 @@ export default function Page() {
 
       <Panel title="Partner Engagements">
         <DataTable
-          headers={["Partner Organization", "Agreement", "Duration", "Documents", "Status"]}
+          headers={[
+            "Partner/Institution",
+            "Tracking Number",
+            "Partnership Scope",
+            "Document Type",
+            "Status",
+            "View Status",
+            "Action",
+          ]}
           rows={[]}
           emptyMessage="Engagement records require a backend endpoint."
         />

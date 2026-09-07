@@ -27,7 +27,7 @@ import { DocumentChat } from "../components/DocumentChat";
 import { DepartmentalPdfReview } from "../components/DepartmentalPdfReview";
 import { DepartmentalDocumentHistory, DepartmentalVersionAnnotations as SharedDepartmentalVersionAnnotations } from "../components/DocumentReviewPanel";
 import { PreSubmissionModal } from "../components/PreSubmissionModal";
-import { DepartmentAutocomplete } from "../components/DepartmentAutocomplete";
+import { DepartmentSelect } from "../components/DepartmentSelect";
 import DepartmentSettingsPage from "../features/department-staff/settings/Page";
 import {
   createDepartmentDocument,
@@ -51,6 +51,15 @@ import { reportClientError } from "../utils/reportClientError";
 const partnershipTypes = [
   ["Local", MapPin],
   ["International", Globe2],
+];
+const departmentTableHeaders = [
+  "Partner/Institution",
+  "Tracking Number",
+  "Partnership Scope",
+  "Document Type",
+  "Status",
+  "View Status",
+  "Action",
 ];
 
 // Routes all Department Staff pages through one role-owned component.
@@ -114,15 +123,13 @@ function SubmissionPage({ account }) {
     durationUnit: "Years",
     partnerEmail: "",
     description: "",
-    agreementTitle: "",
     submissionType: "new",
     requestingOffice: "",
     contactPerson: "",
     position: "",
     emailAddress: "",
     contactNumber: "",
-    requestedCompletionDate: "",
-    urgencyLevel: "normal",
+    urgencyLevel: "standard",
   });
 
   const [submitting, setSubmitting] =
@@ -159,15 +166,13 @@ function SubmissionPage({ account }) {
         durationUnit: draft.durationUnit || "Years",
         partnerEmail: draft.emailAddress || "",
         description: formatReviewFormDetails(draft),
-        agreementTitle: draft.agreementTitle || "",
         submissionType: draft.submissionType || "new",
         requestingOffice: draft.requestingOffice || "",
         contactPerson: draft.contactPerson || "",
         position: draft.position || "",
         emailAddress: draft.emailAddress || "",
         contactNumber: draft.contactNumber || "",
-        requestedCompletionDate: draft.requestedCompletionDate || "",
-        urgencyLevel: draft.urgencyLevel || "normal",
+        urgencyLevel: draft.urgencyLevel || "standard",
       });
       setStep(2);
     } catch (parseError) {
@@ -240,7 +245,7 @@ function SubmissionPage({ account }) {
       return;
     }
 
-    if (!form.agreementTitle.trim() || !form.requestingOffice.trim() || !form.contactPerson.trim() || !form.position.trim() || !form.emailAddress.trim() || !form.contactNumber.trim() || !form.requestedCompletionDate) {
+    if (!form.requestingOffice.trim() || !form.contactPerson.trim() || !form.position.trim() || !form.emailAddress.trim() || !form.contactNumber.trim()) {
       setError("Please complete all required review form fields.");
       return;
     }
@@ -344,7 +349,7 @@ function SubmissionPage({ account }) {
       const partnerName = form.partnerInstitution.trim();
       const response =
         await createDepartmentDocument({
-          title: form.agreementTitle.trim() || `${partnerName} ${form.agreementType}`,
+          title: `${partnerName} ${form.agreementType}`,
           document_type: form.agreementType,
           partnership_scope: form.partnershipType,
           partner_institution: partnerName,
@@ -363,7 +368,6 @@ function SubmissionPage({ account }) {
           contact_position: form.position.trim() || null,
           contact_email: form.emailAddress.trim() || null,
           contact_number: form.contactNumber.trim() || null,
-          requested_completion_date: form.requestedCompletionDate || null,
           urgency: form.urgencyLevel || null,
           ...expiryPayload(),
         });
@@ -410,15 +414,13 @@ function SubmissionPage({ account }) {
       durationUnit: "Years",
       partnerEmail: "",
       description: "",
-      agreementTitle: "",
       submissionType: "new",
       requestingOffice: account?.department || account?.departmentCode || account?.office || "",
       contactPerson: "",
       position: "",
       emailAddress: account?.email || "",
       contactNumber: "",
-      requestedCompletionDate: "",
-      urgencyLevel: "normal",
+      urgencyLevel: "standard",
     });
 
     setSelectedFile(null);
@@ -460,11 +462,6 @@ function SubmissionPage({ account }) {
                   <option value="new">New Partnership</option>
                   <option value="renewal">Renewal</option>
                 </select>
-              </label>
-
-              <label>
-                Title of Agreement
-                <input name="agreementTitle" value={form.agreementTitle} onChange={updateForm} placeholder="Enter agreement title" required />
               </label>
 
               <fieldset className="full-width segmented-field">
@@ -510,23 +507,20 @@ function SubmissionPage({ account }) {
               {form.partnershipType === "Local" && form.departmentToDepartment ? (
                 <label>
                   Partner Department
-                  <DepartmentAutocomplete
-                    value={form.partnerInstitution}
-                    selectedDepartmentId={form.partnerDepartmentId}
+                  <DepartmentSelect
+                    value={form.partnerDepartmentId}
                     ownDepartmentId={account?.department_id || account?.departmentId || account?.department?.id}
                     disabled={submitting}
-                    onChange={(value) => setForm((current) => ({
-                      ...current,
-                      partnerInstitution: value,
-                      partnerDepartmentId: "",
-                      partnerEmail: "",
-                    }))}
-                    onSelect={(department) => setForm((current) => ({
-                      ...current,
-                      partnerDepartmentId: department.id,
-                      partnerInstitution: department.name,
-                      partnerEmail: department.email || "",
-                    }))}
+                    onChange={(event) => {
+                      const departmentId = event.target.value;
+                      const department = event.target.selectedOptions[0];
+                      setForm((current) => ({
+                        ...current,
+                        partnerDepartmentId: departmentId,
+                        partnerInstitution: departmentId ? department.textContent : "",
+                        partnerEmail: "",
+                      }));
+                    }}
                   />
                 </label>
               ) : (
@@ -608,14 +602,9 @@ function SubmissionPage({ account }) {
               </label>
 
               <label>
-                Requested Date of Completion
-                <input name="requestedCompletionDate" type="date" value={form.requestedCompletionDate} onChange={updateForm} required />
-              </label>
-
-              <label>
                 Urgency Level
                 <select name="urgencyLevel" value={form.urgencyLevel} onChange={updateForm}>
-                  <option value="normal">Normal</option>
+                  <option value="standard">Standard</option>
                   <option value="urgent">Urgent</option>
                 </select>
               </label>
@@ -639,11 +628,10 @@ function SubmissionPage({ account }) {
                   <p><b>Partner:</b> {form.partnerInstitution}</p>
                   <p><b>Agreement:</b> {preSubmissionAnswers.agreementType} · {preSubmissionAnswers.submissionType === "renewal" ? "Renewal" : "New Partnership"}</p>
                   <p><b>Classification:</b> {preSubmissionAnswers.partnerClassification.charAt(0).toUpperCase() + preSubmissionAnswers.partnerClassification.slice(1)}</p>
-                  <p><b>Title:</b> {preSubmissionAnswers.agreementTitle}</p>
                   <p><b>Requesting Office:</b> {preSubmissionAnswers.requestingOffice}</p>
                   <p><b>Contact:</b> {preSubmissionAnswers.contactPerson} · {preSubmissionAnswers.position}</p>
                   <p><b>Email / Number:</b> {preSubmissionAnswers.emailAddress} · {preSubmissionAnswers.contactNumber}</p>
-                  <p><b>Requested completion:</b> {preSubmissionAnswers.requestedCompletionDate} · {preSubmissionAnswers.urgencyLevel === "highly_urgent" ? "Highly Urgent" : preSubmissionAnswers.urgencyLevel.charAt(0).toUpperCase() + preSubmissionAnswers.urgencyLevel.slice(1)}</p>
+                  <p><b>Urgency:</b> {preSubmissionAnswers.urgencyLevel === "urgent" ? "Urgent" : "Standard"}</p>
                 </div>
               )}
               <Dropzone
@@ -736,7 +724,6 @@ function SubmissionSummary({ form, account, selectedFile, compact = false }) {
       <h2>Review Summary</h2>
       <p className="submission-review-note">Please verify these details before submitting. They are arranged for the review-form export.</p>
       <SummarySection title="Agreement Details">
-        <SummaryField label="Title of Agreement" value={form.agreementTitle} />
         <SummaryField label="Type of Document" value={form.agreementType} />
         <SummaryField label="Submission Type" value={form.submissionType === "renewal" ? "Renewal" : "New Partnership"} />
         <SummaryField label="Partner Classification" value={form.partnershipType} />
@@ -750,7 +737,6 @@ function SubmissionSummary({ form, account, selectedFile, compact = false }) {
         <SummaryField label="Contact Number" value={form.contactNumber} />
       </SummarySection>
       <SummarySection title="Timeline Requirement">
-        <SummaryField label="Requested Date of Completion" value={formatDate(form.requestedCompletionDate)} />
         <SummaryField label="Urgency Level" value={formatUrgency(form.urgencyLevel)} />
       </SummarySection>
       <SummarySection title="Submission Document">
@@ -771,12 +757,7 @@ function SummaryField({ label, value }) {
 }
 
 function formatUrgency(value) {
-  return value === "urgent" ? "Urgent" : "Normal";
-}
-
-function formatDate(value) {
-  if (!value) return "";
-  return new Intl.DateTimeFormat("en", { year: "numeric", month: "long", day: "numeric" }).format(new Date(`${value}T00:00:00`));
+  return value === "urgent" ? "Urgent" : "Standard";
 }
 
 function isValidEmail(value) {
@@ -817,7 +798,6 @@ function formatReviewFormDetails(draft) {
     `Position: ${draft.position}`,
     `Email address: ${draft.emailAddress}`,
     `Contact number: ${draft.contactNumber}`,
-    `Requested completion date: ${draft.requestedCompletionDate}`,
     `Urgency level: ${draft.urgencyLevel}`,
   ].join("\n");
 }
@@ -937,6 +917,7 @@ function MySubmissionsPage({ account }) {
   }, [reviewOpen, selectedDocument?.id, selectedDocument?.status]);
 
   const rows = documents.map((document) => [
+    document.partner_institution || "-",
     <button
       key={`view-${document.id}`}
       type="button"
@@ -955,14 +936,10 @@ function MySubmissionsPage({ account }) {
     >
       {document.tracking_number || "-"}
     </button>,
-    document.title || "-",
-    document.document_type || "-",
     document.partnership_scope === "Departmental"
       ? "Local"
       : document.partnership_scope || document.partnership_type || "-",
-    document.submitted_at || document.updated_at
-      ? new Date(document.submitted_at || document.updated_at).toLocaleDateString()
-      : "-",
+    document.document_type || "-",
     <span
       key={`status-${document.id}`}
       className={`badge ${
@@ -975,6 +952,22 @@ function MySubmissionsPage({ account }) {
     >
       {departmentalStatusLabel(document, document.department_id === accountDepartmentId)}
     </span>,
+    <button
+      type="button"
+      className="table-action"
+      onClick={() => {
+        setSelectedDocument(document);
+        setCorrectionForm(correctionFormFor(document));
+        setReviewOpen(true);
+      }}
+    >
+      View
+    </button>,
+    document.status === "Corrections Needed" ? (
+      <button type="button" className="table-action" onClick={resubmitDocument}>
+        Resubmit
+      </button>
+    ) : "-",
 
   ]);
 
@@ -988,8 +981,8 @@ function MySubmissionsPage({ account }) {
       setError("Choose the corrected file before submitting it to the Partner Department.");
       return;
     }
-    if (editingCorrectionForm && (!correctionForm?.title.trim() || !correctionForm?.partner_institution.trim())) {
-      setError("Title and partner organization are required.");
+    if (editingCorrectionForm && !correctionForm?.partner_institution.trim()) {
+      setError("Partner organization is required.");
       return;
     }
 
@@ -1004,7 +997,6 @@ function MySubmissionsPage({ account }) {
       const correctedFields = editingCorrectionForm
         ? {
             ...correctionForm,
-            title: correctionForm.title.trim(),
             partner_institution: correctionForm.partner_institution.trim(),
             partner_email: correctionForm.partner_email.trim() || null,
             description: correctionForm.description.trim() || null,
@@ -1013,7 +1005,6 @@ function MySubmissionsPage({ account }) {
             contact_position: correctionForm.contact_position.trim() || null,
             contact_email: correctionForm.contact_email.trim() || null,
             contact_number: correctionForm.contact_number.trim() || null,
-            requested_completion_date: correctionForm.requested_completion_date || null,
             urgency: correctionForm.urgency || null,
             effective_date: correctionForm.effective_date || null,
             expiry_date: correctionForm.expiry_date || null,
@@ -1091,7 +1082,6 @@ function MySubmissionsPage({ account }) {
             </SubmissionDetailSection>
             <SubmissionDetailSection title="Agreement Details">
               <SubmissionDetail label="Document Type" value={selectedDocument.document_type} />
-              <SubmissionDetail label="Title of Agreement" value={selectedDocument.title} />
               <SubmissionDetail label="Partner Organization" value={selectedDocument.partner_institution} />
               <SubmissionDetail label="Partner Contact Email" value={selectedDocument.partner_email} />
             </SubmissionDetailSection>
@@ -1110,18 +1100,16 @@ function MySubmissionsPage({ account }) {
                   {editingCorrectionForm ? "Cancel Form Editing" : "Edit Submitted Form (Optional)"}
                 </button>
                 {editingCorrectionForm && <div className="correction-resubmission__grid">
-                  <label className="correction-resubmission__wide">Agreement Title<input value={correctionForm.title} onChange={(event) => setCorrectionForm((current) => ({ ...current, title: event.target.value }))} disabled={processing} required /></label>
                   <label>Agreement Type<select value={correctionForm.document_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, document_type: event.target.value }))} disabled={processing}><option value="MOA">MOA</option><option value=""></option><option value=""></option></select></label>
                   <label>Partnership Scope<select value={correctionForm.partnership_scope} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_scope: event.target.value }))} disabled={processing}><option value="Local">Local</option><option value="International">International</option></select></label>
                   <label className="correction-resubmission__wide">Partner Organization<input value={correctionForm.partner_institution} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_institution: event.target.value }))} disabled={processing} required /></label>
                   <label className="correction-resubmission__wide">Partner Contact Email<input type="email" value={correctionForm.partner_email} onChange={(event) => setCorrectionForm((current) => ({ ...current, partner_email: event.target.value }))} disabled={processing} /></label>
                   <label>Submission Type<select value={correctionForm.partnership_type} onChange={(event) => setCorrectionForm((current) => ({ ...current, partnership_type: event.target.value }))} disabled={processing}><option value="New Partnership">New Partnership</option><option value="Renewal">Renewal</option></select></label>
-                  <label>Urgency<select value={correctionForm.urgency} onChange={(event) => setCorrectionForm((current) => ({ ...current, urgency: event.target.value }))} disabled={processing}><option value="normal">Normal</option><option value="urgent">Urgent</option><option value="high">High</option></select></label>
+                  <label>Urgency<select value={correctionForm.urgency === "normal" ? "standard" : correctionForm.urgency} onChange={(event) => setCorrectionForm((current) => ({ ...current, urgency: event.target.value }))} disabled={processing}><option value="standard">Standard</option><option value="urgent">Urgent</option><option value="high">High</option></select></label>
                   <label>Contact Person<input value={correctionForm.contact_person} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_person: event.target.value }))} disabled={processing} /></label>
                   <label>Contact Position<input value={correctionForm.contact_position} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_position: event.target.value }))} disabled={processing} /></label>
                   <label>Contact Email<input type="email" value={correctionForm.contact_email} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_email: event.target.value }))} disabled={processing} /></label>
                   <label>Contact Number<input value={correctionForm.contact_number} onChange={(event) => setCorrectionForm((current) => ({ ...current, contact_number: event.target.value }))} disabled={processing} /></label>
-                  <label>Requested Completion<input type="date" value={correctionForm.requested_completion_date} onChange={(event) => setCorrectionForm((current) => ({ ...current, requested_completion_date: event.target.value }))} disabled={processing} /></label>
                   <label>Effective Date<input type="date" value={correctionForm.effective_date} onChange={(event) => setCorrectionForm((current) => ({ ...current, effective_date: event.target.value }))} disabled={processing} /></label>
                   <label>Expiry Date<input type="date" value={correctionForm.expiry_date} onChange={(event) => setCorrectionForm((current) => ({ ...current, expiry_date: event.target.value }))} disabled={processing} /></label>
                   <label className="correction-resubmission__wide">Description<textarea rows={4} value={correctionForm.description} onChange={(event) => setCorrectionForm((current) => ({ ...current, description: event.target.value }))} disabled={processing} /></label>
@@ -1240,14 +1228,7 @@ function MySubmissionsPage({ account }) {
             !error &&
             documents.length > 0 && (
               <DataTable
-                headers={[
-                  "Tracking Number",
-                  "Document Title",
-                  "Type of Document",
-                  "Partnership Type",
-                  "Date",
-                  "Status",
-                ]}
+                headers={departmentTableHeaders}
                 rows={rows}
                 meta={meta}
                 onPageChange={setPage}
@@ -1579,13 +1560,7 @@ function EngagementsPage() {
             }}
           />
           <DataTable
-            headers={[
-              "Partner Organization",
-              "Agreement",
-              "Duration",
-              "Documents",
-              "Status",
-            ]}
+            headers={departmentTableHeaders}
             rows={[]}
           />
         </Panel>
