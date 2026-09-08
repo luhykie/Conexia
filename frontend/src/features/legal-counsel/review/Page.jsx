@@ -1,4 +1,5 @@
 import React from "react";
+import { Eye } from "lucide-react";
 import { DataTable } from "../../../components/DataTable";
 import {
   DocumentFilters,
@@ -19,6 +20,7 @@ import {
 import { getIroDocumentHistory } from "../../../services/iroAdminService";
 import { createNotification } from "../../../utils/notifications";
 import { reportClientError } from "../../../utils/reportClientError";
+import { departmentStatusBadgeClass } from "../../../utils/departmentStatus";
 import {
   getDocumentAnnotations,
   getDocumentFiles,
@@ -192,28 +194,25 @@ export default function LegalCounselReviewPage() {
 
   const rows = documents.map((document) => [
     document.partner_institution || "-",
-    <button
-      key={`open-${document.id}`}
-      type="button"
-      className="table-action"
-      onClick={() => setSelectedDocument(document)}
-    >
-      {document.tracking_number || "-"}
-    </button>,
+    document.tracking_number || "-",
     document.partnership_scope === "Departmental"
       ? "Local"
       : document.partnership_scope || document.partnership_type || "-",
     document.document_type || "-",
     <span
       key={`status-${document.id}`}
-      className={`badge ${
-        document.status === "Corrections Needed" ? "danger" : "pending"
-      }`}
+      className={departmentStatusBadgeClass(document.status)}
     >
       {document.status}
     </span>,
-    <button type="button" className="table-action" onClick={() => setSelectedDocument(document)}>
-      Review
+    <button
+      type="button"
+      className="table-action table-action--icon"
+      aria-label="View Submission"
+      title="View Submission"
+      onClick={() => setSelectedDocument(document)}
+    >
+      <Eye size={16} aria-hidden="true" />
     </button>,
   ]);
 

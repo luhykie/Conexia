@@ -115,6 +115,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .table-badge-cell, .table-action-cell { display: flex; align-items: center; }
 .table-timestamp { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .table-action { height: 36px; padding: 0 var(--space-4); font-size: 14px; color: var(--green-950); background: white; border: 1px solid var(--green-700); }
+.table-actions { display: flex; align-items: center; gap: var(--space-2); }
+.table-action--icon { width: 36px; padding: 0; }
 /* Modified: standardized 36px pagination controls and spacing. */
 .table footer { min-height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-5); color: #6c7470; }
 .table footer div { display: flex; gap: var(--space-2); }
@@ -142,6 +144,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .badge.pending, .badge.expiring, .badge.urgent, .badge.pending-review, .badge.pending-notarization, .badge.under-review, .badge.awaiting-review, .badge.awaiting-seal, .badge.awaiting-final-sign, .badge.high, .badge.medium, .badge.in-distribution { background: #ffe8c6; color: #9b5b00; }
 .badge.danger, .badge.flagged, .badge.critical, .badge.rejected, .badge.expired { background: #ffe0e1; color: var(--red); }
 .badge.blue, .badge.notarized { background: #e3ecff; color: #3564b8; }
+.badge.logged { background: #dbeafe; color: #214f91; }
+.badge.approved { background: #dff8eb; color: #078054; }
+.badge.under-review { background: #ffe8c6; color: #9b5b00; }
+.badge.corrections-needed { background: #ffe0e1; color: var(--red); }
+.badge.archived { background: #e8eeeb; color: #52615d; }
 .timestamp-badge { height: 40px; padding: 0 var(--space-4); border-radius: var(--radius-badge); display: inline-flex; align-items: center; justify-content: center; width: fit-content; white-space: nowrap; }
 
 /* Modified: equal notification padding and predictable title/description/timestamp rhythm. */

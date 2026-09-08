@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  Eye,
   FileText,
   Globe2,
   History,
@@ -47,6 +48,7 @@ import {
 } from "../services/departmentStaffService";
 import { uploadDocumentFile } from "../services/documentFileService";
 import { reportClientError } from "../utils/reportClientError";
+import { departmentStatusBadgeClass } from "../utils/departmentStatus";
 
 const partnershipTypes = [
   ["Local", MapPin],
@@ -99,6 +101,8 @@ export function DepartmentStaff({ page, account }) {
         subtitle={`Welcome back, ${account.name || account.fullName}. Here is the real-time status for your department.`}
         action="New Engagement"
         onAction={handleNewSubmission}
+        hideNotifications
+        onViewDocument={() => navigate("/app/submissions")}
       />
       <PreSubmissionModal
         open={preSubmissionModalOpen}
@@ -917,45 +921,38 @@ function MySubmissionsPage({ account }) {
 
   const rows = documents.map((document) => [
     document.partner_institution || "-",
-    <button
-      key={`view-${document.id}`}
-      type="button"
-      className="table-action"
-      onClick={() => {
-        setSelectedDocument(document);
-        setPendingReviewItems([]);
-        setRevisedFile(null);
-        setCorrectionForm(correctionFormFor(document));
-        setEditingCorrectionForm(false);
-        setHistoryPreview(null);
-        setReviewOpen(true);
-        setError("");
-        setSuccess("");
-      }}
-    >
-      {document.tracking_number || "-"}
-    </button>,
+    document.tracking_number || "-",
     document.partnership_scope === "Departmental"
       ? "Local"
       : document.partnership_scope || document.partnership_type || "-",
     document.document_type || "-",
     <span
       key={`status-${document.id}`}
-      className={`badge ${
-        document.status === "Corrections Needed"
-          ? "danger"
-          : document.status === "Submitted"
-            ? "pending"
-            : "active"
-      }`}
+      className={departmentStatusBadgeClass(document.status)}
     >
       {departmentalStatusLabel(document, document.department_id === accountDepartmentId)}
     </span>,
-    document.status === "Corrections Needed" ? (
-      <button type="button" className="table-action" onClick={resubmitDocument}>
-        Resubmit
+    <div className="table-actions" key={`actions-${document.id}`}>
+      <button
+        type="button"
+        className="table-action table-action--icon"
+        aria-label="View Submission"
+        title="View Submission"
+        onClick={() => {
+          setSelectedDocument(document);
+          setPendingReviewItems([]);
+          setRevisedFile(null);
+          setCorrectionForm(correctionFormFor(document));
+          setEditingCorrectionForm(false);
+          setHistoryPreview(null);
+          setReviewOpen(true);
+          setError("");
+          setSuccess("");
+        }}
+      >
+        <Eye size={18} aria-hidden="true" />
       </button>
-    ) : "-",
+    </div>,
 
   ]);
 

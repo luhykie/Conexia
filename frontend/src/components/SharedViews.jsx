@@ -28,6 +28,7 @@ import {
   requestDocumentRenewal,
 } from "../services/workflowSummaryService";
 import { reportClientError } from "../utils/reportClientError";
+import { departmentStatusBadgeClass } from "../utils/departmentStatus";
 
 const dashboardLoaders = {
   department: getDepartmentDashboard,
@@ -151,7 +152,7 @@ export function DashboardView({
     }),
   );
 
-  const standardizedActivity = roleKey === "department" || roleKey === "legal";
+  const departmentActivity = roleKey === "department";
   const activityRows = (dashboard?.recent_activity ?? []).map((item) =>
     roleKey === "admin"
       ? [
@@ -171,7 +172,7 @@ export function DashboardView({
             <Eye size={16} aria-hidden="true" />
           </button>,
         ]
-      : standardizedActivity
+      : departmentActivity
       ? [
           item.partner_institution || item.entity_name || "-",
           item.tracking_number || "-",
@@ -179,8 +180,42 @@ export function DashboardView({
             ? "Local"
             : item.partnership_scope || "-",
           item.document_type || item.type || "-",
-          item.status || "-",
-          "-",
+          <span className={departmentStatusBadgeClass(item.status)}>
+            {item.status || "-"}
+          </span>,
+          item.viewed ? "Viewed" : "Not Viewed",
+          <button
+            type="button"
+            className="table-action table-action--icon"
+            key={`view-${item.id || item.tracking_number}`}
+            aria-label="View Submission"
+            title="View Submission"
+            onClick={() => onViewDocument?.(item)}
+          >
+            <Eye size={18} aria-hidden="true" />
+          </button>,
+        ]
+      : roleKey === "legal"
+      ? [
+          item.partner_institution || item.entity_name || "-",
+          item.tracking_number || "-",
+          item.partnership_scope === "Departmental"
+            ? "Local"
+            : item.partnership_scope || "-",
+          item.document_type || item.type || "-",
+          <span className={departmentStatusBadgeClass(item.status)}>
+            {item.status || "-"}
+          </span>,
+          <button
+            type="button"
+            className="table-action table-action--icon"
+            key={`view-${item.id || item.tracking_number}`}
+            aria-label="View Submission"
+            title="View Submission"
+            onClick={() => onViewDocument?.(item)}
+          >
+            <Eye size={16} aria-hidden="true" />
+          </button>,
         ]
       : [
           item.tracking_number || "-",
@@ -210,15 +245,25 @@ export function DashboardView({
           )}
           {!loading && !error && activityRows.length > 0 && (
             <DataTable
-              headers={standardizedActivity
+              headers={departmentActivity
                 ? [
                     "Partner/Institution",
                     "Tracking Number",
                     "Partnership Scope",
                     "Document Type",
                     "Status",
+                    "View Status",
                     "Action",
                   ]
+                : roleKey === "legal"
+                  ? [
+                      "Partner/Institution",
+                      "Tracking Number",
+                      "Partnership Scope",
+                      "Document Type",
+                      "Status",
+                      "Action",
+                    ]
                 : roleKey === "admin"
                   ? [
                       "Partner/Institution",

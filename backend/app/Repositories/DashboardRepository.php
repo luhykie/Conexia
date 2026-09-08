@@ -19,6 +19,11 @@ class DashboardRepository
         return Document::query()
             ->select($this->dashboardColumns())
             ->with('department')
+            ->withExists([
+                'auditLogs as viewed' => fn ($query) => $query
+                    ->where('action', 'document.viewed')
+                    ->where('actor_id', $profile->id),
+            ])
             ->where('department_id', $profile->department_id)
             ->orderByDesc('updated_at')
             ->get();
@@ -46,6 +51,11 @@ class DashboardRepository
         return Document::query()
             ->select($this->dashboardColumns())
             ->with('department')
+            ->withExists([
+                'auditLogs as viewed' => fn ($query) => $query
+                    ->where('action', 'document.viewed')
+                    ->where('actor_id', $profile->id),
+            ])
             ->where('assigned_legal_counsel', $profile->id)
             ->orderByDesc('updated_at')
             ->get();

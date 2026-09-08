@@ -656,6 +656,10 @@ button,
   gap: 18px;
 }
 
+.dashboard-grid.dashboard-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .split-page {
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
@@ -1113,6 +1117,20 @@ button.outline,
   background: #ffffff;
 }
 
+.table-action--icon {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  place-items: center;
+}
+
+.table-action--icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .cx-button--danger,
 button.danger,
 .danger.outline {
@@ -1296,6 +1314,29 @@ textarea:focus {
 .cx-table th,
 .cx-table td {
   padding: 12px 14px;
+}
+
+.department-page .cx-table th,
+.department-page .cx-table td,
+.department-tracking-page .cx-table th,
+.department-tracking-page .cx-table td,
+.department-page .cx-table td .badge,
+.department-tracking-page .cx-table td .badge,
+.department-page .cx-table td .table-action,
+.department-tracking-page .cx-table td .table-action {
+  font-size: 10px;
+}
+
+.department-page .cx-table td .table-action--icon,
+.department-tracking-page .cx-table td .table-action--icon {
+  font-size: 10px;
+}
+
+.legal-page .cx-table th,
+.legal-page .cx-table td,
+.legal-page .cx-table td .badge,
+.legal-page .cx-table td .table-action {
+  font-size: 10px;
 }
 
 .cx-table tbody tr,
@@ -1852,6 +1893,10 @@ textarea:focus {
   .super-grid {
     grid-template-columns: minmax(0, 1fr) 300px;
     gap: 16px;
+  }
+
+  .dashboard-grid.dashboard-grid--single {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .split-page {

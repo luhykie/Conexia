@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText } from "lucide-react";
+import { Eye, FileText } from "lucide-react";
 import { DataTable } from "../../../components/DataTable";
 import {
   DocumentFilters,
@@ -18,6 +18,7 @@ import {
   resubmitDepartmentDocument,
 } from "../../../services/departmentStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
+import { departmentStatusBadgeClass } from "../../../utils/departmentStatus";
 import "./Page.css";
 
 export default function Page() {
@@ -117,31 +118,29 @@ export default function Page() {
 
   const rows = documents.map((document) => [
     document.partner_institution || "-",
-    <button
-      key={`view-${document.id}`}
-      type="button"
-      className="table-action"
-      onClick={() => {
-        setSelectedDocument(document);
-        setError("");
-        setSuccess("");
-      }}
-    >
-      {document.tracking_number || "-"}
-    </button>,
+    document.tracking_number || "-",
     document.partnership_scope === "Departmental"
       ? "Local"
       : document.partnership_scope || document.partnership_type || "-",
     document.document_type || "-",
-    document.status || "-",
-    <button type="button" className="table-action" onClick={() => setSelectedDocument(document)}>
-      View
-    </button>,
-    document.status === "Corrections Needed" ? (
-      <button type="button" className="table-action" onClick={resubmitDocument}>
-        Resubmit
+    <span key={`status-${document.id}`} className={departmentStatusBadgeClass(document.status)}>
+      {document.status || "-"}
+    </span>,
+    <div className="table-actions" key={`actions-${document.id}`}>
+      <button
+        type="button"
+        className="table-action table-action--icon"
+        aria-label="View Submission"
+        title="View Submission"
+        onClick={() => {
+          setSelectedDocument(document);
+          setError("");
+          setSuccess("");
+        }}
+      >
+        <Eye size={18} aria-hidden="true" />
       </button>
-    ) : "-",
+    </div>,
   ]);
 
   return (

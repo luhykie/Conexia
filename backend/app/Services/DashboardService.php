@@ -215,6 +215,7 @@ class DashboardService
                         ? $document->updated_at->toISOString()
                         : $document->submitted_at?->toISOString(),
                     'status' => $document->status,
+                    'viewed' => (bool) $document->viewed,
                     'department' => $department,
                 ];
 
