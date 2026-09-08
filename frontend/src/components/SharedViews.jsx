@@ -10,6 +10,7 @@ import {
   Gauge,
   Gavel,
   Grid2X2,
+  Eye,
   ShieldCheck,
   UploadCloud,
 } from "lucide-react";
@@ -86,7 +87,17 @@ const dashboardCards = {
 };
 
 // Shared dashboard skeleton used by all roles.
-export function DashboardView({ roleKey, title, subtitle, action, onAction, refreshKey }) {
+export function DashboardView({
+  roleKey,
+  title,
+  subtitle,
+  action,
+  onAction,
+  refreshKey,
+  className = "",
+  hideNotifications = false,
+  onViewDocument,
+}) {
   const [dashboard, setDashboard] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -149,6 +160,16 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
           item.partnership_scope || "-",
           item.type || "-",
           item.status || "-",
+          <button
+            type="button"
+            className="iro-dashboard-view-action"
+            key={item.id}
+            aria-label={`View ${item.tracking_number || "document"}`}
+            title="View document"
+            onClick={() => onViewDocument?.(item)}
+          >
+            <Eye size={16} aria-hidden="true" />
+          </button>,
         ]
       : standardizedActivity
       ? [
@@ -172,10 +193,10 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
   const departmentApiUnavailable = roleKey === "department" && Boolean(error);
 
   return (
-    <section className="page">
+    <section className={["page", className].filter(Boolean).join(" ")}>
       <PageTitle title={title} subtitle={subtitle} action={action} onAction={onAction} />
       <StatGrid stats={stats} />
-      <div className="dashboard-grid">
+      <div className={`dashboard-grid${hideNotifications ? " dashboard-grid--single" : ""}`}>
         <Panel title="Recent Activity">
           {loading && <p>Loading dashboard activity...</p>}
           {departmentApiUnavailable && (
@@ -205,6 +226,7 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
                       "Partnership Scope",
                       "Document Type",
                       "Status",
+                      "Action",
                     ]
                 : [
                     "Submission ID",
@@ -214,15 +236,28 @@ export function DashboardView({ roleKey, title, subtitle, action, onAction, refr
                     "Status",
                   ]}
               rows={activityRows}
+              columnClasses={roleKey === "admin"
+                ? [
+                    "iro-dashboard-column--partner",
+                    "iro-dashboard-column--tracking",
+                    "iro-dashboard-column--center",
+                    "iro-dashboard-column--center",
+                    "iro-dashboard-column--center iro-dashboard-column--status",
+                    "iro-dashboard-column--center iro-dashboard-column--action",
+                  ]
+                : []}
+              statusColumnIndex={roleKey === "admin" ? 4 : undefined}
             />
           )}
         </Panel>
-        <NotificationCenter
-          items={dashboard?.notifications ?? []}
-          loading={loading}
-          error={departmentApiUnavailable ? "" : error}
-          offline={departmentApiUnavailable}
-        />
+        {!hideNotifications && (
+          <NotificationCenter
+            items={dashboard?.notifications ?? []}
+            loading={loading}
+            error={departmentApiUnavailable ? "" : error}
+            offline={departmentApiUnavailable}
+          />
+        )}
       </div>
     </section>
   );

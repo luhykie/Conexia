@@ -2,6 +2,60 @@
   min-width: 0;
 }
 
+.iro-admin-engagements-page .cx-table tbody td,
+.iro-admin-engagements-page .cx-table tbody td > .badge {
+  font-size: 10px;
+}
+
+.iro-admin-engagements-page .iro-engagements-column--center,
+.iro-admin-engagements-page .iro-engagements-column--status {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0 !important;
+  padding: 4px 10px !important;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.logged {
+  color: #214f91;
+  background: #dbeafe;
+}
+
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.under-legal-review,
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.pending-archival {
+  color: #9b5b00;
+  background: #ffe8c6;
+}
+
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.corrections-needed,
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.correction-required {
+  color: var(--cx-color-danger);
+  background: #ffe0e1;
+}
+
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.approved {
+  color: #078054;
+  background: #dff8eb;
+}
+
+.iro-admin-engagements-page td.iro-engagements-column--status > .badge.archived {
+  color: #52615d;
+  background: #e8eeeb;
+}
+
 .engagement-detail-backdrop {
   position: fixed;
   inset: 0;

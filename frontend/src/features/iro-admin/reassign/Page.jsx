@@ -11,6 +11,9 @@ import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
 export default function IroAdminReassignPage() {
+  const drawerRef = React.useRef(null);
+  const drawerCloseRef = React.useRef(null);
+  const triggerRef = React.useRef(null);
   const [documents, setDocuments] = React.useState([]);
   const [selectedDocument, setSelectedDocument] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -41,10 +44,7 @@ export default function IroAdminReassignPage() {
         setSelectedDocument((current) => {
           if (!loadedDocuments.length) return null;
 
-          return (
-            loadedDocuments.find((document) => document.id === current?.id) ||
-            loadedDocuments[0]
-          );
+          return loadedDocuments.find((document) => document.id === current?.id) || null;
         });
       }
     } catch (requestError) {
@@ -77,6 +77,45 @@ export default function IroAdminReassignPage() {
     setError("");
   }, [selectedDocument?.id]);
 
+  React.useEffect(() => {
+    if (!selectedDocument) return undefined;
+
+    drawerCloseRef.current?.focus();
+
+    return undefined;
+  }, [selectedDocument?.id]);
+
+  React.useEffect(() => {
+    if (!selectedDocument) return undefined;
+
+    function closeOnEscape(event) {
+      if (event.key === "Escape" && !submitting) {
+        closeDrawer();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = drawerRef.current?.querySelectorAll(
+        'button:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [selectedDocument, submitting]);
+
   const destinationOptions = React.useMemo(
     () => selectedDocument?.reassignment_destinations ?? [],
     [selectedDocument?.reassignment_destinations],
@@ -96,8 +135,17 @@ export default function IroAdminReassignPage() {
     }
   }, [destinationOptions, destinationId]);
 
-  function getAssignmentName(document) {
-    return document?.current_assignment?.label || "Not assigned";
+  function openDrawer(document, trigger) {
+    triggerRef.current = trigger;
+    setSelectedDocument(document);
+  }
+
+  function closeDrawer() {
+    if (submitting) return;
+
+    const trigger = triggerRef.current;
+    setSelectedDocument(null);
+    window.requestAnimationFrame(() => trigger?.focus());
   }
 
   const rows = documents.map((document) => [
@@ -105,15 +153,14 @@ export default function IroAdminReassignPage() {
     document.tracking_number || "-",
     document.partnership_scope || "-",
     document.document_type || "-",
-    getAssignmentName(document),
     document.status || "-",
     <button
       type="button"
       className="table-action"
       key={document.id}
-      onClick={() => setSelectedDocument(document)}
+      onClick={(event) => openDrawer(document, event.currentTarget)}
     >
-      Select
+      Reassign
     </button>,
   ]);
 
@@ -165,15 +212,6 @@ export default function IroAdminReassignPage() {
     }
   }
 
-  function resetForm() {
-    setDestinationId(
-      destinationOptions.length === 1 ? destinationOptions[0].key : "",
-    );
-    setReason("");
-    setError("");
-    setSuccess("");
-  }
-
   return (
     <section className="page iro-admin-page iro-admin-reassign-page">
       <PageTitle
@@ -181,8 +219,7 @@ export default function IroAdminReassignPage() {
         subtitle="Review active case assignments and workload distribution."
       />
 
-      <div className="two-col">
-        <Panel title="Active Assignments">
+      <Panel title="Active Assignments">
           {loading && <p>Loading active assignments...</p>}
           {error && <p className="auth-error">{error}</p>}
           {!loading && !error && rows.length === 0 && (
@@ -195,19 +232,55 @@ export default function IroAdminReassignPage() {
                 "Tracking Number",
                 "Partnership Scope",
                 "Document Type",
-                "Current Assignee",
                 "Status",
                 "Action",
               ]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
+              columnClasses={[
+                "",
+                "",
+                "iro-reassign-column--center",
+                "iro-reassign-column--center",
+                "iro-reassign-column--center iro-reassign-column--status",
+                "iro-reassign-column--center",
+              ]}
+              statusColumnIndex={4}
+              rowClasses={documents.map((document) =>
+                document.id === selectedDocument?.id ? "iro-reassign-row--selected" : "")}
             />
           )}
-        </Panel>
+      </Panel>
 
-        <form className="form-card" onSubmit={submitReassignment}>
-          <h2>Assignment Details</h2>
+      {selectedDocument && (
+        <div
+          className="iro-reassign-drawer-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeDrawer();
+          }}
+        >
+        <form
+          ref={drawerRef}
+          className="form-card iro-reassign-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="iro-reassign-drawer-title"
+          onSubmit={submitReassignment}
+        >
+          <header className="iro-reassign-drawer__header">
+            <h2 id="iro-reassign-drawer-title">Assignment Details</h2>
+            <button
+              ref={drawerCloseRef}
+              type="button"
+              className="outline"
+              onClick={closeDrawer}
+              disabled={submitting}
+            >
+              Close
+            </button>
+          </header>
           <div className="selected-record">
             {selectedDocument?.tracking_number || "Select a submission"}
             <br />
@@ -282,21 +355,16 @@ export default function IroAdminReassignPage() {
             disabled={
               !selectedDocument ||
               submitting ||
-              destinationOptions.length === 0
+              destinationOptions.length === 0 ||
+              !destinationId ||
+              !reason.trim()
             }
           >
             {submitting ? "Reassigning..." : "Confirm Reassignment"}
           </button>
-          <button
-            type="button"
-            className="outline"
-            onClick={resetForm}
-            disabled={submitting}
-          >
-            Cancel Request
-          </button>
         </form>
-      </div>
+        </div>
+      )}
     </section>
   );
 }

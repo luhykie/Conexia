@@ -6,6 +6,9 @@ export function DataTable({
   meta,
   onPageChange,
   emptyMessage = "No records found.",
+  columnClasses = [],
+  statusColumnIndex,
+  rowClasses = [],
 }) {
   const currentPage = meta?.current_page ?? 1;
   const lastPage = meta?.last_page ?? 1;
@@ -19,8 +22,8 @@ export function DataTable({
       <table>
         <thead>
           <tr>
-            {headers.map((header) => (
-              <th key={header}>{header}</th>
+            {headers.map((header, headerIndex) => (
+              <th key={header} className={columnClasses[headerIndex] || ""}>{header}</th>
             ))}
           </tr>
         </thead>
@@ -37,17 +40,20 @@ export function DataTable({
             </tr>
           ) : (
             rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
+              <tr key={rowIndex} className={rowClasses[rowIndex] || ""}>
                 {row.map((cell, cellIndex) => (
                   <td
                     key={cellIndex}
-                    className={
-                      cellIndex === row.length - 1
+                    className={[
+                      columnClasses[cellIndex] || "",
+                      statusColumnIndex === undefined && cellIndex === row.length - 1
                         ? statusClass(cell)
-                        : ""
-                    }
+                        : "",
+                    ].filter(Boolean).join(" ")}
                   >
-                    {cell}
+                    {cellIndex === statusColumnIndex
+                      ? <span className={statusClass(cell)}>{cell}</span>
+                      : cell}
                   </td>
                 ))}
               </tr>

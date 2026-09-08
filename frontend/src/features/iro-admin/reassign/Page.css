@@ -1,3 +1,101 @@
+.iro-admin-reassign-page .cx-table tbody td,
+.iro-admin-reassign-page .cx-table tbody td > .badge {
+  font-size: 10px;
+}
+
+.iro-admin-reassign-page .iro-reassign-column--center {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge {
+  white-space: nowrap;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0 !important;
+  padding: 4px 10px !important;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.logged {
+  color: #214f91;
+  background: #dbeafe;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.under-legal-review,
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.pending-archival {
+  color: #9b5b00;
+  background: #ffe8c6;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.corrections-needed,
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.correction-required {
+  color: var(--cx-color-danger);
+  background: #ffe0e1;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.approved {
+  color: #078054;
+  background: #dff8eb;
+}
+
+.iro-admin-reassign-page td.iro-reassign-column--status > .badge.archived {
+  color: #52615d;
+  background: #e8eeeb;
+}
+
+.iro-admin-reassign-page .iro-reassign-row--selected {
+  background: #eef8f2;
+  box-shadow: inset 4px 0 0 var(--cx-color-primary-600);
+}
+
+.iro-reassign-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(19, 32, 51, 0.46);
+}
+
+.iro-admin-reassign-page .iro-reassign-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(440px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  align-content: start;
+  border-radius: 0;
+  box-shadow: -16px 0 40px rgba(19, 32, 51, 0.2);
+}
+
+.iro-reassign-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.iro-reassign-drawer__header h2 {
+  margin: 0;
+}
+
+@media (max-width: 700px) {
+  .iro-admin-reassign-page .iro-reassign-drawer {
+    width: 100%;
+    max-width: none;
+  }
+}
+
 .iro-admin-reassign-page textarea:disabled,
 .iro-admin-reassign-page select:disabled,
 .iro-admin-reassign-page button:disabled {

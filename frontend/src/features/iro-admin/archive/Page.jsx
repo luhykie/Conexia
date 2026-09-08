@@ -210,6 +210,15 @@ export default function IroAdminArchivePage() {
             rows={rows}
             meta={meta}
             onPageChange={setPage}
+            columnClasses={[
+              "",
+              "",
+              "iro-archive-column--center",
+              "iro-archive-column--center",
+              "iro-archive-column--status",
+              "",
+            ]}
+            statusColumnIndex={4}
           />
         )}
       </Panel>

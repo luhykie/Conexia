@@ -165,6 +165,15 @@ export default function IroAdminLogReviewPage({ documentId }) {
               rows={rows}
               meta={meta}
               onPageChange={setPage}
+              columnClasses={[
+                "",
+                "",
+                "iro-log-review-column--center",
+                "iro-log-review-column--center",
+                "iro-log-review-column--status",
+                "",
+              ]}
+              statusColumnIndex={4}
             />
           )}
       </Panel>

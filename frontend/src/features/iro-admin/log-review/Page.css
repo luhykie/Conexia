@@ -1,4 +1,24 @@
 .iro-admin-document-review-page .back-button { display: inline-flex; align-items: center; gap: .4rem; margin-bottom: 1rem; }
+.iro-admin-log-review-page .cx-table tbody td,
+.iro-admin-log-review-page .cx-table tbody td > .badge { font-size: 10px; }
+.iro-admin-log-review-page .iro-log-review-column--center,
+.iro-admin-log-review-page .iro-log-review-column--status { text-align: center; vertical-align: middle; }
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge { display: inline-flex !important; align-items: center; justify-content: center; width: fit-content; max-width: 100%; min-width: 0; height: auto; min-height: 0 !important; padding: 4px 10px !important; border-radius: 999px; font-size: 10px; line-height: 1.2; white-space: nowrap; }
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.logged { color: #214f91; background: #dbeafe; }
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.under-legal-review,
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.pending-archival { color: #9b5b00; background: #ffe8c6; }
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.corrections-needed,
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.correction-required { color: var(--cx-color-danger); background: #ffe0e1; }
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.approved { color: #078054; background: #dff8eb; }
+.iro-admin-log-review-page td.iro-log-review-column--status > .badge.archived { color: #52615d; background: #e8eeeb; }
+.iro-admin-document-review-page .iro-admin-detail-status { display: inline-flex; align-items: center; justify-content: center; justify-self: start; width: fit-content; max-width: 100%; min-width: 0; height: auto; padding: 4px 10px; border-radius: 999px; color: #52615d; background: #e8eeeb; font-size: 10px; font-weight: 850; line-height: 1.2; white-space: nowrap; }
+.iro-admin-document-review-page .iro-admin-detail-status--logged { color: #214f91; background: #dbeafe; }
+.iro-admin-document-review-page .iro-admin-detail-status--under-legal-review,
+.iro-admin-document-review-page .iro-admin-detail-status--pending-archival { color: #9b5b00; background: #ffe8c6; }
+.iro-admin-document-review-page .iro-admin-detail-status--corrections-needed,
+.iro-admin-document-review-page .iro-admin-detail-status--correction-required { color: var(--cx-color-danger); background: #ffe0e1; }
+.iro-admin-document-review-page .iro-admin-detail-status--approved { color: #078054; background: #dff8eb; }
+.iro-admin-document-review-page .iro-admin-detail-status--archived { color: #52615d; background: #e8eeeb; }
 .iro-admin-review-workspace { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); }
 .iro-admin-review-content { min-width: 0; }
 .iro-admin-review-details .review-actions { grid-template-columns: 1fr; gap: .6rem; margin-top: .8rem; }

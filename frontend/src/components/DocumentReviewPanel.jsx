@@ -832,7 +832,14 @@ export function DocumentReviewPage({ documentId }) {
             <h2>Submission Details</h2>
             <SubmissionDetailSection title="Submission Information">
               <SubmissionDetail label="Tracking Number" value={document.tracking_number} />
-              <SubmissionDetail label="Status" value={document.status} />
+              <SubmissionDetail
+                label="Status"
+                value={
+                  <span className={`iro-admin-detail-status iro-admin-detail-status--${statusSlug(document.status)}`}>
+                    {document.status || "—"}
+                  </span>
+                }
+              />
               <SubmissionDetail label="Submitted Date" value={formatDocumentDate(document.submitted_at)} />
             </SubmissionDetailSection>
             <SubmissionDetailSection title="Requesting Office">
@@ -886,6 +893,13 @@ function SubmissionDetailSection({ title, children }) {
 
 function SubmissionDetail({ label, value }) {
   return <p><span>{label}</span><b>{value || "—"}</b></p>;
+}
+
+function statusSlug(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-");
 }
 
 function departmentName(document) {

@@ -184,7 +184,6 @@ export default function IroAdminEngagementsPage() {
     document.tracking_number || "-",
     document.partnership_scope || "-",
     document.document_type || "-",
-    document.expiry_date || document.expected_duration || "-",
     document.status || "-",
     <button
       type="button"
@@ -235,13 +234,21 @@ export default function IroAdminEngagementsPage() {
                 "Tracking Number",
                 "Partnership Scope",
                 "Document Type",
-                "Validity Period",
                 "Status",
                 "Action",
               ]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
+              columnClasses={[
+                "",
+                "",
+                "iro-engagements-column--center",
+                "iro-engagements-column--center",
+                "iro-engagements-column--status",
+                "",
+              ]}
+              statusColumnIndex={4}
             />
           )}
         </Panel>

@@ -1,3 +1,64 @@
 .iro-admin-dashboard-page {
   width: 100%;
 }
+
+.iro-admin-dashboard-page .cx-table tbody td,
+.iro-admin-dashboard-page .cx-table tbody td > .badge {
+  font-size: 10px;
+}
+
+.iro-admin-dashboard-page .dashboard-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.iro-admin-dashboard-page .iro-dashboard-column--center {
+  text-align: center;
+}
+
+.iro-admin-dashboard-page td.iro-dashboard-column--center {
+  vertical-align: middle;
+}
+
+.iro-admin-dashboard-page .iro-dashboard-column--status,
+.iro-admin-dashboard-page .iro-dashboard-column--action {
+  text-align: center;
+}
+
+.iro-admin-dashboard-page td.iro-dashboard-column--status > .badge {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0 !important;
+  padding: 4px 10px !important;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.iro-admin-dashboard-page td.iro-dashboard-column--status > .badge.logged {
+  color: #214f91;
+  background: #dbeafe;
+}
+
+.iro-admin-dashboard-page .iro-dashboard-view-action {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--cx-color-primary-600);
+  border-radius: var(--cx-radius-sm);
+  color: var(--cx-color-primary-900);
+  background: #ffffff;
+}
+
+.iro-admin-dashboard-page .iro-dashboard-view-action:focus-visible {
+  outline: 3px solid rgba(0, 122, 82, 0.24);
+  outline-offset: 2px;
+}

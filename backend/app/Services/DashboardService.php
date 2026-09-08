@@ -219,6 +219,7 @@ class DashboardService
                 ];
 
                 if ($includePartnershipScope) {
+                    $payload['id'] = $document->id;
                     $payload['partnership_scope'] =
                         $document->partnership_scope;
                 }

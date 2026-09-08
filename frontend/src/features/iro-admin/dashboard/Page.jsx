@@ -1,10 +1,12 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 import { DashboardView } from "../../../components/SharedViews";
 import { IroNewEngagementModal } from "../engagements/NewEngagementModal";
 import "./Page.css";
 
 export default function IroAdminDashboardPage() {
+  const navigate = useNavigate();
   const [showModal, setShowModal] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
 
@@ -21,6 +23,9 @@ export default function IroAdminDashboardPage() {
         action="New Engagement"
         onAction={() => setShowModal(true)}
         refreshKey={refreshKey}
+        className="iro-admin-dashboard-page"
+        hideNotifications
+        onViewDocument={(document) => navigate(`/app/log-review/${document.id}`)}
       />
       <IroNewEngagementModal
         open={showModal}
