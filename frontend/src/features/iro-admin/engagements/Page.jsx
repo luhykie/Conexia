@@ -1,4 +1,5 @@
 import React from "react";
+import { Eye } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
 import {
@@ -187,11 +188,13 @@ export default function IroAdminEngagementsPage() {
     document.status || "-",
     <button
       type="button"
-      className="table-action"
+      className="iro-dashboard-view-action"
       key={document.id}
+      aria-label={`View engagement ${document.tracking_number || "record"}`}
+      title="View engagement"
       onClick={() => setSelectedDocument(document)}
     >
-      View
+      <Eye size={16} aria-hidden="true" />
     </button>,
   ]);
 

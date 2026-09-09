@@ -1,4 +1,5 @@
 import React from "react";
+import { Eye } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
 import { PageTitle } from "../../../components/PageTitle";
@@ -156,11 +157,13 @@ export default function IroAdminReassignPage() {
     document.status || "-",
     <button
       type="button"
-      className="table-action"
+      className="iro-dashboard-view-action"
       key={document.id}
+      aria-label={`Reassign ${document.tracking_number || "submission"}`}
+      title="Open reassignment"
       onClick={(event) => openDrawer(document, event.currentTarget)}
     >
-      Reassign
+      <Eye size={16} aria-hidden="true" />
     </button>,
   ]);
 

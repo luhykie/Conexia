@@ -1,4 +1,5 @@
 import React from "react";
+import { Eye } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
 import {
@@ -111,11 +112,13 @@ export default function IroAdminLogReviewPage({ documentId }) {
     ) : (
       <button
         type="button"
-        className="table-action"
+        className="iro-dashboard-view-action"
         key={document.id}
+        aria-label={`Review ${document.tracking_number || "document"}`}
+        title="View document"
         onClick={() => navigate(`/app/log-review/${document.id}`)}
       >
-        Review
+        <Eye size={16} aria-hidden="true" />
       </button>
     ),
   ]);
