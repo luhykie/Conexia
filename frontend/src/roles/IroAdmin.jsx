@@ -21,6 +21,7 @@ const pages = {
   settings: SettingsPage,
 };
 
+// Selects and renders the page requested by the IRO Admin route.
 export function IroAdmin({ page = "dashboard", account, documentId }) {
   const requestedPage = canAccessPage("admin", page) ? page : "dashboard";
   const Page = pages[requestedPage] || DashboardPage;

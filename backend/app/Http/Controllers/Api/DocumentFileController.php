@@ -21,11 +21,13 @@ use Throwable;
 
 class DocumentFileController extends Controller
 {
+    // Receives the service that manages document files and annotations.
     public function __construct(
         private readonly DocumentFileService $files
     ) {
     }
 
+    // Returns metadata for a document file the current user may access.
     public function metadata(
         Request $request,
         Document $document
@@ -55,6 +57,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Validates and uploads a new file for the selected document.
     public function upload(
         DocumentFileUploadRequest $request,
         Document $document
@@ -78,6 +81,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Streams an authorized document file as a download.
     public function download(
         Request $request,
         Document $document,
@@ -103,6 +107,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Streams an authorized document file for inline preview.
     public function preview(
         Request $request,
         Document $document,
@@ -136,6 +141,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Returns visible annotations for a specific document file.
     public function annotations(
         Request $request,
         Document $document,
@@ -156,6 +162,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Creates a highlight annotation on a document file.
     public function annotate(
         Request $request,
         Document $document,
@@ -189,6 +196,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Updates the comment attached to an existing annotation.
     public function updateAnnotation(
         Request $request,
         Document $document,
@@ -211,6 +219,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Removes an annotation while preserving its audit history.
     public function removeAnnotation(
         Request $request,
         Document $document,
@@ -229,6 +238,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Soft-deletes a document file when the workflow permits it.
     public function delete(
         Request $request,
         Document $document,
@@ -253,6 +263,7 @@ class DocumentFileController extends Controller
         });
     }
 
+    // Retrieves the authenticated profile attached by auth middleware.
     private function profile(Request $request): Profile
     {
         return $request->attributes->get(
@@ -260,6 +271,7 @@ class DocumentFileController extends Controller
         );
     }
 
+    // Builds response headers for downloads and inline file previews.
     private function headers(
         DocumentFile $file,
         string $disposition
@@ -276,6 +288,7 @@ class DocumentFileController extends Controller
         ];
     }
 
+    // Produces the common successful file-operation response structure.
     private function success(
         string $message,
         mixed $data,
@@ -290,6 +303,7 @@ class DocumentFileController extends Controller
         ], $status);
     }
 
+    // Converts service and authorization exceptions into JSON responses.
     private function runJson(callable $action): JsonResponse
     {
         try {
@@ -320,6 +334,7 @@ class DocumentFileController extends Controller
         }
     }
 
+    // Converts service and authorization exceptions into file responses.
     private function runFile(callable $action): Response
     {
         try {

@@ -17,6 +17,7 @@ import { getIncomingDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Shows the IRO review queue or one selected review workspace.
 export default function IroAdminLogReviewPage({ documentId }) {
   const navigate = useNavigate();
   const [documents, setDocuments] = React.useState([]);
@@ -32,11 +33,13 @@ export default function IroAdminLogReviewPage({ documentId }) {
     clearFilters,
   } = useDocumentFilters();
 
+  // Applies a queue filter and returns pagination to page one.
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
   }
 
+  // Sends Legal's correction request to the originating department.
   async function routeCorrection(document) {
     setRoutingId(document.id);
     setError("");
@@ -59,6 +62,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
       return () => { active = false; };
     }
 
+    // Fetches the current page of documents waiting for IRO action.
     async function loadIncoming() {
       setLoading(true);
       setError("");
@@ -184,6 +188,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
   );
 }
 
+// Returns a safe Local or International label for the table.
 function partnershipScope(document) {
   const scope = document.partnership_scope || document.partnership_type;
   return ["Local", "International"].includes(scope)
@@ -191,6 +196,7 @@ function partnershipScope(document) {
     : "-";
 }
 
+// Identifies engagements created directly by an IRO Admin.
 function isIroAdminCreated(document) {
   return document.created_by?.role === "iro_admin";
 }

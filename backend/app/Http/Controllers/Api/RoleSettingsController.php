@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class RoleSettingsController extends Controller
 {
+    // Returns the effective permission matrix for every configurable role.
     public function index(): JsonResponse
     {
         return response()->json([
@@ -21,6 +22,7 @@ class RoleSettingsController extends Controller
         ]);
     }
 
+    // Validates and persists allowed role-permission changes.
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -80,6 +82,7 @@ class RoleSettingsController extends Controller
         ]);
     }
 
+    // Protects mandatory security boundaries from configuration changes.
     private function violatesProtectedBoundaries(
         array $permissions,
         array $defaults
@@ -101,6 +104,7 @@ class RoleSettingsController extends Controller
         return false;
     }
 
+    // Builds the stored permission matrix on top of the defaults.
     private function matrix(): array
     {
         $saved = RolePermission::query()
@@ -137,6 +141,7 @@ class RoleSettingsController extends Controller
             ->all();
     }
 
+    // Defines the default permissions assigned to each role.
     private function defaults(): array
     {
         return [

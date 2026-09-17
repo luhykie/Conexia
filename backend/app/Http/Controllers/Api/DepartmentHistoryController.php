@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Cache;
 
 class DepartmentHistoryController extends Controller
 {
+    // Records a file view once per user within a short deduplication window.
     public function viewed(Request $request, Document $document): JsonResponse
     {
         $profile = $this->detailedHistoryViewer($request, $document);
@@ -40,11 +41,13 @@ class DepartmentHistoryController extends Controller
         return response()->json(['success' => true, 'event' => $this->row($view->load(['actor:id,full_name,role,department_id', 'actor.department:id,name,code', 'documentFile:id,document_id,original_filename,version,mime_type']), collect([$file->version => $file]))]);
     }
 
+    // Exposes the shared history response through IRO and Legal routes.
     public function history(Request $request, Document $document): JsonResponse
     {
         return $this->index($request, $document);
     }
 
+    // Builds the timeline, file versions, annotations, and approved version.
     public function index(Request $request, Document $document): JsonResponse
     {
         $this->detailedHistoryViewer($request, $document);
@@ -158,6 +161,7 @@ class DepartmentHistoryController extends Controller
         return response()->json(['success' => true, 'events' => $events, 'versions' => $versions, 'original' => $original, 'highlighted_versions' => $highlightedVersions, 'approved_document' => $approvedDocument]);
     }
 
+    // Formats an audit log entry for the document activity timeline.
     private function row(AuditLog $log, $filesByVersion): array
     {
         $file = $log->documentFile ?: $filesByVersion->get((int) ($log->metadata['review_version'] ?? 0));
@@ -205,6 +209,7 @@ class DepartmentHistoryController extends Controller
         ];
     }
 
+    // Converts an audit action into a readable history label.
     private function actionLabel(string $action, ?int $version): string
     {
         if ($action === 'document_file.uploaded') {
@@ -229,6 +234,7 @@ class DepartmentHistoryController extends Controller
         };
     }
 
+    // Reconstructs active file annotations from their audit-log events.
     private function fileAnnotations(Document $document)
     {
         $events = AuditLog::query()
@@ -272,6 +278,7 @@ class DepartmentHistoryController extends Controller
             })->groupBy('document_file_id');
     }
 
+    // Formats a department review item for the annotations response.
     private function item(DocumentReviewItem $item): array
     {
         return [
@@ -291,6 +298,7 @@ class DepartmentHistoryController extends Controller
         ];
     }
 
+    // Authorizes IRO, Legal, or participating department history access.
     private function detailedHistoryViewer(Request $request, Document $document): Profile
     {
         $profile = $request->attributes->get('authenticated_profile');

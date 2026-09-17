@@ -23,6 +23,7 @@ class DocumentMessage extends Model
         'read_at',
     ];
 
+    // Casts message read state and timestamp to native values.
     protected function casts(): array
     {
         return [
@@ -31,16 +32,19 @@ class DocumentMessage extends Model
         ];
     }
 
+    // Returns the document conversation containing this message.
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
     }
 
+    // Returns the profile that sent this message.
     public function sender(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'sender_id');
     }
 
+    // Returns the message referenced by this reply.
     public function replyTo(): BelongsTo
     {
         return $this->belongsTo(self::class, 'reply_to_message_id');

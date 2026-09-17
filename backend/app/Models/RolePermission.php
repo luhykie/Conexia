@@ -18,6 +18,7 @@ class RolePermission extends Model
         'updated_by',
     ];
 
+    // Casts the permission flag to a native boolean value.
     protected function casts(): array
     {
         return [

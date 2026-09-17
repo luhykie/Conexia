@@ -14,6 +14,7 @@ use Throwable;
 
 class DashboardRepository
 {
+    // Loads documents owned by the authenticated staff member's department.
     public function departmentDocuments(Profile $profile): Collection
     {
         return Document::query()
@@ -29,6 +30,7 @@ class DashboardRepository
             ->get();
     }
 
+    // Loads the full document scope visible on the IRO Admin dashboard.
     public function iroDocuments(bool $includeArchived = true): Collection
     {
         return Document::query()
@@ -46,6 +48,7 @@ class DashboardRepository
             ->get();
     }
 
+    // Loads documents assigned to the authenticated Legal Counsel.
     public function legalDocuments(Profile $profile): Collection
     {
         return Document::query()
@@ -61,11 +64,13 @@ class DashboardRepository
             ->get();
     }
 
+    // Returns the total number of user profiles.
     public function totalUsers(): int
     {
         return Profile::query()->count();
     }
 
+    // Returns the number of active user profiles.
     public function activeUsers(): int
     {
         return Profile::query()
@@ -73,6 +78,7 @@ class DashboardRepository
             ->count();
     }
 
+    // Groups active user totals by department.
     public function activeUsersByDepartment(): array
     {
         return Profile::query()
@@ -85,11 +91,13 @@ class DashboardRepository
             ->all();
     }
 
+    // Returns the total number of registered departments.
     public function activeDepartments(): int
     {
         return Department::query()->count();
     }
 
+    // Counts sessions active within the configured time window.
     public function activeSessions(int $windowMinutes = 15): int
     {
         if (!Schema::hasTable('sessions')) {
@@ -105,6 +113,7 @@ class DashboardRepository
             ->count();
     }
 
+    // Groups audit activity and unique users into dated dashboard buckets.
     public function activityCounts(string $period, int $buckets): array
     {
         $buckets = collect(range($buckets - 1, 0))
@@ -149,6 +158,7 @@ class DashboardRepository
             ->all();
     }
 
+    // Returns the total number of bytes stored for document files.
     public function documentStorageBytes(): ?int
     {
         if (
@@ -161,6 +171,7 @@ class DashboardRepository
         return (int) DB::table('document_files')->sum('size');
     }
 
+    // Checks whether the application database is reachable.
     public function databaseStatus(): string
     {
         try {
@@ -172,6 +183,7 @@ class DashboardRepository
         return 'Connected';
     }
 
+    // Lists the document columns required by each dashboard query.
     private function dashboardColumns(): array
     {
         return [
@@ -189,6 +201,7 @@ class DashboardRepository
         ];
     }
 
+    // Builds the date boundaries and label for one activity bucket.
     private function activityBucket(string $period, int $offset): array
     {
         $now = now();
@@ -224,6 +237,7 @@ class DashboardRepository
         ];
     }
 
+    // Builds the database-specific expression used to group audit activity.
     private function activityBucketExpression(string $period): string
     {
         $driver = DB::connection()->getDriverName();

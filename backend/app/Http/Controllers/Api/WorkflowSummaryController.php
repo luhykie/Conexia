@@ -13,11 +13,13 @@ use Illuminate\Validation\Rule;
 
 class WorkflowSummaryController extends Controller
 {
+    // Receives the service responsible for workflow summaries and actions.
     public function __construct(
         private readonly WorkflowSummaryService $summaries
     ) {
     }
 
+    // Returns agreements grouped by their expiry state.
     public function expiry(Request $request): JsonResponse
     {
         return $this->success(
@@ -29,6 +31,7 @@ class WorkflowSummaryController extends Controller
         );
     }
 
+    // Records a renewal request for an eligible agreement.
     public function requestRenewal(
         Request $request,
         string $id
@@ -44,6 +47,7 @@ class WorkflowSummaryController extends Controller
         );
     }
 
+    // Returns archived agreements using the requested filters and pagination.
     public function archive(Request $request): JsonResponse
     {
         $options = $this->options(
@@ -63,6 +67,7 @@ class WorkflowSummaryController extends Controller
         );
     }
 
+    // Returns workflow data used to build IRO reports.
     public function reports(Request $request): JsonResponse
     {
         $data = $this->summaries->reports(
@@ -75,6 +80,7 @@ class WorkflowSummaryController extends Controller
         );
     }
 
+    // Retrieves the authenticated profile attached by auth middleware.
     private function profile(Request $request): Profile
     {
         return $request->attributes->get(
@@ -82,6 +88,7 @@ class WorkflowSummaryController extends Controller
         );
     }
 
+    // Produces the common successful workflow response structure.
     private function success(
         string $message,
         array $data
@@ -97,6 +104,7 @@ class WorkflowSummaryController extends Controller
         ]);
     }
 
+    // Normalizes shared search, filter, sorting, and pagination options.
     private function options(
         Request $request,
         array $sortColumns,
@@ -127,6 +135,7 @@ class WorkflowSummaryController extends Controller
         ];
     }
 
+    // Extends the shared options with expiry-specific filters.
     private function expiryOptions(Request $request): array
     {
         $options = Pagination::options(

@@ -42,6 +42,7 @@ class AuthController extends Controller
         ]);
     }
 
+    // Maps a stored profile role to the role key used by the frontend.
     private function roleKey(string $role): string
     {
         return match ($role) {

@@ -27,6 +27,7 @@ class DocumentFile extends Model
         'deleted_at',
     ];
 
+    // Casts the file version and deletion timestamp to native values.
     protected function casts(): array
     {
         return [
@@ -38,11 +39,13 @@ class DocumentFile extends Model
         ];
     }
 
+    // Returns the document that owns this file.
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
     }
 
+    // Returns the profile that uploaded this file.
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'uploaded_by');

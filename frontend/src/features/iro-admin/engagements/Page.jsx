@@ -21,6 +21,7 @@ import { getIroStatusDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Displays, inspects, and edits the IRO engagement registry.
 export default function IroAdminEngagementsPage() {
   const [documents, setDocuments] = React.useState([]);
   const [selectedDocument, setSelectedDocument] = React.useState(null);
@@ -43,11 +44,13 @@ export default function IroAdminEngagementsPage() {
     clearFilters,
   } = useDocumentFilters();
 
+  // Applies an engagement filter and resets pagination.
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
   }
 
+  // Closes the details drawer and clears edit state.
   function closeDetails() {
     if (saving) return;
     setSelectedDocument(null);
@@ -59,6 +62,7 @@ export default function IroAdminEngagementsPage() {
     setHistoryVersion(null);
   }
 
+  // Starts editing when the selected IRO engagement is eligible.
   async function startEditing() {
     if (!selectedDocument?.can_edit_engagement) return;
 
@@ -79,6 +83,7 @@ export default function IroAdminEngagementsPage() {
     }
   }
 
+  // Updates the changed metadata field and clears resolved errors.
   function updateEditForm(event) {
     const { name, value } = event.target;
     setEditForm((current) => ({ ...current, [name]: value }));
@@ -88,6 +93,7 @@ export default function IroAdminEngagementsPage() {
     }
   }
 
+  // Saves metadata and an optional replacement agreement file.
   async function saveEngagement(event) {
     event.preventDefault();
     if (!selectedDocument || !editForm || saving) return;
@@ -130,6 +136,7 @@ export default function IroAdminEngagementsPage() {
   React.useEffect(() => {
     let active = true;
 
+    // Loads the filtered page of engagement records.
     async function loadEngagements() {
       setLoading(true);
       setError("");
@@ -172,6 +179,7 @@ export default function IroAdminEngagementsPage() {
   React.useEffect(() => {
     if (!selectedDocument) return undefined;
 
+    // Allows Escape to close the details drawer safely.
     function closeOnEscape(event) {
       if (event.key === "Escape" && !saving) closeDetails();
     }
@@ -423,6 +431,7 @@ export default function IroAdminEngagementsPage() {
   );
 }
 
+// Wraps an editable engagement control with its label and error.
 function EditField({ label, wide = false, error = "", children }) {
   return (
     <label className={wide ? "engagement-edit-field engagement-edit-field--wide" : "engagement-edit-field"}>
@@ -433,6 +442,7 @@ function EditField({ label, wide = false, error = "", children }) {
   );
 }
 
+// Converts document data into the engagement edit-form shape.
 function editableEngagement(document) {
   return {
     title: document.title ?? "",
@@ -450,6 +460,7 @@ function editableEngagement(document) {
   };
 }
 
+// Groups engagement values into sections for the details drawer.
 function engagementSections(document) {
   const submittedForm = submittedFormDetails(document.description);
 
@@ -511,10 +522,12 @@ function engagementSections(document) {
   ];
 }
 
+// Creates one normalized label/value detail entry.
 function engagementDetail(label, value, options = {}) {
   return { label, value: hasValue(value) ? value : "-", ...options };
 }
 
+// Creates a wide description entry when text is available.
 function descriptionDetail(value) {
   const available = hasValue(value);
   return {
@@ -525,24 +538,29 @@ function descriptionDetail(value) {
   };
 }
 
+// Returns the first non-empty value from several possible sources.
 function firstAvailable(...values) {
   return values.find(hasValue);
 }
 
+// Checks whether a detail value should be displayed.
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
 }
 
+// Formats a department code and name for display.
 function departmentLabel(department) {
   if (!department) return undefined;
   if (department.code && department.name) return `${department.code} - ${department.name}`;
   return department.code || department.name;
 }
 
+// Resolves the office responsible for the engagement.
 function responsibleOffice(document, submittedOffice) {
   return firstAvailable(departmentLabel(document.department), submittedOffice);
 }
 
+// Converts a stored date into a readable local date.
 function formatDate(value) {
   if (!hasValue(value)) return undefined;
 
@@ -550,10 +568,12 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
+// Formats the renewal notice period in days.
 function formatRenewalNotice(value) {
   return hasValue(value) ? `${value} days` : undefined;
 }
 
+// Cleans serialized form values before displaying them.
 function formatSubmittedValue(value) {
   if (!hasValue(value)) return undefined;
 
@@ -562,6 +582,7 @@ function formatSubmittedValue(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+// Extracts labeled form details embedded in the description.
 function submittedFormDetails(description) {
   const structuredLines = submittedFormLines(description);
   if (structuredLines.length < 4) return {};
@@ -575,6 +596,7 @@ function submittedFormDetails(description) {
   }, {});
 }
 
+// Extracts the free-text description from submitted form content.
 function submittedDescription(description) {
   if (!hasValue(description)) return undefined;
 
@@ -592,6 +614,7 @@ function submittedDescription(description) {
   return purpose || undefined;
 }
 
+// Splits stored submission text into trimmed non-empty lines.
 function submittedFormLines(description) {
   if (!hasValue(description)) return [];
 

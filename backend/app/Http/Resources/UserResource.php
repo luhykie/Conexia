@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
+    // Converts a user profile into its public API representation.
     public function toArray(Request $request): array
     {
         return [
@@ -47,6 +48,7 @@ class UserResource extends JsonResource
         ];
     }
 
+    // Converts the stored role into a readable user-directory label.
     private function roleLabel(): string
     {
         return match ($this->role) {

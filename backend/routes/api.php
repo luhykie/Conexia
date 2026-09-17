@@ -41,6 +41,7 @@ Route::middleware([
         [DashboardController::class, 'department']
     );
 
+// Exposes the dashboard summary exclusively to IRO Admin.
 Route::middleware([
     'throttle:api',
     AuthenticateSupabaseUser::class,
@@ -135,6 +136,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Allows authorized IRO and Super Admin users to manage eligible accounts.
         Route::middleware([
             EnsureRole::class
                 .':'
@@ -160,6 +162,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Shares the department directory with roles that require office data.
         Route::middleware(
             EnsureRole::class
                 .':'
@@ -181,6 +184,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Shares expiry and notification endpoints with document workflow roles.
         Route::middleware(
             EnsureRole::class
                 .':'
@@ -222,6 +226,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Allows document participants, including IRO Admin, to exchange messages.
         Route::middleware(
             EnsureRole::class
                 .':'
@@ -243,6 +248,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Shares renewal and document-file operations with workflow participants.
         Route::middleware(
             EnsureRole::class
                 .':'
@@ -323,6 +329,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 Route::post('/department/documents/{document}/discussion', [DepartmentDiscussionController::class, 'store']);
             });
 
+        // Provides IRO Admin queues, status tracking, and document details.
         Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )
@@ -353,6 +360,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Allows IRO Admin and Legal Counsel to view file annotations.
         Route::middleware(
             EnsureRole::class
                 .':'
@@ -367,6 +375,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Allows IRO Admin and Legal Counsel to manage file annotations.
         Route::middleware(
             EnsureRole::class
                 .':'
@@ -391,6 +400,7 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Provides IRO-only annotations and document workflow mutations.
         Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )
@@ -466,18 +476,21 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                 );
             });
 
+        // Shares detailed IRO document history with assigned legal reviewers.
         Route::middleware(
             EnsureRole::class
                 .':'.Profile::ROLE_IRO_ADMIN
                 .','.Profile::ROLE_LEGAL_COUNSEL
         )->get('/iro/documents/{document}/history', [DepartmentHistoryController::class, 'history']);
 
+        // Records document-version views from IRO and Legal history screens.
         Route::middleware(
             EnsureRole::class
                 .':'.Profile::ROLE_IRO_ADMIN
                 .','.Profile::ROLE_LEGAL_COUNSEL
         )->post('/iro/documents/{document}/history/viewed', [DepartmentHistoryController::class, 'viewed']);
 
+        // Provides the IRO archive and reporting summaries.
         Route::middleware(
             EnsureRole::class.':'.Profile::ROLE_IRO_ADMIN
         )

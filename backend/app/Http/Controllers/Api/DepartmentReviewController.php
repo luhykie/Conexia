@@ -18,6 +18,7 @@ use Illuminate\Validation\ValidationException;
 
 class DepartmentReviewController extends Controller
 {
+    // Returns the active department review and its recorded items.
     public function show(Request $request, Document $document): JsonResponse
     {
         $this->participant($request, $document);
@@ -35,6 +36,7 @@ class DepartmentReviewController extends Controller
         ]);
     }
 
+    // Creates a highlight, comment, or review item for the document.
     public function storeItem(Request $request, Document $document): JsonResponse
     {
         $profile = $this->participant($request, $document);
@@ -99,6 +101,7 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'item' => $this->item($item)]);
     }
 
+    // Approves the department review when its requirements are satisfied.
     public function approve(Request $request, Document $document): JsonResponse
     {
         $profile = $this->participant($request, $document);
@@ -122,6 +125,7 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'message' => 'Partner review is complete and has been returned to the creator.', 'document' => DocumentPayload::make($result), 'reviews' => $this->reviews($result)]);
     }
 
+    // Updates an existing department review item.
     public function updateItem(Request $request, Document $document, string $item): JsonResponse
     {
         $profile = $this->participant($request, $document);
@@ -189,6 +193,7 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'item' => $this->item($reviewItem->refresh())]);
     }
 
+    // Removes a comment while retaining its surrounding review item.
     public function deleteComment(Request $request, Document $document, string $item): JsonResponse
     {
         $profile = $this->participant($request, $document);
@@ -267,6 +272,7 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'message' => 'Annotation removed.']);
     }
 
+    // Returns the document to its owner for requested corrections.
     public function requestCorrection(Request $request, Document $document): JsonResponse
     {
         $profile = $this->participant($request, $document);
@@ -283,6 +289,7 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'message' => 'Correction requested. A revised document will require new approvals from both departments.']);
     }
 
+    // Routes a partner-approved submission to IRO Admin.
     public function routeToAdmin(Request $request, Document $document): JsonResponse
     {
         $profile = $this->participant($request, $document);
@@ -303,6 +310,7 @@ class DepartmentReviewController extends Controller
         return response()->json(['success' => true, 'message' => 'Submission routed to IRO Admin.', 'document' => DocumentPayload::make($document->refresh())]);
     }
 
+    // Authorizes and returns the participating department profile.
     private function participant(Request $request, Document $document): Profile
     {
         $profile = $request->attributes->get('authenticated_profile');
@@ -318,6 +326,7 @@ class DepartmentReviewController extends Controller
         return $profile;
     }
 
+    // Selects the highlight color assigned to the reviewing department.
     private function departmentHighlightColor(Document $document, Profile $profile): string
     {
         return $profile->department_id === $document->department_id
@@ -325,11 +334,13 @@ class DepartmentReviewController extends Controller
             : 'blue';
     }
 
+    // Returns the document's department review summaries.
     private function reviews(Document $document): array
     {
         return DocumentDepartmentReview::query()->with('department')->where('document_id', $document->id)->where('version', $document->department_review_version)->get()->map(fn ($review) => ['department_id' => $review->department_id, 'department' => $review->department?->name, 'approved_at' => $review->approved_at?->toISOString()])->all();
     }
 
+    // Renumbers active highlights after review-item changes.
     private function renumberActiveHighlights(Document $document): void
     {
         $activeHighlights = DocumentReviewItem::query()
@@ -349,6 +360,7 @@ class DepartmentReviewController extends Controller
         );
     }
 
+    // Confirms annotations created by the partner department.
     private function confirmPartnerAnnotations(Document $document, Profile $profile): void
     {
         DocumentReviewItem::query()
@@ -359,6 +371,7 @@ class DepartmentReviewController extends Controller
             ->update(['confirmed_at' => now()]);
     }
 
+    // Returns review items visible to the current participant.
     private function items(Document $document, ?Profile $profile): array
     {
         return DocumentReviewItem::query()->with(['author', 'department'])
@@ -371,5 +384,6 @@ class DepartmentReviewController extends Controller
             })
             ->oldest()->get()->map(fn ($item) => $this->item($item))->all();
     }
+    // Formats one department review item for the API response.
     private function item(DocumentReviewItem $item): array { $item->loadMissing(['author', 'department']); return ['id' => $item->id, 'type' => $item->type, 'parent_id' => $item->parent_id, 'review_version' => $item->review_version, 'display_number' => $item->display_number, 'selected_text' => $item->selected_text, 'selection_anchor' => $item->selection_anchor, 'highlight_color' => $item->highlight_color, 'highlight_removed_at' => $item->highlight_removed_at?->toISOString(), 'confirmed_at' => $item->confirmed_at?->toISOString(), 'comment' => $item->comment, 'department' => $item->department?->name, 'author' => $item->author?->full_name, 'created_at' => $item->created_at?->toISOString()]; }
 }

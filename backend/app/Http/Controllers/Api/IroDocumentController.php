@@ -24,6 +24,7 @@ use Illuminate\Validation\Rule;
 
 class IroDocumentController extends Controller
 {
+    // Receives the shared file service used by history and engagement edits.
     public function __construct(
         private readonly DocumentFileService $documentFiles
     ) {
@@ -33,6 +34,7 @@ class IroDocumentController extends Controller
 
     private ?Collection $departments = null;
 
+    // Lists documents currently waiting for direct IRO Admin action.
     public function incoming(Request $request): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -53,6 +55,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Returns one visible document with assignment and routing choices.
     public function show(Request $request, string $id): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -78,6 +81,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Records the first time this IRO Admin opens the document.
     public function markViewed(Request $request, string $id): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -104,6 +108,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Returns the original and approved document versions for comparison.
     public function history(Request $request, string $id): JsonResponse
     {
         $this->ensureIroAdmin($request);
@@ -143,6 +148,7 @@ class IroDocumentController extends Controller
         ]);
     }
 
+    // Lists documents across the statuses shown in the IRO tracker.
     public function status(Request $request): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -166,6 +172,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Lists active documents that have another valid destination.
     public function reassignable(Request $request): JsonResponse
     {
         $profile = $this->ensureIroAdmin($request);
@@ -216,6 +223,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Creates an engagement owned directly by the IRO Admin office.
     public function store(Request $request): JsonResponse
     {
         $profile = $this->ensureIro($request);
@@ -270,6 +278,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Updates editable engagement fields and optionally creates a file version.
     public function updateEngagement(Request $request, string $id): JsonResponse
     {
         $profile = $this->ensureIroAdmin($request);
@@ -383,6 +392,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Creates a document and retries when a tracking number collision occurs.
     private function createDocumentWithTrackingNumber(
         array $validated,
         Profile $profile,
@@ -421,6 +431,7 @@ class IroDocumentController extends Controller
         throw new \RuntimeException('Unable to generate a unique tracking number.');
     }
 
+    // Detects database errors caused by duplicate tracking numbers.
     private function isDuplicateTrackingNumberError(string $message): bool
     {
         return str_contains($message, 'documents_tracking_number_unique') ||
@@ -428,6 +439,7 @@ class IroDocumentController extends Controller
             str_contains($message, 'tracking_number');
     }
 
+    // Moves a submitted document into the IRO review queue.
     public function markLogged(
         Request $request,
         string $id
@@ -462,6 +474,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Assigns a logged document to an active Legal Counsel account.
     public function assignLegal(
         Request $request,
         string $id
@@ -529,6 +542,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Returns a logged document to its owner for revision.
     public function returnFromAdminReview(Request $request, string $id): JsonResponse
     {
         $profile = $this->ensureIroAdmin($request);
@@ -563,6 +577,7 @@ class IroDocumentController extends Controller
         return $this->documentResponse('Document returned for revision.', $document);
     }
 
+    // Validates IRO review and routes the document to Legal Counsel.
     public function validateAndRouteToLegal(Request $request, string $id): JsonResponse
     {
         $profile = $this->ensureIroAdmin($request);
@@ -605,6 +620,7 @@ class IroDocumentController extends Controller
         return $this->documentResponse('IRO Admin review validated and routed to Legal Counsel.', $document);
     }
 
+    // Releases Legal's correction request to the originating department.
     public function routeLegalCorrectionToDepartment(
         Request $request,
         string $id
@@ -649,6 +665,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Ensures a document is in the normal IRO review state.
     private function requireLoggedAdminReview(Document $document): void
     {
         if ($document->status !== Document::STATUS_LOGGED) {
@@ -658,6 +675,7 @@ class IroDocumentController extends Controller
         }
     }
 
+    // Accepts normal logged reviews and direct IRO correction reviews.
     private function requireValidatableAdminReview(Document $document): void
     {
         if (
@@ -673,6 +691,7 @@ class IroDocumentController extends Controller
         }
     }
 
+    // Stores an IRO decision with its status change and document version.
     private function logAdminReviewDecision(
         Document $document,
         Profile $profile,
@@ -699,6 +718,7 @@ class IroDocumentController extends Controller
         ]);
     }
 
+    // Reassigns a document to counsel, a department, or a partner.
     public function reassignLegal(
         Request $request,
         string $id
@@ -788,6 +808,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Archives an approved document without deleting related records.
     public function archive(
         Request $request,
         string $id
@@ -828,6 +849,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Restores an archived document to the approved pending-archive state.
     public function unarchive(
         Request $request,
         string $id
@@ -870,6 +892,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Builds the filtered, paginated document response used by IRO lists.
     private function documents(
         string $message,
         Request $request,
@@ -1109,6 +1132,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Adds IRO-specific workflow fields to the base document payload.
     private function payloadFor(
         Profile $profile,
         Document $document,
@@ -1139,6 +1163,7 @@ class IroDocumentController extends Controller
         ];
     }
 
+    // Loads and locks a visible document before a workflow mutation.
     private function lockedDocument(string $id): Document
     {
         return Document::query()
@@ -1148,6 +1173,7 @@ class IroDocumentController extends Controller
             ->firstOrFail();
     }
 
+    // Describes the department or profile that owns the document.
     private function ownershipMetadata(Document $document): array
     {
         $document->loadMissing('department');
@@ -1165,6 +1191,7 @@ class IroDocumentController extends Controller
         ];
     }
 
+    // Returns a safe summary of the document creator.
     private function creatorPayload(Document $document): ?array
     {
         $document->loadMissing('submitter');
@@ -1179,6 +1206,7 @@ class IroDocumentController extends Controller
             : null;
     }
 
+    // Checks whether the engagement was created directly by IRO Admin.
     private function isIroAdminCreated(Document $document): bool
     {
         $document->loadMissing('submitter');
@@ -1186,6 +1214,7 @@ class IroDocumentController extends Controller
         return $document->submitter?->role === Profile::ROLE_IRO_ADMIN;
     }
 
+    // Rejects edits when the engagement is not owned or is already locked.
     private function requireEditableAdminEngagement(Document $document): void
     {
         if (!$this->canEditAdminEngagement($document)) {
@@ -1195,6 +1224,7 @@ class IroDocumentController extends Controller
         }
     }
 
+    // Reports whether the current workflow stage still permits IRO edits.
     private function canEditAdminEngagement(Document $document): bool
     {
         $document->loadMissing('submitter');
@@ -1207,6 +1237,7 @@ class IroDocumentController extends Controller
             ], true);
     }
 
+    // Wraps one document in the standard successful API response shape.
     private function documentResponse(
         string $message,
         Document $document
@@ -1225,6 +1256,7 @@ class IroDocumentController extends Controller
         );
     }
 
+    // Builds valid department, partner, and Legal Counsel destinations.
     private function reassignmentDestinations(Document $document): array
     {
         if (
@@ -1295,6 +1327,7 @@ class IroDocumentController extends Controller
             ->all();
     }
 
+    // Matches the requested destination against the allowed choices.
     private function findValidDestination(
         Document $document,
         string $type,
@@ -1307,6 +1340,7 @@ class IroDocumentController extends Controller
             );
     }
 
+    // Returns workflow stages intentionally hidden from IRO document lists.
     private function hiddenIroStatuses(): array
     {
         return [
@@ -1315,6 +1349,7 @@ class IroDocumentController extends Controller
         ];
     }
 
+    // Adds IRO editability and formatted notarization data to a document.
     private function iroPayload(Document $document): array
     {
         $payload = DocumentPayload::make($document);
@@ -1328,6 +1363,7 @@ class IroDocumentController extends Controller
         return $payload;
     }
 
+    // Resolves the latest recorded destination or original Legal assignee.
     private function currentAssignment(Document $document): array
     {
         $document->loadMissing(['legalCounsel', 'latestReassignment']);
@@ -1361,6 +1397,7 @@ class IroDocumentController extends Controller
         ];
     }
 
+    // Resolves a partner institution to a known internal department.
     private function partnerDepartment(Document $document): ?Department
     {
         if (!$document->partner_institution) {
@@ -1376,6 +1413,7 @@ class IroDocumentController extends Controller
             });
     }
 
+    // Loads and caches active Legal Counsel assignment options.
     private function activeLegalCounsel(): Collection
     {
         return $this->activeLegalCounsel ??= Profile::query()
@@ -1385,16 +1423,19 @@ class IroDocumentController extends Controller
             ->get();
     }
 
+    // Loads and caches departments used for destination matching.
     private function departments(): Collection
     {
         return $this->departments ??= Department::query()->get();
     }
 
+    // Formats a department as code followed by name.
     private function departmentLabel(Department $department): string
     {
         return "{$department->code} - {$department->name}";
     }
 
+    // Classifies an external partner as local or international.
     private function partnerCategory(Document $document): string
     {
         $email = strtolower((string) $document->partner_email);
@@ -1406,6 +1447,7 @@ class IroDocumentController extends Controller
         return 'Local Partner';
     }
 
+    // Retrieves the authenticated profile attached by auth middleware.
     private function ensureIro(Request $request): Profile
     {
         $profile = $request->attributes->get(
@@ -1419,6 +1461,7 @@ class IroDocumentController extends Controller
         return $profile;
     }
 
+    // Confirms that the authenticated profile is specifically IRO Admin.
     private function ensureIroAdmin(Request $request): Profile
     {
         $profile = $this->ensureIro($request);
@@ -1430,6 +1473,7 @@ class IroDocumentController extends Controller
         return $profile;
     }
 
+    // Produces the common successful JSON response structure.
     private function success(
         string $message,
         mixed $data,

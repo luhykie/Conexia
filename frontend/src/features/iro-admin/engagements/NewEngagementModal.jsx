@@ -13,12 +13,14 @@ const initialForm = { document_type: "MOA", partnership_type: "New Partnership",
 const philippinesFallback = { name: "Philippines", code: "+63", iso: "PH" };
 const stepLabels = ["Classification", "Partner Institution", "Primary Partner Contact", "Attachments"];
 
+// Parses and validates a contact number for the selected country.
 function getPhoneNumber(number, country) {
   if (!/^\d+$/.test(number) || (country === "PH" && number.length !== 10)) return null;
   const phoneNumber = parsePhoneNumberFromString(number, country);
   return phoneNumber?.isValid() ? phoneNumber : null;
 }
 
+// Guides IRO Admin through creating and uploading a new engagement.
 export function IroNewEngagementModal({ open, onClose, onCreated }) {
   const [step, setStep] = React.useState(1);
   const [form, setForm] = React.useState(initialForm);
@@ -38,6 +40,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     setStep(1); setForm(initialForm); setSelectedFile(null); setSubmitting(false); setFieldErrors({}); setModalError("");
   }, [open]);
 
+  // Loads supported country codes with a Philippines fallback.
   async function loadCountries() {
     setCountriesLoading(true); setCountriesError("");
     try {
@@ -52,6 +55,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     } finally { if (mountedRef.current) setCountriesLoading(false); }
   }
 
+  // Updates one form field and clears its resolved validation error.
   function update(name, value) {
     if (name === "contact_number" && !/^\d*$/.test(value)) return;
     if (name === "contact_number" && value && (form.contact_country === "PH" ? value.length > 10 : validatePhoneNumberLength(value, form.contact_country) === "TOO_LONG")) return;
@@ -66,6 +70,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     if (requiredValues(step, nextForm, selectedFile).some(hasValue)) setModalError("");
   }
 
+  // Validates only the fields required by the current form step.
   function validate(currentStep) {
     const errors = {};
     if (currentStep === 2) {
@@ -91,6 +96,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     };
   }
 
+  // Advances when the current step passes validation.
   function next() {
     const { errors, allBlank } = validate(step);
     if (Object.keys(errors).length) {
@@ -101,11 +107,13 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     setFieldErrors({}); setModalError(""); setStep((current) => Math.min(current + 1, 4));
   }
 
+  // Resets and closes the modal when no submission is running.
   function close() {
     if (submitting) return;
     setStep(1); setFieldErrors({}); setModalError(""); onClose?.();
   }
 
+  // Saves the selected agreement draft and validates its file type.
   function selectDraft(file) {
     setSelectedFile(file);
     setModalError("");
@@ -117,6 +125,7 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
     }));
   }
 
+  // Creates the engagement, then uploads its initial document file.
   async function submit(event) {
     event.preventDefault();
     const { errors, allBlank } = validate(4);
@@ -151,10 +160,14 @@ export function IroNewEngagementModal({ open, onClose, onCreated }) {
   </form></div>;
 }
 
+// Renders a reusable radio-card choice group.
 function ChoiceField({ legend, name, value, onChange, options, disabled, nested = false }) { return <fieldset className={`pre-submission-field${nested ? " pre-submission-field--nested" : ""}`}><legend>{legend}</legend><div className={`radio-group radio-group--${options.length}`}>{options.map(([optionValue, label, detail]) => <label className={value === optionValue ? "selected" : ""} key={optionValue}><input type="radio" name={name} value={optionValue} checked={value === optionValue} onChange={(event) => onChange(name, event.target.value)} disabled={disabled} /><span><b>{label}</b>{detail && <small>{detail}</small>}</span></label>)}</div></fieldset>; }
+// Wraps a form control with its label and validation message.
 function Input({ label, error, wide = false, children }) { return <label className={`pre-submission-input${wide ? " iro-engagement-field--wide" : ""}`}>{label}{children}{error && <span className="field-error">{error}</span>}</label>; }
+// Converts raw bytes into a readable KB or MB label.
 function formatFileSize(bytes) { if (!Number.isFinite(bytes)) return "-"; return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(2)} MB`; }
 
+// Returns the values required to complete a specific form step.
 function requiredValues(step, form, selectedFile) {
   if (step === 1) return [form.document_type, form.partnership_type, form.partnership_scope];
   if (step === 2) return [form.partner_institution, form.partner_email];
@@ -162,13 +175,16 @@ function requiredValues(step, form, selectedFile) {
   return [selectedFile, form.urgency];
 }
 
+// Checks whether a field contains a usable value.
 function hasValue(value) { return (typeof value === "object" && value !== null) || (typeof value === "string" && value.trim() !== ""); }
+// Validates one field while the user is editing it.
 function isValidField(name, value, form) {
   if (name === "contact_email" || name === "partner_email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   if (name === "contact_number") return Boolean(getPhoneNumber(value, form.contact_country));
   if (name === "contact_country") return Boolean(getPhoneNumber(form.contact_number, value));
   return typeof value === "string" && value.trim() !== "";
 }
+// Accepts only supported agreement formats within the size limit.
 function isSupportedDraft(file) {
   if (!file || file.size > 25 * 1024 * 1024) return false;
 

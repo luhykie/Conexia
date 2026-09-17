@@ -13,6 +13,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class DocumentMessageController extends Controller
 {
+    // Returns a document conversation and marks incoming messages as read.
     public function index(Request $request, Document $document): JsonResponse
     {
         $profile = $this->authorizeParticipant($request, $document);
@@ -41,6 +42,7 @@ class DocumentMessageController extends Controller
         ]);
     }
 
+    // Validates and sends a new message or reply in a document conversation.
     public function store(Request $request, Document $document): JsonResponse
     {
         $profile = $this->authorizeParticipant($request, $document);
@@ -97,6 +99,7 @@ class DocumentMessageController extends Controller
         ], 201);
     }
 
+    // Confirms that the current user participates in the document workflow.
     private function authorizeParticipant(Request $request, Document $document): Profile
     {
         $profile = $request->attributes->get('authenticated_profile');
@@ -116,6 +119,7 @@ class DocumentMessageController extends Controller
         return $profile;
     }
 
+    // Formats a document message and its optional reply for the API.
     private function payload(
         DocumentMessage $message,
         Profile $currentProfile

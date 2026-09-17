@@ -11,6 +11,7 @@ import { getReassignableIroDocuments } from "../../../services/iroDocumentServic
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Lists active assignments and manages their reassignment drawer.
 export default function IroAdminReassignPage() {
   const drawerRef = React.useRef(null);
   const drawerCloseRef = React.useRef(null);
@@ -26,6 +27,7 @@ export default function IroAdminReassignPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [success, setSuccess] = React.useState("");
 
+  // Loads documents that still have valid reassignment destinations.
   const loadAssignments = React.useCallback(async (isActive = () => true) => {
     setLoading(true);
     setError("");
@@ -89,6 +91,7 @@ export default function IroAdminReassignPage() {
   React.useEffect(() => {
     if (!selectedDocument) return undefined;
 
+    // Closes the drawer or keeps keyboard focus inside it.
     function closeOnEscape(event) {
       if (event.key === "Escape" && !submitting) {
         closeDrawer();
@@ -136,11 +139,13 @@ export default function IroAdminReassignPage() {
     }
   }, [destinationOptions, destinationId]);
 
+  // Opens reassignment details and remembers the triggering button.
   function openDrawer(document, trigger) {
     triggerRef.current = trigger;
     setSelectedDocument(document);
   }
 
+  // Closes the drawer and restores focus to its triggering button.
   function closeDrawer() {
     if (submitting) return;
 
@@ -167,6 +172,7 @@ export default function IroAdminReassignPage() {
     </button>,
   ]);
 
+  // Validates and submits the selected destination and reason.
   async function submitReassignment(event) {
     event.preventDefault();
 

@@ -4,6 +4,7 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import "./Page.css";
 
+// Displays the current IRO Admin account as read-only information.
 export default function IroAdminSettingsPage({ account }) {
   return (
     <section className="page iro-admin-settings-page">

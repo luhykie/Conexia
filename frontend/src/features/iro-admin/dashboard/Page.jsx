@@ -5,11 +5,13 @@ import { DashboardView } from "../../../components/SharedViews";
 import { IroNewEngagementModal } from "../engagements/NewEngagementModal";
 import "./Page.css";
 
+// Displays IRO totals and provides the new-engagement entry point.
 export default function IroAdminDashboardPage() {
   const navigate = useNavigate();
   const [showModal, setShowModal] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
 
+  // Refreshes dashboard data after an engagement is created.
   function handleEngagementCreated() {
     setRefreshKey((current) => current + 1);
   }

@@ -10,11 +10,13 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    // Receives the service responsible for calculating dashboard data.
     public function __construct(
         private readonly DashboardService $dashboards
     ) {
     }
 
+    // Returns dashboard statistics scoped to the authenticated department.
     public function department(Request $request): JsonResponse
     {
         return $this->success(
@@ -23,6 +25,7 @@ class DashboardController extends Controller
         );
     }
 
+    // Returns the IRO Admin dashboard for the authenticated profile.
     public function iro(Request $request): JsonResponse
     {
         return $this->success(
@@ -31,6 +34,7 @@ class DashboardController extends Controller
         );
     }
 
+    // Returns dashboard statistics for the authenticated Legal Counsel.
     public function legal(Request $request): JsonResponse
     {
         return $this->success(
@@ -39,6 +43,7 @@ class DashboardController extends Controller
         );
     }
 
+    // Returns system-wide dashboard statistics for Super Admin.
     public function superAdmin(): JsonResponse
     {
         return $this->success(
@@ -47,6 +52,7 @@ class DashboardController extends Controller
         );
     }
 
+    // Retrieves the authenticated profile attached by auth middleware.
     private function profile(Request $request): Profile
     {
         return $request->attributes->get(
@@ -54,6 +60,7 @@ class DashboardController extends Controller
         );
     }
 
+    // Produces the common successful dashboard response structure.
     private function success(
         string $message,
         array $data

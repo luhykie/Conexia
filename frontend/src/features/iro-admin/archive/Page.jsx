@@ -22,6 +22,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Displays pending archival and completed archive records.
 export default function IroAdminArchivePage() {
   const [summary, setSummary] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -37,11 +38,13 @@ export default function IroAdminArchivePage() {
     clearFilters,
   } = useDocumentFilters();
 
+  // Applies an archive filter and resets the current page.
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
   }
 
+  // Loads archive statistics and records from the backend.
   const loadArchive = React.useCallback(async (isActive = () => true) => {
       setLoading(true);
       setError("");
@@ -78,6 +81,7 @@ export default function IroAdminArchivePage() {
     };
   }, [loadArchive]);
 
+  // Restores an archived record after confirmation.
   async function unarchiveRecord(record) {
     if (!record?.id) return;
 
@@ -101,6 +105,7 @@ export default function IroAdminArchivePage() {
     }
   }
 
+  // Archives an approved record after confirmation.
   async function archiveRecord(record) {
     if (!record?.id) return;
 

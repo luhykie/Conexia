@@ -40,6 +40,7 @@ class ProfileResource extends JsonResource
         ];
     }
 
+    // Maps a database role to its frontend profile key.
     private function roleKey(string $databaseRole): ?string
     {
         return match ($databaseRole) {

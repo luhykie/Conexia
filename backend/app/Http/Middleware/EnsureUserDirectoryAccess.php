@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserDirectoryAccess
 {
+    // Allows only roles permitted to view the requested user-directory scope.
     public function handle(Request $request, Closure $next): Response
     {
         $profile = $request->attributes->get(
@@ -38,6 +39,7 @@ class EnsureUserDirectoryAccess
         );
     }
 
+    // Returns a consistent authorization error response.
     private function error(
         string $message,
         int $status

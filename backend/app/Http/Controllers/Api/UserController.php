@@ -132,6 +132,7 @@ class UserController extends Controller
         return new UserResource($profile);
     }
 
+    // Creates a managed user while enforcing protected role boundaries.
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -350,6 +351,7 @@ class UserController extends Controller
         ]);
     }
 
+    // Creates the authentication account backing a new local user profile.
     private function createSupabaseUser(
         string $email,
         string $fullName

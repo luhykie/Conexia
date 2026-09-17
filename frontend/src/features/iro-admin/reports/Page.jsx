@@ -17,6 +17,7 @@ import { getReportSummary } from "../../../services/workflowSummaryService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Displays IRO workflow totals and department performance data.
 export default function IroAdminReportsPage() {
   const [summary, setSummary] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -30,6 +31,7 @@ export default function IroAdminReportsPage() {
     clearFilters,
   } = useDocumentFilters();
 
+  // Applies a report filter and restarts pagination.
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
@@ -38,6 +40,7 @@ export default function IroAdminReportsPage() {
   React.useEffect(() => {
     let active = true;
 
+    // Fetches report totals and the department breakdown.
     async function loadReports() {
       setLoading(true);
       setError("");

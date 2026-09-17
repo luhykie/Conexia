@@ -25,11 +25,13 @@ class DocumentFileService
         'text/plain',
     ];
 
+    // Receives the audit service used to record file operations.
     public function __construct(
         private readonly DocumentFileRepository $files
     ) {
     }
 
+    // Returns authorized metadata for a stored document file.
     public function metadata(
         Document $document,
         Profile $actor,
@@ -59,6 +61,7 @@ class DocumentFileService
         ];
     }
 
+    // Validates, stores, and records a new document file version.
     public function upload(
         Document $document,
         Profile $actor,
@@ -161,6 +164,7 @@ class DocumentFileService
         });
     }
 
+    // Returns an authorized file response configured for downloading.
     public function download(
         Document $document,
         Profile $actor,
@@ -178,6 +182,7 @@ class DocumentFileService
         return $file;
     }
 
+    // Returns an authorized file response configured for inline preview.
     public function preview(
         Document $document,
         Profile $actor,
@@ -201,6 +206,7 @@ class DocumentFileService
         return $file;
     }
 
+    // Returns active annotations visible to the current reviewer.
     public function annotations(
         Document $document,
         Profile $actor,
@@ -309,6 +315,7 @@ class DocumentFileService
             ->all();
     }
 
+    // Creates a file highlight and records it in the audit trail.
     public function annotate(
         Document $document,
         Profile $actor,
@@ -344,6 +351,7 @@ class DocumentFileService
         ];
     }
 
+    // Updates an active annotation comment and records the change.
     public function updateAnnotationComment(
         Document $document,
         Profile $actor,
@@ -382,6 +390,7 @@ class DocumentFileService
         });
     }
 
+    // Marks an active annotation as removed through an audit event.
     public function removeAnnotation(
         Document $document,
         Profile $actor,
@@ -418,6 +427,7 @@ class DocumentFileService
         });
     }
 
+    // Loads an annotation after verifying its document and file ownership.
     private function activeAnnotation(
         Document $document,
         DocumentFile $file,
@@ -444,6 +454,7 @@ class DocumentFileService
         return $annotation;
     }
 
+    // Resolves the most recent comment stored for an annotation.
     private function resolvedAnnotationComment(AuditLog $annotation): string
     {
         return (string) (AuditLog::query()
@@ -457,6 +468,7 @@ class DocumentFileService
             ?? '');
     }
 
+    // Soft-deletes an authorized file and records the operation.
     public function delete(
         Document $document,
         Profile $actor,
@@ -504,6 +516,7 @@ class DocumentFileService
         });
     }
 
+    // Formats a document file for API responses.
     public function payload(DocumentFile $file): array
     {
         $file->loadMissing('uploader');
@@ -527,6 +540,7 @@ class DocumentFileService
         ];
     }
 
+    // Loads a file belonging to the document and verifies user access.
     private function fileForAccess(
         Document $document,
         Profile $actor,
@@ -554,6 +568,7 @@ class DocumentFileService
         return $file;
     }
 
+    // Verifies that the current profile may view the document file.
     private function authorizeView(
         Profile $actor,
         Document $document
@@ -570,6 +585,7 @@ class DocumentFileService
         }
     }
 
+    // Verifies that the current profile may change the document file.
     private function authorizeModify(
         Profile $actor,
         Document $document
@@ -597,6 +613,7 @@ class DocumentFileService
         }
     }
 
+    // Restricts annotation changes to supported reviewer roles.
     private function authorizeAnnotation(Profile $actor): void
     {
         if (!in_array($actor->role, [
@@ -609,6 +626,7 @@ class DocumentFileService
         }
     }
 
+    // Restricts annotation viewing to supported reviewer roles.
     private function authorizeAnnotationView(Profile $actor): void
     {
         if (!in_array($actor->role, [
@@ -621,6 +639,7 @@ class DocumentFileService
         }
     }
 
+    // Ensures the document is at a stage where annotations may be created.
     private function authorizeReviewStage(Document $document): void
     {
         if (!in_array($document->status, [
@@ -633,6 +652,7 @@ class DocumentFileService
         }
     }
 
+    // Ensures an annotation may still be changed at the current stage.
     private function authorizeAnnotationMutationStage(
         Document $document,
         Profile $actor
@@ -650,6 +670,7 @@ class DocumentFileService
         }
     }
 
+    // Ensures annotations are visible at the current workflow stage.
     private function authorizeAnnotationViewStage(Document $document): void
     {
         if (!in_array($document->status, [
@@ -668,6 +689,7 @@ class DocumentFileService
         }
     }
 
+    // Removes unsafe path characters from an uploaded filename.
     private function sanitizeFilename(string $filename): string
     {
         $name = trim(str_replace('\\', '/', $filename));

@@ -13,6 +13,7 @@ use Tests\Feature\Support\SecurityTestCase;
 
 class IroDocumentAuthorizationTest extends SecurityTestCase
 {
+    // Confirms history returns the original and exact approved version.
     public function test_iro_admin_history_resolves_version_one_and_the_exact_approved_version(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -64,6 +65,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         $this->assertNotSame($versionThree->id, $versionTwo->id);
     }
 
+    // Covers the complete creation and routing flow for an IRO engagement.
     public function test_iro_admin_can_create_upload_view_and_route_an_office_owned_engagement(): void
     {
         Storage::fake('local');
@@ -130,6 +132,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('document.assigned_legal_counsel', $legal->id);
     }
 
+    // Ensures engagement editing requires a responsible department.
     public function test_iro_admin_edit_still_requires_a_department(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -158,6 +161,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    // Rejects invalid partner emails during creation and editing.
     public function test_iro_admin_create_and_update_require_a_valid_partner_email(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -205,6 +209,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    // Keeps archived documents out of the active IRO queue.
     public function test_iro_incoming_route_excludes_archived_records(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -232,6 +237,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         $response->assertJsonPath('data.0.document_type', 'MOA');
     }
 
+    // Confirms the normal incoming queue contains logged work only.
     public function test_iro_admin_incoming_queue_contains_only_logged_documents(): void
     {
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -293,6 +299,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('meta.total', 0);
     }
 
+    // Verifies first-time and revised queue filters.
     public function test_iro_admin_can_filter_review_queue_by_first_time_and_revised_documents(): void
     {
         $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -352,6 +359,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('documents.0.review_status', 'Revised');
     }
 
+    // Records document viewing independently for each IRO Admin.
     public function test_iro_admin_document_view_status_is_per_viewer_and_recorded_after_open(): void
     {
         $viewer = $this->profile(Profile::ROLE_IRO_ADMIN, [
@@ -437,6 +445,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             );
     }
 
+    // Prevents duplicate view events for the same viewer.
     public function test_iro_admin_document_view_status_is_per_viewer_and_idempotent(): void
     {
         $viewer = $this->profile(Profile::ROLE_IRO_ADMIN, [
@@ -514,6 +523,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
 
     }
 
+    // Confirms IRO Admin can load full submission details.
     public function test_iro_admin_can_view_submission_details(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -552,6 +562,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('document.created_by.role', Profile::ROLE_IRO_ADMIN);
     }
 
+    // Checks incoming filters and totals against all matching records.
     public function test_incoming_filters_and_statistics_use_all_matching_documents(): void
     {
         Carbon::setTestNow('2026-08-12 12:00:00');
@@ -615,6 +626,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         }
     }
 
+    // Checks tracker filters and totals against stored data.
     public function test_status_tracker_filters_and_statistics_use_actual_matching_data(): void
     {
         Carbon::setTestNow('2026-08-13 12:00:00');
@@ -688,6 +700,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         }
     }
 
+    // Verifies the Submitted to Logged transition.
     public function test_iro_admin_can_log_submitted_document(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -704,6 +717,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('document.status', Document::STATUS_LOGGED);
     }
 
+    // Rejects mutations from an invalid workflow stage.
     public function test_iro_mutation_rejects_invalid_workflow_status(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -718,6 +732,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertUnprocessable();
     }
 
+    // Protects IRO mutations from other roles.
     public function test_non_iro_user_cannot_mutate_iro_documents(): void
     {
         $departmentUser = $this->profile(
@@ -735,6 +750,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertForbidden();
     }
 
+    // Verifies reassignment between Legal Counsel accounts.
     public function test_iro_admin_can_reassign_legal_counsel(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -789,6 +805,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         );
     }
 
+    // Rejects reassignment to the current destination.
     public function test_iro_admin_reassignment_rejects_same_assignee(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -809,6 +826,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertUnprocessable();
     }
 
+    // Rejects inactive users and users with the wrong role.
     public function test_iro_admin_reassignment_rejects_ineligible_users(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -841,6 +859,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertUnprocessable();
     }
 
+    // Builds department destinations from the involved offices.
     public function test_iro_admin_gets_dynamic_departmental_reassignment_destinations(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -916,6 +935,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertUnprocessable();
     }
 
+    // Verifies routing to a local external partner.
     public function test_iro_admin_can_reassign_to_local_partner_destination(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -962,6 +982,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    // Verifies routing to an international external partner.
     public function test_iro_admin_can_reassign_to_international_partner_destination(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1001,6 +1022,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         );
     }
 
+    // Prevents reassignment of finalized workflow stages.
     public function test_iro_admin_reassignment_rejects_terminal_statuses(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1036,6 +1058,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertNotFound();
     }
 
+    // Hides archived documents and records without destinations.
     public function test_reassignable_documents_exclude_archived_and_actionless_records(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1071,6 +1094,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         }
     }
 
+    // Ensures each listed document offers a valid reassignment action.
     public function test_every_status_in_reassignable_documents_has_an_action(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1109,6 +1133,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         );
     }
 
+    // Archives approved documents while preserving related records.
     public function test_iro_admin_can_archive_approved_document_without_losing_related_data(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1168,6 +1193,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         $this->assertNotEmpty($archiveAudit->metadata['acted_at']);
     }
 
+    // Restricts archive mutations to IRO Admin.
     public function test_only_iro_admin_can_archive_or_unarchive_documents(): void
     {
         $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
@@ -1189,6 +1215,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertForbidden();
     }
 
+    // Restores archived documents to the approved state.
     public function test_iro_admin_can_unarchive_document_to_pending_archival(): void
     {
         $iro = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1249,6 +1276,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ]);
     }
 
+    // Confirms the department dropdown source remains available.
     public function test_department_staff_can_load_department_dropdown_source(): void
     {
         $departments = [
@@ -1287,6 +1315,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonFragment(['code' => 'ETEEAP']);
     }
 
+    // Verifies return-for-revision status and audit history.
     public function test_iro_admin_can_return_logged_document_for_revision_with_audit_history(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1340,6 +1369,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertUnprocessable();
     }
 
+    // Allows return for revision when remarks are omitted.
     public function test_iro_admin_can_return_logged_document_without_remarks(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1365,6 +1395,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         );
     }
 
+    // Verifies validation and routing to active Legal Counsel.
     public function test_iro_admin_can_validate_logged_document_and_route_to_active_legal_counsel(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1400,6 +1431,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             );
     }
 
+    // Verifies Legal corrections return through IRO to the department.
     public function test_iro_admin_routes_legal_correction_to_originating_department(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1427,6 +1459,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    // Keeps IRO-owned corrections in direct IRO review.
     public function test_iro_admin_created_legal_correction_stays_in_direct_review_and_can_return_to_legal(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1475,6 +1508,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    // Verifies editable metadata changes and their audit entry.
     public function test_iro_admin_can_edit_own_engagement_metadata_with_audit_history(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1511,6 +1545,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         );
     }
 
+    // Creates a new file version when an agreement is revised.
     public function test_iro_admin_agreement_revision_creates_a_new_file_version(): void
     {
         Storage::fake('local');
@@ -1555,6 +1590,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         ]);
     }
 
+    // Rejects edits for locked stages and non-IRO documents.
     public function test_engagement_edit_rejects_locked_stages_and_non_iro_origin(): void
     {
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
@@ -1618,6 +1654,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
         )->assertForbidden();
     }
 
+    // Builds the valid edit payload reused by engagement tests.
     private function engagementEditPayload(string $departmentId): array
     {
         return [

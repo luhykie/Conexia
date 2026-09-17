@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Gate;
 
 class NotificationController extends Controller
 {
+    // Returns the authenticated user's visible notifications with pagination.
     public function index(Request $request): JsonResponse
     {
         $profile = $this->profile($request);
@@ -58,6 +59,7 @@ class NotificationController extends Controller
         );
     }
 
+    // Creates a notification after validating access to its document.
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -99,6 +101,7 @@ class NotificationController extends Controller
         );
     }
 
+    // Returns the authenticated user's unread notification total.
     public function unreadCount(Request $request): JsonResponse
     {
         $profile = $this->profile($request);
@@ -114,6 +117,7 @@ class NotificationController extends Controller
         );
     }
 
+    // Marks one notification belonging to the authenticated user as read.
     public function markRead(
         Request $request,
         string $id
@@ -141,6 +145,7 @@ class NotificationController extends Controller
         );
     }
 
+    // Marks every unread notification visible to the user as read.
     public function markAllRead(Request $request): JsonResponse
     {
         $profile = $this->profile($request);
@@ -158,6 +163,7 @@ class NotificationController extends Controller
         );
     }
 
+    // Retrieves the authenticated profile attached by auth middleware.
     private function profile(Request $request): Profile
     {
         return $request->attributes->get(
@@ -165,6 +171,7 @@ class NotificationController extends Controller
         );
     }
 
+    // Builds the user-scoped notification query with role-specific exclusions.
     private function visibleNotifications(Profile $profile): Builder
     {
         return Notification::query()
@@ -178,6 +185,7 @@ class NotificationController extends Controller
             );
     }
 
+    // Formats a notification and its accessible document metadata.
     private function payload(
         Notification $notification,
         Profile $profile
@@ -212,6 +220,7 @@ class NotificationController extends Controller
         ];
     }
 
+    // Checks whether the profile may view the referenced document.
     private function canAccessDocument(
         Profile $profile,
         string $documentId
@@ -227,6 +236,7 @@ class NotificationController extends Controller
             );
     }
 
+    // Produces the common successful notification response structure.
     private function success(
         string $message,
         mixed $data,

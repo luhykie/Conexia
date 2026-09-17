@@ -75,6 +75,7 @@ class Document extends Model
         'requested_completion_date',
     ];
 
+    // Casts document dates and workflow values to their native types.
     protected function casts(): array
     {
         return [
@@ -90,6 +91,7 @@ class Document extends Model
         ];
     }
 
+    // Lists every supported agreement renewal state.
     public static function renewalStatuses(): array
     {
         return [
@@ -102,6 +104,7 @@ class Document extends Model
         ];
     }
 
+    // Lists every supported document workflow state.
     public static function workflowStatuses(): array
     {
         return [
@@ -119,6 +122,7 @@ class Document extends Model
         ];
     }
 
+    // Limits the query to agreements approaching their expiry date.
     public function scopeExpiringSoon($query, ?int $days = null)
     {
         $window = $days ?? self::DEFAULT_RENEWAL_NOTICE_DAYS;
@@ -133,6 +137,7 @@ class Document extends Model
             );
     }
 
+    // Limits the query to agreements whose expiry date has passed.
     public function scopeExpired($query)
     {
         return $query
@@ -140,6 +145,7 @@ class Document extends Model
             ->whereDate('expiry_date', '<', now()->toDateString());
     }
 
+    // Limits the query to agreements that require renewal action.
     public function scopeRenewalRequired($query)
     {
         return $query->whereIn('renewal_status', [
@@ -149,36 +155,43 @@ class Document extends Model
         ]);
     }
 
+    // Returns the department that owns the document.
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
+    // Returns the partner department assigned to review the document.
     public function partnerDepartment(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'partner_department_id');
     }
 
+    // Returns the department review cycles recorded for the document.
     public function departmentReviews(): HasMany
     {
         return $this->hasMany(DocumentDepartmentReview::class);
     }
 
+    // Returns the review annotations and comments for the document.
     public function reviewItems(): HasMany
     {
         return $this->hasMany(DocumentReviewItem::class);
     }
 
+    // Returns the profile that originally submitted the document.
     public function submitter(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'submitted_by');
     }
 
+    // Returns the Legal Counsel currently assigned to the document.
     public function legalCounsel(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'assigned_legal_counsel');
     }
 
+    // Returns the most recent reassignment recorded by IRO Admin.
     public function latestReassignment(): HasOne
     {
         return $this->hasOne(AuditLog::class)
@@ -186,16 +199,19 @@ class Document extends Model
             ->latest('created_at');
     }
 
+    // Returns notifications associated with the document.
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
     }
 
+    // Returns the document's complete audit history.
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
     }
 
+    // Returns the most recent correction request from Legal Counsel.
     public function latestLegalCorrection(): HasOne
     {
         return $this->hasOne(AuditLog::class)
@@ -203,11 +219,13 @@ class Document extends Model
             ->latest('created_at');
     }
 
+    // Returns every uploaded version belonging to the document.
     public function files(): HasMany
     {
         return $this->hasMany(DocumentFile::class);
     }
 
+    // Returns messages exchanged by the document participants.
     public function messages(): HasMany
     {
         return $this->hasMany(DocumentMessage::class);

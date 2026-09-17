@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Collection;
 
 class DashboardService
 {
+    // Receives the workflow summary service used by dashboard calculations.
     public function __construct(
         private readonly DashboardRepository $dashboards
     ) {
     }
 
+    // Builds dashboard statistics for a department staff member.
     public function department(Profile $profile): array
     {
         $documents = $this->dashboards
@@ -48,6 +50,7 @@ class DashboardService
         ];
     }
 
+    // Builds the IRO Admin dashboard across the visible workflow scope.
     public function iro(Profile $profile): array
     {
         $documents = $this->dashboards->iroDocuments()
@@ -105,6 +108,7 @@ class DashboardService
         ];
     }
 
+    // Builds dashboard statistics for a Legal Counsel profile.
     public function legal(Profile $profile): array
     {
         $documents = $this->dashboards
@@ -140,6 +144,7 @@ class DashboardService
         ];
     }
 
+    // Builds system-wide statistics for the Super Admin dashboard.
     public function superAdmin(): array
     {
         $documents = $this->dashboards->iroDocuments();
@@ -169,6 +174,7 @@ class DashboardService
         ];
     }
 
+    // Counts documents that currently have the specified status.
     private function countStatus(
         Collection $documents,
         string $status
@@ -178,6 +184,7 @@ class DashboardService
             ->count();
     }
 
+    // Counts documents whose status belongs to the supplied set.
     private function countIn(
         Collection $documents,
         array $statuses
@@ -187,6 +194,7 @@ class DashboardService
             ->count();
     }
 
+    // Formats recent document audit events for dashboard activity lists.
     private function recentActivity(
         Collection $documents,
         bool $reminderOnly = false,
@@ -245,6 +253,7 @@ class DashboardService
             ->all();
     }
 
+    // Builds actionable notices from the current document statuses.
     private function statusNotices(Collection $documents): array
     {
         return $documents
@@ -270,6 +279,7 @@ class DashboardService
             ->all();
     }
 
+    // Groups documents into counts for each workflow status.
     private function statusDistribution(Collection $documents): array
     {
         return $documents
@@ -282,6 +292,7 @@ class DashboardService
             ->all();
     }
 
+    // Builds a dated series showing document status activity over time.
     private function statusTrend(Collection $documents): array
     {
         return $documents
@@ -299,6 +310,7 @@ class DashboardService
             ->all();
     }
 
+    // Converts audit totals into the dashboard activity trend format.
     private function auditActivityTrend(array $stats): array
     {
         return [
@@ -317,6 +329,7 @@ class DashboardService
         ];
     }
 
+    // Merges audit activity with the corresponding summary statistics.
     private function auditActivityPoints(array $activity, array $stats): array
     {
         return collect($activity)
@@ -332,6 +345,7 @@ class DashboardService
             ->all();
     }
 
+    // Groups documents by their responsible office for dashboard charts.
     private function officeBreakdown(Collection $documents): array
     {
         $activeUsersByDepartment =
@@ -372,6 +386,7 @@ class DashboardService
             ->all();
     }
 
+    // Formats a byte count as a readable storage value.
     private function formatStorageUsage(?int $bytes): string
     {
         if ($bytes === null) {
