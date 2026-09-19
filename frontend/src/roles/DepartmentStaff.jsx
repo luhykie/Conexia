@@ -50,6 +50,7 @@ import { uploadDocumentFile } from "../services/documentFileService";
 import { reportClientError } from "../utils/reportClientError";
 import { departmentStatusBadgeClass } from "../utils/departmentStatus";
 
+// Department Staff route hub ni; this wrapper keeps the department dashboard, submission, and tracking pages aligned with the staff office.
 const partnershipTypes = [
   ["Local", MapPin],
   ["International", Globe2],
@@ -114,6 +115,7 @@ export function DepartmentStaff({ page, account }) {
   );
 }
 
+// Department submission flow ni; staff creates the record, sets the partner details, and uploads the agreement in one guided workflow.
 // Handles the department upload workflow for new agreements.
 function SubmissionPage({ account }) {
   const [form, setForm] = React.useState({

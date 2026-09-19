@@ -6,6 +6,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
+// Department and Legal PDF review ni; selected text is highlighted and saved with a comment tied to the active document version.
 export function DepartmentalPdfReview({ documentId, fileId = null, items = [], annotations = null, onCreateItem, onUpdateHighlight, onCreateAnnotation, onUpdateAnnotation, onRemoveAnnotation, onUpdateAnnotationComment, canAnnotate = false, canComment = false }) {
   const [pages, setPages] = React.useState([]);
   const [error, setError] = React.useState("");
@@ -77,6 +78,7 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], a
     return () => tasks.forEach((task) => task.cancel?.());
   }, [pages]);
 
+  // Highlight selection ni: the reviewer captures the chosen text and stores the page and box data for the current review item.
   function captureSelection(event) {
     if (!canAnnotate) return;
     const browserSelection = window.getSelection();
@@ -98,6 +100,7 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], a
     setColorOpen(false); setCommentOpen(true); setComment("");
   }
 
+  // Review item save ni: the highlight and comment are attached to the active version so later history can trace what was annotated.
   async function add(type, color = null, parentId = null) {
     if (!selection || saving) return;
     if (!comment.trim()) { setError("Please add a comment for this highlighted section."); return; }
@@ -127,6 +130,7 @@ export function DepartmentalPdfReview({ documentId, fileId = null, items = [], a
 
   }
 
+  // Existing comment update ni: the saved annotation comment is edited without changing the base document.
   async function saveExistingComment() {
     if (!activeHighlight || !comment.trim() || !onUpdateAnnotationComment || saving) return;
     setSaving(true);

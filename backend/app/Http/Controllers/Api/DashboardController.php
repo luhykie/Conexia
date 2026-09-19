@@ -16,9 +16,11 @@ class DashboardController extends Controller
     ) {
     }
 
-    // Returns dashboard statistics scoped to the authenticated department.
+    // Department side ni — returns dashboard stats scoped to the authenticated department.
+    // Hint: this response feeds Department Recent Activity and status cards.
     public function department(Request $request): JsonResponse
     {
+        // Get the authenticated Department profile so repository filtering stays role-scoped.
         return $this->success(
             'Department dashboard loaded successfully.',
             $this->dashboards->department($this->profile($request))
@@ -34,9 +36,11 @@ class DashboardController extends Controller
         );
     }
 
-    // Returns dashboard statistics for the authenticated Legal Counsel.
+    // Legal side ni — returns dashboard stats for the authenticated Legal Counsel.
+    // Hint: this feeds the Legal workload and Recent Activity view.
     public function legal(Request $request): JsonResponse
     {
+        // Use the authenticated Legal profile so only allowed review documents are included.
         return $this->success(
             'Legal dashboard loaded successfully.',
             $this->dashboards->legal($this->profile($request))

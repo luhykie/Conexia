@@ -11,6 +11,7 @@ import {
   uploadDocumentFile,
 } from "../services/documentFileService";
 
+// Shared file panel ni; Department and Legal reviewers use the same attachment preview, upload, and delete flow for each record.
 export function DocumentFilesPanel({
   documentId,
   embeddedPreview = false,

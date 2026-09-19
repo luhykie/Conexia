@@ -104,6 +104,7 @@ export default function LegalCounselReviewPage() {
     setSuccess("");
   }, [selectedDocument]);
 
+  // Legal decision ni; approval or corrections follow the current review status rules.
   async function submitDecision(newStatus) {
     if (!selectedDocument?.id) {
       setError("Select a document first.");

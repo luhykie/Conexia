@@ -92,6 +92,7 @@ function reduceDocumentHistoryState(state, action) {
 }
 
 export function DepartmentalDocumentHistory(props) {
+  // Shared history UI ni for Department and Legal; caller supplies the correct history loader.
   return props.versionDropdown
     ? <VersionDropdownHistory {...props} />
     : <LegacyDocumentHistory {...props} />;
@@ -193,6 +194,8 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
   React.useEffect(() => {
     let active = true;
     setVersions([]); setViewEvents([]); handledPreviewResetRef.current = 0; dispatchHistory({ type: "reset" }); setLoading(true); setError("");
+    // Load all versions plus history events for the selected Department or Legal document.
+    // Hint: highlighted revisions are merged so their saved comments remain visible in history.
     loadHistory(documentId)
       .then((response) => {
         if (!active) return;
@@ -239,6 +242,8 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
     dispatchHistory({ type: "select-option", version });
     if (!collapsing) {
       const nextVersion = versions.find((item) => versionOptionKey(item) === version);
+      // Preview the exact selected revision, not simply the latest file.
+      // Hint: annotations belong to a specific document version.
       if (nextVersion) onViewVersion(
         historyVersionDetails(nextVersion, original, approvedDocument),
         { forcePreview: true },
@@ -260,6 +265,7 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
   const selectedDocument = versions.find((version) => versionOptionKey(version) === selectedVersion);
   const selectedVersionId = selectedDocument?.file?.id;
   const selectedVersionNumber = selectedDocument?.file?.version;
+  // Show only important events tied to the selected version; unrelated document events stay hidden.
   const timelineEvents = viewEvents
     .filter((event) => importantHistoryActions.has(event.action))
     .filter((event) => {
@@ -427,6 +433,7 @@ function versionOptionLabel(version, original, approvedDocument) {
 }
 
 export function DepartmentalVersionAnnotations({ version, Section = SubmissionDetailSection, showHighlightNumbers = false, canManage = false, onUpdateComment, onRequestRemove }) {
+  // Shared highlights/comments ni; Department uses review notes, while Legal uses them during review.
   const [editingId, setEditingId] = React.useState("");
   const [draftComment, setDraftComment] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -445,6 +452,8 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
     if (!nextComment || saving) return;
     setSaving(true);
     setError("");
+    // Update the comment through the role-specific caller, then refresh this version locally.
+    // Hint: Department and Legal share this UI but keep their own workflow permissions.
     try {
       await onUpdateComment(item.id, nextComment);
       setAnnotations((current) => current.map((annotation) => annotation.id === item.id

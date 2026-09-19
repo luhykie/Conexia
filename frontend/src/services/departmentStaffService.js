@@ -6,6 +6,8 @@ import {
   withQuery,
 } from "../api/apiClient";
 
+// Gets Department submissions for tracking and resubmission screens.
+// Hint: kani nga endpoints support the Department-owned workflow.
 export function createDepartmentDocument(payload) {
   return apiPost("/department/documents", payload);
 }
@@ -21,6 +23,7 @@ export function resubmitDepartmentDocument(documentId, corrections = {}) {
   );
 }
 
+// Department document history ni; used when staff checks versions and viewed events.
 export function getDepartmentReview(documentId) {
   return apiGet(`/department/documents/${documentId}/review`);
 }
@@ -29,12 +32,14 @@ export function getDepartmentHistory(documentId) {
   return apiGet(`/department/documents/${documentId}/history`);
 }
 
+// Records a Department user's viewed document version in the history timeline.
 export function markDepartmentDocumentViewed(documentId, documentFileId) {
   return apiPost(`/department/documents/${documentId}/history/viewed`, {
     document_file_id: documentFileId,
   });
 }
 
+// Department review items hold highlights/comments before routing or correction.
 export function createDepartmentReviewItem(documentId, payload) {
   return apiPost(`/department/documents/${documentId}/review/items`, payload);
 }

@@ -3,6 +3,7 @@ import { ChevronDown, MessageCircle, Reply, Send, X } from "lucide-react";
 
 import { getDocumentMessages, sendDocumentMessage } from "../services/documentMessageService";
 
+// Shared document chat ni; Department and Legal discussion stays in one record-level thread for the same submission.
 export function DocumentChat({ documentId, variant = "compact" }) {
   const [open, setOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);

@@ -6,6 +6,7 @@ import "./Page.css";
 export default function Page({ account }) {
   const navigate = useNavigate();
 
+  // Department Dashboard section ni; Recent Activity opens the staff submission list.
   return (
     <DashboardView
       roleKey="department"

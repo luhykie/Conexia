@@ -15,9 +15,11 @@ class DashboardService
     ) {
     }
 
-    // Builds dashboard statistics for a department staff member.
+    // Department dashboard data ni — stats, activity, notices, and status distribution.
+    // Hint: documents are already scoped by the Department repository query.
     public function department(Profile $profile): array
     {
+        // Fetch Department-owned documents used by the cards and Recent Activity table.
         $documents = $this->dashboards
             ->departmentDocuments($profile);
 
@@ -43,6 +45,7 @@ class DashboardService
                     Document::STATUS_ARCHIVED,
                 ]),
             ],
+            // Keep activity data available; the Department UI decides which columns to render.
             'recent_activity' => $this->recentActivity($documents),
             'notifications' => $this->statusNotices($documents),
             'status_distribution' => $this->statusDistribution($documents),
@@ -108,9 +111,11 @@ class DashboardService
         ];
     }
 
-    // Builds dashboard statistics for a Legal Counsel profile.
+    // Legal dashboard data ni — review stats, activity, notices, and workflow trend.
+    // Hint: repository filtering keeps this list within the Legal review scope.
     public function legal(Profile $profile): array
     {
+        // Fetch documents assigned or visible to this Legal Counsel workflow.
         $documents = $this->dashboards
             ->legalDocuments($profile);
 
@@ -137,6 +142,7 @@ class DashboardService
                     Document::STATUS_NOTARIZED
                 ),
             ],
+            // Legal uses the same activity shape, but its dashboard actions route to review.
             'recent_activity' => $this->recentActivity($documents),
             'notifications' => $this->statusNotices($documents),
             'status_distribution' => $this->statusDistribution($documents),

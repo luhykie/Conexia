@@ -6,6 +6,7 @@ import HistoryPage from "../features/legal-counsel/history/Page";
 import ReviewPage from "../features/legal-counsel/review/Page";
 import SettingsPage from "../features/legal-counsel/settings/Page";
 
+// Legal Counsel route gate ni; this wrapper only exposes the pages the legal role is allowed to access.
 const pages = {
   dashboard: DashboardPage,
   review: ReviewPage,

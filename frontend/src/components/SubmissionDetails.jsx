@@ -1,5 +1,6 @@
 import React from "react";
 
+// Shared submission detail block ni; both Department and Legal use this metadata layout so the common review details stay consistent.
 export function SubmissionDetails({ document, status, hideTitle = false, children }) {
   return <aside className="department-submission-review__details">
     <h2>Submission Details</h2>

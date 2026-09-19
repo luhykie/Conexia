@@ -43,6 +43,7 @@ export default function Page() {
     setPage(1);
   }
 
+  // Fetches Department submissions used by the tracking table and detail panel.
   async function loadDocuments() {
     setLoading(true);
     setError("");
@@ -116,6 +117,7 @@ export default function Page() {
     setProcessing(false);
   }
 
+  // Department table keeps status styling and the existing view action intact.
   const rows = documents.map((document) => [
     document.partner_institution || "-",
     document.tracking_number || "-",

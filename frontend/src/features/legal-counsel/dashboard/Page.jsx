@@ -7,6 +7,7 @@ import "./Page.css";
 export default function LegalCounselDashboardPage() {
   const navigate = useNavigate();
 
+  // Legal dashboard ni; the eye action routes reviewers to the Legal review page.
   return (
     <DashboardView
       roleKey="legal"

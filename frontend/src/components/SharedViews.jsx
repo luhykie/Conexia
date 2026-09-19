@@ -31,6 +31,7 @@ import { reportClientError } from "../utils/reportClientError";
 import { departmentStatusBadgeClass } from "../utils/departmentStatus";
 
 const dashboardLoaders = {
+  // Shared dashboard loaders ni for Department and Legal; each role gets its own API summary.
   department: getDepartmentDashboard,
   admin: getIroDashboard,
   legal: getLegalDashboard,
@@ -99,6 +100,7 @@ export function DashboardView({
   hideNotifications = false,
   onViewDocument,
 }) {
+  // Shared dashboard view ni; Department shows tracking activity, while Legal shows review workload.
   const [dashboard, setDashboard] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -174,6 +176,7 @@ export function DashboardView({
         ]
       : departmentActivity
       ? [
+          // Department dashboard activity ni; keep tracking, status, and the existing view action.
           item.partner_institution || item.entity_name || "-",
           item.tracking_number || "-",
           item.partnership_scope === "Departmental"
@@ -183,7 +186,6 @@ export function DashboardView({
           <span className={departmentStatusBadgeClass(item.status)}>
             {item.status || "-"}
           </span>,
-          item.viewed ? "Viewed" : "Not Viewed",
           <button
             type="button"
             className="table-action table-action--icon"
@@ -247,12 +249,13 @@ export function DashboardView({
             <DataTable
               headers={departmentActivity
                 ? [
+                    // View Status is intentionally removed from this dashboard table.
+                    // Hint: dashboard-only ni; View Status stays on other Department and Legal pages.
                     "Partner/Institution",
                     "Tracking Number",
                     "Partnership Scope",
                     "Document Type",
                     "Status",
-                    "View Status",
                     "Action",
                   ]
                 : roleKey === "legal"

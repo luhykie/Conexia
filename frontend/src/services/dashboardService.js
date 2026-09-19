@@ -1,6 +1,7 @@
 import { apiGet } from "../api/apiClient";
 
 // Loads the Department Staff dashboard summary.
+// Hint: kani nga data source ang Recent Activity table nag-gamit.
 export function getDepartmentDashboard() {
   return apiGet("/department/dashboard");
 }
@@ -11,6 +12,7 @@ export function getIroDashboard() {
 }
 
 // Loads the Legal Counsel dashboard summary.
+// Hint: used by the Legal dashboard workload and Recent Activity.
 export function getLegalDashboard() {
   return apiGet("/legal/dashboard");
 }

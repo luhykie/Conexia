@@ -4,6 +4,7 @@ import { Filter, Search, X } from "lucide-react";
 const agreementTypes = ["MOA", "MOU"];
 const partnershipScopes = ["Local", "International"];
 
+// Shared filter controls ni for Department and Legal lists; these query params stay consistent across dashboard, review, and history screens.
 export function DocumentFilters({
   filters,
   onChange,
