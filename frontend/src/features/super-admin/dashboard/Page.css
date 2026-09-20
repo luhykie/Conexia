@@ -1,6 +1,7 @@
 .super-page {
   display: grid;
-  gap: 24px;
+  gap: 20px;
+  min-width: 0;
 }
 
 .super-alert {
@@ -14,24 +15,95 @@
   background: #fff0f0;
 }
 
-.super-stat-grid {
+.super-overview {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
-.super-stat {
-  min-height: 148px;
-  padding: 22px;
+.super-overview__main {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.super-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.super-page .super-stat {
+  min-height: auto;
+  padding: 18px 20px;
+  align-content: start;
   border: 1px solid #cbded5;
   border-radius: 6px;
   color: #063f2c;
   background: #dfeee7;
 }
 
+.super-system-card {
+  min-height: auto;
+  margin: 0;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  background: #dfeee7;
+  box-shadow: none;
+}
+
+.super-system-card .panel__header {
+  min-height: 48px;
+  padding: 12px 16px;
+  border-bottom-color: #cbded5;
+  background: transparent;
+}
+
+.super-system-card .panel__body {
+  padding: 10px 12px;
+}
+
+.super-role-summary {
+  width: min(100%, 680px);
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  color: #063f2c;
+  background: #dfeee7;
+}
+
+.super-role-summary h2 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+}
+
+.super-role-summary__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.super-role-summary__stats article {
+  display: grid;
+  gap: 8px;
+}
+
+.super-role-summary__stats strong {
+  font-size: 1.5rem;
+}
+
+.super-role-summary__stats span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .super-stat strong {
   display: block;
-  margin-top: 20px;
+  margin-top: 10px;
   font-size: 2rem;
 }
 
@@ -41,92 +113,52 @@
   text-transform: uppercase;
 }
 
-.super-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
-  gap: 24px;
-}
-
-.super-segments {
+.super-list__item {
   display: flex;
-  gap: 6px;
-}
-
-.super-segments button {
-  min-height: 32px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 6px;
-  color: #667085;
-  background: #eef2f7;
-  text-transform: capitalize;
-}
-
-.super-segments button.active {
-  color: #ffffff;
-  background: #064e3b;
-}
-
-.super-chart svg {
-  width: 100%;
-  min-height: 220px;
-}
-
-.super-chart polyline {
-  fill: none;
-  stroke: #064e3b;
-  stroke-width: 4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.super-chart-tick line {
-  stroke: #d9e1dd;
-  stroke-width: 1;
-}
-
-.super-chart-tick text {
-  fill: #667085;
-  dominant-baseline: middle;
-  font-size: 0.7rem;
-}
-
-.super-chart-axis {
-  stroke: #a8b8b0;
-  stroke-width: 1;
-}
-
-.super-chart circle {
-  fill: #047857;
-}
-
-.super-chart div,
-.super-list > div {
-  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  padding: 5px 10px;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  color: #063f2c;
+  background: #dfeee7;
+}
+
+.super-list__item + .super-list__item {
+  margin-top: 6px;
 }
 
 .super-list {
   display: grid;
 }
 
-.super-list > div {
-  padding: 14px 0;
-  border-bottom: 1px solid #d9e1dd;
-}
-
-.super-list span {
+.super-list__item span {
   color: #667085;
-}
-
-.super-list strong {
-  color: #064e3b;
+  flex: 1;
 }
 
 .super-activity {
-  padding: 14px 0;
-  border-bottom: 1px solid #d9e1dd;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #cbded5;
+  border-radius: 6px;
+  color: #063f2c;
+  background: #dfeee7;
+}
+
+.super-activity + .super-activity {
+  margin-top: 12px;
+}
+
+.super-page > .panel {
+  margin: 0;
+}
+
+.super-activity > svg {
+  flex: 0 0 auto;
 }
 
 .super-activity p {
@@ -134,18 +166,39 @@
   color: #667085;
 }
 
+.super-activity small {
+  color: #667085;
+}
+
+.super-department__details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+}
+
+.super-department__details small {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 @media (max-width: 1100px) {
-  .super-stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .super-overview {
+    grid-template-columns: 1fr;
   }
 
-  .super-grid {
-    grid-template-columns: 1fr;
+  .super-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
   .super-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .super-role-summary__stats {
     grid-template-columns: 1fr;
   }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\Profile;
 use App\Repositories\DashboardRepository;
@@ -168,7 +169,7 @@ class DashboardService
             'stats' => $stats,
             'trend' => $this->auditActivityTrend($stats),
             'offices' => $this->officeBreakdown($documents),
-            'recent_activity' => [],
+            'recent_activity' => $this->recentAuditActivity(),
             'system' => [
                 'platform_status' => 'Operational',
                 'database_status' => $this->dashboards->databaseStatus(),
@@ -176,8 +177,35 @@ class DashboardService
                     $this->dashboards->documentStorageBytes()
                 ),
                 'security_alerts' => '0 warnings',
+                'audit_activity_today' => $this->todayAuditActivity(),
+                'environment' => config('app.env').' · Laravel '.app()->version(),
             ],
         ];
+    }
+
+    // Counts audit entries created during the current calendar day.
+    private function todayAuditActivity(): int
+    {
+        return AuditLog::query()
+            ->whereDate('created_at', today())
+            ->count();
+    }
+
+    // Formats the latest system-wide administrative audit entries.
+    private function recentAuditActivity(): array
+    {
+        return AuditLog::with('actor')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(fn (AuditLog $log): array => [
+                'timestamp' => $log->created_at?->toISOString(),
+                'actor_name' => $log->actor?->full_name ?? 'System',
+                'actor_role' => $log->actor?->role ?? '-',
+                'action' => $log->action,
+            ])
+            ->values()
+            ->all();
     }
 
     // Counts documents that currently have the specified status.
@@ -351,7 +379,7 @@ class DashboardService
             ->all();
     }
 
-    // Groups documents by their responsible office for dashboard charts.
+    // Groups documents by their responsible office for active user summaries.
     private function officeBreakdown(Collection $documents): array
     {
         $activeUsersByDepartment =
@@ -369,20 +397,6 @@ class DashboardService
                 return [
                     'code' => $department?->code ?? 'N/A',
                     'name' => $department?->name ?? 'Unassigned',
-                    'totalDocuments' => $group->count(),
-                    'pending' => $this->countIn($group, [
-                        Document::STATUS_SUBMITTED,
-                        Document::STATUS_CORRECTIONS_NEEDED,
-                        Document::STATUS_PENDING_NOTARIZATION,
-                    ]),
-                    'active' => $this->countIn($group, [
-                        Document::STATUS_SUBMITTED,
-                        Document::STATUS_LOGGED,
-                        Document::STATUS_UNDER_LEGAL_REVIEW,
-                        Document::STATUS_CORRECTIONS_NEEDED,
-                        Document::STATUS_APPROVED,
-                        Document::STATUS_PENDING_NOTARIZATION,
-                    ]),
                     'activeUsers' =>
                         $activeUsersByDepartment[$departmentId] ?? 0,
                 ];

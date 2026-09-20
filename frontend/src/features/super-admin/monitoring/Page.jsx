@@ -5,6 +5,7 @@ import React, {
 import {
   Database,
   HardDrive,
+  ListChecks,
   Server,
   ShieldAlert,
 } from "lucide-react";
@@ -88,13 +89,23 @@ export default function Page() {
           label="Security Alerts"
           value={loading ? "-" : system.security_alerts ?? "0 warnings"}
         />
+        <StatusCard
+          icon={ListChecks}
+          label="Today's Audit Activity"
+          value={loading ? "-" : system.audit_activity_today ?? 0}
+        />
+        <StatusCard
+          icon={Server}
+          label="Environment / Version"
+          value={loading ? "-" : system.environment ?? "Unknown"}
+        />
       </section>
 
       <Panel title="Operational Telemetry">
         <p>
           {lastRefreshed
-            ? `Last refreshed at ${lastRefreshed}.`
-            : "Monitoring data loads when this page opens."}
+            ? `Data as of ${lastRefreshed}.`
+            : "Loading monitoring data..."}
         </p>
       </Panel>
     </section>
