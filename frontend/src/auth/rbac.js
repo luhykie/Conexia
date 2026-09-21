@@ -25,7 +25,6 @@ export function isOperationalWorkflowPage(pageId) {
   return [
     "submission",
     "log-review",
-    "reassign",
     "review",
   ].includes(pageId);
 }

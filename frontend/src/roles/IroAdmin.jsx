@@ -6,14 +6,12 @@ import DashboardPage from "../features/iro-admin/dashboard/Page";
 import EngagementsPage from "../features/iro-admin/engagements/Page";
 import ExpiryPage from "../features/iro-admin/expiry/Page";
 import LogReviewPage from "../features/iro-admin/log-review/Page";
-import ReassignPage from "../features/iro-admin/reassign/Page";
 import ReportsPage from "../features/iro-admin/reports/Page";
 import SettingsPage from "../features/iro-admin/settings/Page";
 
 const pages = {
   dashboard: DashboardPage,
   "log-review": LogReviewPage,
-  reassign: ReassignPage,
   reports: ReportsPage,
   archive: ArchivePage,
   engagements: EngagementsPage,

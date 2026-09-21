@@ -12,7 +12,6 @@ import {
   Handshake,
   History,
   LayoutDashboard,
-  RefreshCw,
   Settings,
   Shield,
   ShieldCheck,
@@ -79,7 +78,6 @@ export const navItems = {
   admin: [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["log-review", "Log & Review Form", FileText],
-    ["reassign", "Reassign Submissions", RefreshCw],
     ["reports", "Performance Reports", Gauge],
     ["archive", "Archive", Archive],
     ["engagements", "Engagements", Handshake],
