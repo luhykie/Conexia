@@ -16,6 +16,8 @@ export function DocumentFilesPanel({
   documentId,
   embeddedPreview = false,
   previewFileId = null,
+  previewOnly = false,
+  hideSinglePagePagination = false,
   canUpload = false,
   canDelete = false,
 }) {
@@ -172,7 +174,7 @@ export function DocumentFilesPanel({
   }
 
   return (
-    <Panel title="Document Files">
+    <Panel title={previewOnly ? "Document Preview" : "Document Files"}>
       {embeddedPreview && (
         <div className="embedded-document-preview">
           {loading && <p>Loading document preview...</p>}
@@ -230,7 +232,7 @@ export function DocumentFilesPanel({
 
       {!loading && files.length === 0 && <p>No files uploaded.</p>}
 
-      {files.map((file) => (
+      {(previewOnly && embeddedPreviewFile ? [embeddedPreviewFile] : previewOnly ? [] : files).map((file) => (
         <div className="file-row" key={file.id}>
           <span className="file-row__icon">
             <FileText size={22} />
@@ -253,14 +255,16 @@ export function DocumentFilesPanel({
           </div>
 
           <div className="file-row__actions">
-            <button
-              type="button"
-              className="table-action"
-              disabled={processing === file.id}
-              onClick={() => previewFile(file)}
-            >
-              {embeddedPreview ? "Show in preview" : "Preview"}
-            </button>
+            {!previewOnly && (
+              <button
+                type="button"
+                className="table-action"
+                disabled={processing === file.id}
+                onClick={() => previewFile(file)}
+              >
+                {embeddedPreview ? "Show in preview" : "Preview"}
+              </button>
+            )}
 
             <button
               type="button"
@@ -285,7 +289,8 @@ export function DocumentFilesPanel({
         </div>
       ))}
 
-      {!loading && files.length > 0 && meta && (
+      {!previewOnly && !loading && files.length > 0 && meta &&
+        (!hideSinglePagePagination || meta.last_page > 1) && (
         <div className="document-files-pagination">
           <footer>
             <span>

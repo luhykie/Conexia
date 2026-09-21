@@ -146,7 +146,8 @@ export default function IroAdminEngagementsPage() {
           page,
           ...queryParams,
         });
-        const loadedDocuments = response.documents ?? response.data ?? [];
+        const loadedDocuments = (response.documents ?? response.data ?? [])
+          .filter((document) => document.status !== "Archived");
 
         if (active) {
           setDocuments(loadedDocuments);
@@ -228,7 +229,6 @@ export default function IroAdminEngagementsPage() {
               "Under Legal Review",
               "Corrections Needed",
               "Approved",
-              "Archived",
             ]}
             searchPlaceholder="Search by tracking number, document title, partner, or institution..."
             showDepartment
@@ -300,6 +300,7 @@ export default function IroAdminEngagementsPage() {
 
             {editing ? (
               <form className="engagement-edit-form" onSubmit={saveEngagement}>
+                <div className="engagement-detail-body">
                 <div className="engagement-edit-grid">
                   <EditField label="Title">
                     <input name="title" value={editForm.title} onChange={updateEditForm} required maxLength={255} />
@@ -356,6 +357,7 @@ export default function IroAdminEngagementsPage() {
                   </EditField>
                 </div>
                 {editError && <p className="auth-error">{editError}</p>}
+                </div>
                 <footer className="engagement-detail-footer">
                   <button type="button" className="outline" disabled={saving} onClick={() => { setEditing(false); setEditError(""); setPartnerEmailError(""); }}>
                     Cancel
@@ -366,7 +368,8 @@ export default function IroAdminEngagementsPage() {
                 </footer>
               </form>
             ) : (<>
-            <div className="engagement-detail-sections">
+            <div className="engagement-detail-body">
+              <div className="engagement-detail-sections">
               {engagementSections(selectedDocument).map((section) => (
                 <section
                   key={section.title}
@@ -390,20 +393,22 @@ export default function IroAdminEngagementsPage() {
                   </dl>
                 </section>
               ))}
-            </div>
+              </div>
 
-            <DepartmentalDocumentHistory
-              documentId={selectedDocument.id}
-              loadHistory={getIroDocumentHistory}
-              onViewVersion={setHistoryVersion}
-              onCloseVersion={() => setHistoryVersion(null)}
-              viewingVersion={Boolean(historyVersion)}
-              Section={SubmissionDetailSection}
-            />
-            {historyVersion && <>
-              <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview previewFileId={historyVersion.file.id} />
-              <DepartmentalVersionAnnotations version={historyVersion} Section={SubmissionDetailSection} showHighlightNumbers />
-            </>}
+              <DepartmentalDocumentHistory
+                documentId={selectedDocument.id}
+                loadHistory={getIroDocumentHistory}
+                onViewVersion={setHistoryVersion}
+                onCloseVersion={() => setHistoryVersion(null)}
+                viewingVersion={Boolean(historyVersion && !historyVersion.latest)}
+                compact
+                Section={SubmissionDetailSection}
+              />
+              {historyVersion && <>
+                <DocumentFilesPanel documentId={selectedDocument.id} embeddedPreview previewOnly hideSinglePagePagination previewFileId={historyVersion.file.id} />
+                <DepartmentalVersionAnnotations version={historyVersion} Section={SubmissionDetailSection} showHighlightNumbers />
+              </>}
+            </div>
 
             <footer className="engagement-detail-footer">
               <button type="button" className="outline" onClick={closeDetails}>

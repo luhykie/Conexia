@@ -1450,7 +1450,18 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             $this->authHeaders($admin)
         )->assertOk()
             ->assertJsonPath('document.status', Document::STATUS_CORRECTIONS_NEEDED)
-            ->assertJsonPath('document.assigned_legal_counsel', $legal->id);
+            ->assertJsonPath('document.assigned_legal_counsel', $legal->id)
+            ->assertJsonPath(
+                'document.legal_notes',
+                'Revise the termination provision.'
+            );
+
+        $this->assertDatabaseHas('documents', [
+            'id' => $document->id,
+            'status' => Document::STATUS_CORRECTIONS_NEEDED,
+            'assigned_legal_counsel' => $legal->id,
+            'legal_notes' => 'Revise the termination provision.',
+        ]);
 
         $this->assertDatabaseHas('audit_logs', [
             'actor_id' => $admin->id,
@@ -1462,6 +1473,7 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
     // Keeps IRO-owned corrections in direct IRO review.
     public function test_iro_admin_created_legal_correction_stays_in_direct_review_and_can_return_to_legal(): void
     {
+        Storage::fake('local');
         $admin = $this->profile(Profile::ROLE_IRO_ADMIN);
         $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
         $document = $this->document([
@@ -1470,6 +1482,19 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             'status' => Document::STATUS_CORRECTION_REQUIRED,
             'assigned_legal_counsel' => $legal->id,
             'legal_notes' => 'Clarify the termination provision.',
+        ]);
+        $original = $this->documentFile([
+            'document_id' => $document->id,
+            'uploaded_by' => $admin->id,
+            'version' => 1,
+            'original_filename' => 'original.pdf',
+        ]);
+        $annotation = AuditLog::query()->create([
+            'actor_id' => $legal->id,
+            'document_id' => $document->id,
+            'document_file_id' => $original->id,
+            'action' => 'document_file.annotated',
+            'metadata' => ['comment' => 'Preserve this annotation.'],
         ]);
 
         $this->getJson(
@@ -1489,6 +1514,34 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('status');
 
+        $this->post(
+            "/api/documents/{$document->id}/files",
+            [
+                'file' => UploadedFile::fake()->create(
+                    'iro-revised.pdf',
+                    100,
+                    'application/pdf'
+                ),
+            ],
+            $this->authHeaders($admin)
+        )
+            ->assertCreated()
+            ->assertJsonPath('file.version', 2);
+
+        $this->post(
+            "/api/documents/{$document->id}/files",
+            [
+                'file' => UploadedFile::fake()->create(
+                    'iro-revised.pdf',
+                    100,
+                    'application/pdf'
+                ),
+            ],
+            $this->authHeaders($admin)
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('file');
+
         $this->patchJson(
             "/api/iro/documents/{$document->id}/admin-review/validate",
             [
@@ -1501,11 +1554,36 @@ class IroDocumentAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('document.status', Document::STATUS_UNDER_LEGAL_REVIEW)
             ->assertJsonPath('document.assigned_legal_counsel', $legal->id);
 
+        $this->assertDatabaseHas('document_files', [
+            'id' => $original->id,
+            'version' => 1,
+            'deleted_at' => null,
+        ]);
+        $this->assertSame(
+            2,
+            $document->files()->whereNull('deleted_at')->count()
+        );
+        $this->assertDatabaseHas('document_files', [
+            'document_id' => $document->id,
+            'original_filename' => 'iro-revised.pdf',
+            'version' => 2,
+            'deleted_at' => null,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'id' => $annotation->id,
+            'action' => 'document_file.annotated',
+        ]);
+
         $this->assertDatabaseHas('audit_logs', [
             'actor_id' => $admin->id,
             'document_id' => $document->id,
             'action' => 'iro_admin.review.validated_and_routed_to_legal',
         ]);
+        $decision = AuditLog::query()
+            ->where('document_id', $document->id)
+            ->where('action', 'iro_admin.review.validated_and_routed_to_legal')
+            ->firstOrFail();
+        $this->assertSame(2, $decision->metadata['document_version']);
     }
 
     // Verifies editable metadata changes and their audit entry.

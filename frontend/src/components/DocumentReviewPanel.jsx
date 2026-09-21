@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, History, MessageSquareText, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, History, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -13,6 +13,7 @@ import {
   getActiveLegalCounselUsers,
   getIroDocumentHistory,
   markIroDocumentVersionViewed,
+  routeLegalCorrectionToDepartment,
   returnAdminReviewForRevision,
   validateAdminReview,
 } from "../services/iroAdminService";
@@ -26,6 +27,7 @@ import {
   getDocumentFiles,
   getDocumentPreviewBlob,
   removeDocumentAnnotation,
+  uploadDocumentFile,
   updateDocumentAnnotation,
 } from "../services/documentFileService";
 
@@ -98,7 +100,8 @@ export function DepartmentalDocumentHistory(props) {
     : <LegacyDocumentHistory {...props} />;
 }
 
-function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, Section = SubmissionDetailSection }) {
+function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onCloseVersion, viewingVersion, compact = false, Section = SubmissionDetailSection }) {
+  const historyContentId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [original, setOriginal] = React.useState(null);
   const [versions, setVersions] = React.useState([]);
@@ -114,7 +117,10 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
   async function toggle() {
     const next = !open;
     setOpen(next);
-    if (!next) return;
+    if (!next) {
+      if (compact) onCloseVersion();
+      return;
+    }
     setLoading(true); setError("");
     try {
       const response = await loadHistory(documentId);
@@ -135,9 +141,12 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
     });
 
   return <Section title="Document History"><div className="department-history">
-    <button type="button" className="outline department-history__trigger" onClick={toggle}><History size={16} /> {open ? "Hide History" : "History"}</button>
+    <button type="button" className="outline department-history__trigger" aria-expanded={open} aria-controls={historyContentId} onClick={toggle}>
+      <History size={16} /> {compact ? (open ? "Hide History" : "Show History") : (open ? "Hide History" : "History")}
+      {compact && (open ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />)}
+    </button>
     {viewingVersion && <button type="button" className="table-action" onClick={onCloseVersion}>Return to current version</button>}
-    {open && <div className="department-history__events">
+    {open && <div className="department-history__events" id={historyContentId}>
       {loading && <p>Loading history...</p>}
       {error && <p className="auth-error">{error}</p>}
       <div className="department-history__group"><b>Documents &amp; Revisions</b>
@@ -150,10 +159,11 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
             : (isOriginal ? "Original Document" : `Revision - Version ${version.file.version}`)];
           if (isApproved) labels.push("Approved");
           if (version.latest) labels.push("Latest");
+          const annotationCount = version.annotations?.length ?? 0;
           const details = [version.file.filename, version.status || null];
-          if (version.annotations?.length) details.push(`${version.annotations.length} saved annotation${version.annotations.length === 1 ? "" : "s"}`);
+          if (annotationCount) details.push(`${annotationCount} saved annotation${annotationCount === 1 ? "" : "s"}`);
           if (version.file.created_at) details.push(new Date(version.file.created_at).toLocaleString());
-          return <HistoryVersionRow key={`version-${version.file.id}`} version={selectedVersion} label={labels.join(" - ")} detail={details.filter(Boolean).join(" - ")} action="View Document" onViewVersion={onViewVersion} />;
+          return <HistoryVersionRow key={`version-${version.file.id}`} version={selectedVersion} label={labels.join(" - ")} detail={details.filter(Boolean).join(" - ")} action={compact ? "Preview" : "View Document"} onViewVersion={onViewVersion} compact={compact} annotationCount={annotationCount} />;
         })}
         {!chronologicalVersions.length && !loading && !error && <p>No document versions found.</p>}
       </div>
@@ -163,8 +173,10 @@ function LegacyDocumentHistory({ documentId, loadHistory, onViewVersion, onClose
           version={version}
           label={`Highlighted Version ${version.file.version}`}
           detail={`${version.annotations.length} saved annotation${version.annotations.length === 1 ? "" : "s"} - ${version.file.filename}`}
-          action="View Highlighted Version"
+          action={compact ? "Preview" : "View Highlighted Version"}
           onViewVersion={onViewVersion}
+          compact={compact}
+          annotationCount={version.annotations.length}
         />)}
       </div>}
     </div>}
@@ -493,7 +505,18 @@ export function DepartmentalVersionAnnotations({ version, Section = SubmissionDe
   </div></Section>;
 }
 
-function HistoryVersionRow({ version, label, detail, action, onViewVersion }) {
+function HistoryVersionRow({ version, label, detail, action, onViewVersion, compact = false, annotationCount = 0 }) {
+  if (compact) {
+    return <article className="department-history__version department-history__version--compact">
+      <div className="department-history__version-number"><b>{label}</b><small>Version {version.file.version}</small></div>
+      <div className="department-history__version-file"><b>{version.file.filename}</b><small>Filename</small></div>
+      <div><b>{version.status || "Status unavailable"}</b><small>Status</small></div>
+      <div><b>{annotationCount}</b><small>Annotations</small></div>
+      <div><b>{version.file.created_at ? new Date(version.file.created_at).toLocaleDateString() : "-"}</b><small>Date</small></div>
+      {action && <button type="button" className="table-action" onClick={() => onViewVersion(version)}>{action}</button>}
+    </article>;
+  }
+
   return <article className="department-history__version"><div><b>{label}</b><small>{detail || version.file.filename}</small></div>{action && <button type="button" className="table-action" onClick={() => onViewVersion(version)}>{action}</button>}</article>;
 }
 
@@ -529,6 +552,10 @@ export function DocumentReviewPage({ documentId }) {
   const [selection, setSelection] = React.useState(null);
   const [comment, setComment] = React.useState("");
   const [remarks, setRemarks] = React.useState("");
+  const [revisedFile, setRevisedFile] = React.useState(null);
+  const [revisedPreviewUrl, setRevisedPreviewUrl] = React.useState("");
+  const [revisedFileError, setRevisedFileError] = React.useState("");
+  const [revisedFileInputKey, setRevisedFileInputKey] = React.useState(0);
   const [legalCounselId, setLegalCounselId] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -562,6 +589,15 @@ export function DocumentReviewPage({ documentId }) {
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [documentId]);
+
+  React.useEffect(() => {
+    setRevisedPreviewUrl("");
+    if (!revisedFile || revisedFile.type !== "application/pdf") return undefined;
+
+    const objectUrl = URL.createObjectURL(revisedFile);
+    setRevisedPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [revisedFile]);
 
   React.useEffect(() => () => window.clearTimeout(historyCloseTimerRef.current), []);
 
@@ -660,6 +696,48 @@ export function DocumentReviewPage({ documentId }) {
     setConfirmation({ type: "validate" });
   }
 
+  function clearRevisedFile() {
+    setRevisedFile(null);
+    setRevisedFileInputKey((current) => current + 1);
+  }
+
+  function selectRevisedFile(event) {
+    const file = event.target.files?.[0] ?? null;
+    setRevisedFileError("");
+    if (!file) {
+      clearRevisedFile();
+      return;
+    }
+
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.oasis.opendocument.text",
+    ];
+    if (!allowedTypes.includes(file.type) || file.size <= 0 || file.size > 25 * 1024 * 1024) {
+      setRevisedFileError("Select a valid PDF, DOCX, or ODT file up to 25 MB.");
+      clearRevisedFile();
+      return;
+    }
+
+    setRevisedFile(file);
+  }
+
+  // Releases Legal Counsel's correction request to the originating department.
+  async function returnLegalCorrectionToDepartment() {
+    if (busy || !window.confirm("Return this document to the requesting department for revision?")) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      await routeLegalCorrectionToDepartment(documentId);
+      navigate("/app/log-review", { replace: true });
+    } catch (requestError) {
+      setError(requestError.message);
+      setBusy(false);
+    }
+  }
+
   function requestAnnotationRemoval(annotationId) {
     setConfirmation({ type: "remove-annotation", annotationId });
   }
@@ -683,6 +761,18 @@ export function DocumentReviewPage({ documentId }) {
       if (pending.type === "return") {
         await returnAdminReviewForRevision(documentId, remarks.trim());
       } else {
+        if (revisedFile) {
+          try {
+            await uploadDocumentFile(documentId, revisedFile);
+            clearRevisedFile();
+            setRevisedFileError("");
+          } catch (uploadError) {
+            setRevisedFileError(uploadError.message || "Unable to upload the revised document.");
+            clearRevisedFile();
+            setBusy(false);
+            return;
+          }
+        }
         await validateAdminReview(documentId, legalCounselId, remarks.trim());
       }
       navigate("/app/log-review", { replace: true });
@@ -693,6 +783,8 @@ export function DocumentReviewPage({ documentId }) {
   const iroAdminCreated = document?.created_by?.role === "iro_admin";
   const actionable = document?.status === "Logged" ||
     (document?.status === "Correction Required" && iroAdminCreated);
+  const canReturnLegalCorrection = document?.status === "Correction Required" &&
+    !iroAdminCreated;
   const canReturnForRevision = document?.status === "Logged";
   const numberedAnnotations = React.useMemo(() => numberAnnotations(annotations), [annotations]);
   const viewingOriginal = historyVersion?.history_view === "original";
@@ -872,9 +964,43 @@ export function DocumentReviewPage({ documentId }) {
               <SubmissionDetail label="Contact Number" value={document.contact_number} />
             </SubmissionDetailSection>
             {document.description && <SubmissionDetailSection title="Submitted Form Information"><p className="department-submission-review__description">{document.description}</p></SubmissionDetailSection>}
+            {document.status === "Correction Required" && (
+              <SubmissionDetailSection title="Legal Remarks">
+                <div className="notice danger"><p>{document.legal_notes || "No legal remarks were provided."}</p></div>
+              </SubmissionDetailSection>
+            )}
             <DepartmentalDocumentHistory documentId={documentId} loadHistory={loadDepartmentalHistory} onViewVersion={viewHistoryVersion} onCloseVersion={closeHistoryVersion} onViewVersionOpened={(version) => version?.file?.id ? markIroDocumentVersionViewed(documentId, version.file.id) : Promise.resolve(null)} viewingVersion={historyVersion} highlightsVisible={historyHighlightsVisible} liveAnnotations={numberedAnnotations} canManageAnnotations={canAnnotateSelectedVersion} onUpdateComment={updateAnnotationComment} onRequestRemove={requestAnnotationRemoval} explicitDisclosure Section={SubmissionDetailSection} versionDropdown />
+          {canReturnLegalCorrection && <section className="review-actions" aria-label="IRO Admin correction routing">
+            <div className="review-action-buttons">
+              <button type="button" className="review-action-button--return" onClick={returnLegalCorrectionToDepartment} disabled={busy}><RotateCcw size={18} /> Return to Department for Revision</button>
+            </div>
+          </section>}
           {fileId && actionable && <section className="review-actions" aria-label="IRO Admin review decisions">
             <label className="review-action-fields">Remarks<textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} rows={2} maxLength={2000} /></label>
+            {document.status === "Correction Required" && iroAdminCreated && (
+              <div className="iro-admin-revised-upload">
+                <label htmlFor="iro-admin-revised-document">Upload Revised Document <span>(optional)</span></label>
+                <input
+                  key={revisedFileInputKey}
+                  id="iro-admin-revised-document"
+                  type="file"
+                  accept=".pdf,.docx,.odt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text"
+                  disabled={busy}
+                  aria-describedby={revisedFileError ? "iro-admin-revised-document-error" : undefined}
+                  aria-invalid={Boolean(revisedFileError)}
+                  onChange={selectRevisedFile}
+                />
+                {revisedFileError && <p id="iro-admin-revised-document-error" className="field-error" role="alert">{revisedFileError}</p>}
+                {revisedFile && <div className="iro-admin-revised-upload__preview">
+                  <b>{revisedFile.name}</b>
+                  <small>{revisedFile.type || "Document"} · {(revisedFile.size / 1024).toFixed(1)} KB</small>
+                  {revisedPreviewUrl
+                    ? <iframe src={revisedPreviewUrl} title={`Preview ${revisedFile.name}`} />
+                    : <p>Preview will be available after upload for this document type.</p>}
+                  <button type="button" className="outline" disabled={busy} onClick={() => { setRevisedFileError(""); clearRevisedFile(); }}>Remove File</button>
+                </div>}
+              </div>
+            )}
             <div className="review-action-buttons">
               {canReturnForRevision && <button type="button" className="review-action-button--return" onClick={returnForRevision} disabled={busy}><RotateCcw size={18} /> Return for Revision</button>}
               <button type="button" className="review-action-button--validate" onClick={validateAndRoute} disabled={busy || !legalCounselId}><CheckCircle2 size={18} /> Validate & Route to Legal</button>
