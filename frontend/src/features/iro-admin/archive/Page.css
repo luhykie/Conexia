@@ -7,9 +7,13 @@
   cursor: not-allowed;
 }
 
-.iro-admin-archive-page .iro-archive-column--center,
-.iro-admin-archive-page .iro-archive-column--status {
+.iro-admin-archive-page .iro-archive-column--center {
   text-align: center;
+  vertical-align: middle;
+}
+
+.iro-admin-archive-page .iro-archive-column--status {
+  text-align: left;
   vertical-align: middle;
 }
 

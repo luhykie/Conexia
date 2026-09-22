@@ -7,9 +7,13 @@
   font-size: 10px;
 }
 
-.iro-admin-engagements-page .iro-engagements-column--center,
-.iro-admin-engagements-page .iro-engagements-column--status {
+.iro-admin-engagements-page .iro-engagements-column--center {
   text-align: center;
+  vertical-align: middle;
+}
+
+.iro-admin-engagements-page .iro-engagements-column--status {
+  text-align: left;
   vertical-align: middle;
 }
 

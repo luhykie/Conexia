@@ -10,9 +10,13 @@
     font-size: 10px;
 }
 
-.iro-admin-log-review-page .iro-log-review-column--center,
-.iro-admin-log-review-page .iro-log-review-column--status {
+.iro-admin-log-review-page .iro-log-review-column--center {
     text-align: center;
+    vertical-align: middle;
+}
+
+.iro-admin-log-review-page .iro-log-review-column--status {
+    text-align: left;
     vertical-align: middle;
 }
 
