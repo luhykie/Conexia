@@ -1,3 +1,4 @@
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 import React from "react";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
@@ -9,6 +10,7 @@ import { getLegalHistory } from "../../../services/legalCounselServices";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Coordinates counsel history page within the legal review decisions and notarization workflow.
 export default function LegalCounselHistoryPage() {
   const [historyItems, setHistoryItems] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -22,12 +24,14 @@ export default function LegalCounselHistoryPage() {
     clearFilters,
   } = useDocumentFilters();
 
+  // Changes filter within the legal review decisions and notarization workflow.
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
   }
 
   React.useEffect(() => {
+    // Loads history within the legal review decisions and notarization workflow.
     async function loadHistory() {
       setLoading(true);
       setError("");

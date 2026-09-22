@@ -1,6 +1,8 @@
+// [FEATURE: Notifications] - loads, formats, and presents workflow notifications.
 import { createNotificationRequest } from "../services/notificationService";
 import { reportClientError } from "./reportClientError";
 
+// Creates notification within the workflow notifications workflow.
 export async function createNotification({
   userId,
   documentId = null,

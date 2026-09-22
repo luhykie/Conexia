@@ -1,5 +1,7 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React from "react";
 
+// Coordinates table within the shared application infrastructure and reusable interface behavior workflow.
 export function DataTable({
   headers = [],
   rows = [],
@@ -94,6 +96,7 @@ export function DataTable({
   );
 }
 
+// Coordinates class within the shared application infrastructure and reusable interface behavior workflow.
 function statusClass(value) {
   if (typeof value !== "string") return "";
 

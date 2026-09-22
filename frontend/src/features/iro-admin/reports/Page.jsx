@@ -1,3 +1,4 @@
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 import React from "react";
 import {
   FileCheck2,

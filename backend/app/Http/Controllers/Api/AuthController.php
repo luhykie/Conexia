@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 
 namespace App\Http\Controllers\Api;
 

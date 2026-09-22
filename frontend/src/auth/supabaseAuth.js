@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import {
   AuthenticationError,
   apiGet,
@@ -12,6 +13,7 @@ import { reportClientError } from "../utils/reportClientError";
 
 let profileRequestPromise = null;
 
+// Loads authenticated profile within the authentication and role-based access workflow.
 async function loadAuthenticatedProfile() {
   if (!profileRequestPromise) {
     profileRequestPromise = apiGet("/me").finally(() => {
@@ -140,6 +142,7 @@ export async function loginWithSupabase(
   }
 }
 
+// Retrieves authenticated account within the authentication and role-based access workflow.
 export async function getAuthenticatedAccount() {
   if (!isSupabaseConfigured) {
     return null;
@@ -203,6 +206,7 @@ export async function getAuthenticatedAccount() {
   }
 }
 
+// Coordinates to auth changes within the authentication and role-based access workflow.
 export function subscribeToAuthChanges(onAccountChange) {
   if (!isSupabaseConfigured) {
     return () => {};
@@ -236,6 +240,7 @@ export function subscribeToAuthChanges(onAccountChange) {
   return () => subscription.unsubscribe();
 }
 
+// Signs out from supabase within the authentication and role-based access workflow.
 export async function logoutFromSupabase() {
   clearApiAccessToken();
 

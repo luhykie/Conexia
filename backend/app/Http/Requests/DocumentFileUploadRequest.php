@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 
 namespace App\Http\Requests;
 
@@ -8,11 +9,13 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 class DocumentFileUploadRequest extends FormRequest
 {
+    // Authorizes the operation within the document intake, file handling, and administrative workflow.
     public function authorize(): bool
     {
         return true;
     }
 
+    // Renders the page for the document intake, file handling, and administrative workflow.
     public function rules(): array
     {
         return [
@@ -26,6 +29,7 @@ class DocumentFileUploadRequest extends FormRequest
         ];
     }
 
+    // Coordinates validation within the document intake, file handling, and administrative workflow.
     protected function failedValidation(
         Validator $validator
     ): void {

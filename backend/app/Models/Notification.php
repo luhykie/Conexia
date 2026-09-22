@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Notifications] - loads, formats, and presents workflow notifications.
 
 namespace App\Models;
 
@@ -28,6 +29,7 @@ class Notification extends Model
         'read_at',
     ];
 
+    // Renders the page for the workflow notifications workflow.
     protected function casts(): array
     {
         return [
@@ -37,11 +39,13 @@ class Notification extends Model
         ];
     }
 
+    // Renders the page for the workflow notifications workflow.
     public function user(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'user_id');
     }
 
+    // Renders the page for the workflow notifications workflow.
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);

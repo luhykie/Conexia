@@ -1,3 +1,4 @@
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 import React from "react";
 import { FileText } from "lucide-react";
 import { Panel } from "./Panel";
@@ -32,6 +33,7 @@ export function DocumentFilesPanel({
   const [embeddedPreviewUrl, setEmbeddedPreviewUrl] = React.useState("");
   const [embeddedPreviewFile, setEmbeddedPreviewFile] = React.useState(null);
 
+  // Loads files within the document intake, file handling, and administrative workflow.
   async function loadFiles() {
     if (!documentId) return;
 
@@ -101,6 +103,7 @@ export function DocumentFilesPanel({
     setEmbeddedPreviewFile(file);
   }
 
+  // Coordinates selected file within the document intake, file handling, and administrative workflow.
   async function uploadSelectedFile() {
     if (!selectedFile) {
       setError("Select a file first.");
@@ -123,6 +126,7 @@ export function DocumentFilesPanel({
     }
   }
 
+  // Coordinates file within the document intake, file handling, and administrative workflow.
   async function downloadFile(file) {
     setProcessing(file.id);
     setError("");
@@ -136,6 +140,7 @@ export function DocumentFilesPanel({
     }
   }
 
+  // Coordinates file within the document intake, file handling, and administrative workflow.
   async function previewFile(file) {
     setProcessing(file.id);
     setError("");
@@ -153,6 +158,7 @@ export function DocumentFilesPanel({
     }
   }
 
+  // Removes file within the document intake, file handling, and administrative workflow.
   async function removeFile(file) {
     const confirmed = window.confirm(`Delete ${file.filename}?`);
 
@@ -318,6 +324,7 @@ export function DocumentFilesPanel({
   );
 }
 
+// Formats bytes within the document intake, file handling, and administrative workflow.
 function formatBytes(size) {
   if (!Number.isFinite(size)) return "-";
   if (size < 1024) return `${size} B`;
@@ -328,6 +335,7 @@ function formatBytes(size) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Formats mime within the document intake, file handling, and administrative workflow.
 function formatMime(mimeType) {
   if (!mimeType) return "File";
   if (mimeType.includes("pdf")) return "PDF";

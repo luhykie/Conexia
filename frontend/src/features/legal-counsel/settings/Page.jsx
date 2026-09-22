@@ -1,9 +1,11 @@
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 import React from "react";
 
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import "./Page.css";
 
+// Coordinates counsel settings page within the legal review decisions and notarization workflow.
 export default function LegalCounselSettingsPage({ account }) {
   return (
     <section className="page legal-counsel-settings-page">

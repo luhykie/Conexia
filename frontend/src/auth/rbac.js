@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import { navItems, roles } from "../data/roles";
 
 export const ROLE_KEYS = Object.keys(roles);
@@ -13,14 +14,17 @@ export function canAccessPage(roleKey, pageId) {
   );
 }
 
+// Retrieves default page within the authentication and role-based access workflow.
 export function getDefaultPage(roleKey) {
   return roles[roleKey]?.defaultPage || "dashboard";
 }
 
+// Retrieves allowed nav items within the authentication and role-based access workflow.
 export function getAllowedNavItems(roleKey) {
   return navItems[roleKey] || [];
 }
 
+// Coordinates operational workflow page within the authentication and role-based access workflow.
 export function isOperationalWorkflowPage(pageId) {
   return [
     "submission",

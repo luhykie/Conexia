@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 
 namespace App\Models;
 

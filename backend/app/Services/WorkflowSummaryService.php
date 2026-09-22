@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 
 namespace App\Services;
 
@@ -15,11 +16,13 @@ use Illuminate\Validation\ValidationException;
 
 class WorkflowSummaryService
 {
+    // Coordinates CT within the dashboard metrics, workflow summaries, and reporting workflow.
     public function __construct(
         private readonly WorkflowSummaryRepository $summaries
     ) {
     }
 
+    // Renders the page for the dashboard metrics, workflow summaries, and reporting workflow.
     public function expiry(Profile $profile, array $options): array
     {
         $documents = $this->summaries
@@ -76,6 +79,7 @@ class WorkflowSummaryService
         ];
     }
 
+    // Coordinates expiry notifications within the dashboard metrics, workflow summaries, and reporting workflow.
     public function syncExpiryNotifications(): array
     {
         $documents = $this->summaries->documentsWithExpiry();
@@ -106,6 +110,7 @@ class WorkflowSummaryService
         return ['created' => $created];
     }
 
+    // Coordinates renewal within the dashboard metrics, workflow summaries, and reporting workflow.
     public function requestRenewal(
         Profile $profile,
         string $documentId
@@ -151,6 +156,7 @@ class WorkflowSummaryService
         });
     }
 
+    // Renders the page for the dashboard metrics, workflow summaries, and reporting workflow.
     public function archive(array $options): array
     {
         $documents = $this->summaries->archivedDocuments($options);
@@ -184,6 +190,7 @@ class WorkflowSummaryService
         ];
     }
 
+    // Renders the page for the dashboard metrics, workflow summaries, and reporting workflow.
     public function reports(array $options): array
     {
         $documents = $this->summaries->reportDocuments([
@@ -229,6 +236,7 @@ class WorkflowSummaryService
         ];
     }
 
+    // Coordinates row within the dashboard metrics, workflow summaries, and reporting workflow.
     private function archiveRow(Document $document): array
     {
         return [
@@ -251,6 +259,7 @@ class WorkflowSummaryService
         ];
     }
 
+    // Coordinates row within the dashboard metrics, workflow summaries, and reporting workflow.
     private function expiryRow(
         Document $document,
         Profile $profile
@@ -293,6 +302,7 @@ class WorkflowSummaryService
         ];
     }
 
+    // Coordinates classification within the dashboard metrics, workflow summaries, and reporting workflow.
     private function expiryClassification(Document $document): string
     {
         if (
@@ -326,6 +336,7 @@ class WorkflowSummaryService
         return 'active';
     }
 
+    // Coordinates label within the dashboard metrics, workflow summaries, and reporting workflow.
     private function expiryLabel(float|int $daysRemaining): string
     {
         if ($daysRemaining < 0) {
@@ -339,6 +350,7 @@ class WorkflowSummaryService
         return 'Expires in '.(int) $daysRemaining.' days';
     }
 
+    // Creates expiry notification within the dashboard metrics, workflow summaries, and reporting workflow.
     private function createExpiryNotification(
         Document $document,
         string $type,
@@ -371,6 +383,7 @@ class WorkflowSummaryService
         return 1;
     }
 
+    // Coordinates breakdown within the dashboard metrics, workflow summaries, and reporting workflow.
     private function departmentBreakdown(Collection $documents): array
     {
         return $documents
@@ -405,6 +418,7 @@ class WorkflowSummaryService
             ->all();
     }
 
+    // Counts status within the dashboard metrics, workflow summaries, and reporting workflow.
     private function countStatus(
         Collection $documents,
         string $status
@@ -414,6 +428,7 @@ class WorkflowSummaryService
             ->count();
     }
 
+    // Counts in within the dashboard metrics, workflow summaries, and reporting workflow.
     private function countIn(
         Collection $documents,
         array $statuses

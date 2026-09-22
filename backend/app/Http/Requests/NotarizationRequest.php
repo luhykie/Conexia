@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 
 namespace App\Http\Requests;
 
@@ -8,11 +9,13 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 class NotarizationRequest extends FormRequest
 {
+    // Authorizes the operation within the legal review decisions and notarization workflow.
     public function authorize(): bool
     {
         return true;
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     public function rules(): array
     {
         return [
@@ -33,6 +36,7 @@ class NotarizationRequest extends FormRequest
         ];
     }
 
+    // Coordinates validation within the legal review decisions and notarization workflow.
     protected function failedValidation(
         Validator $validator
     ): void {

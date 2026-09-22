@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 
 namespace App\Services;
 
@@ -7,6 +8,7 @@ use DateTimeInterface;
 
 class TrackingNumberService
 {
+    // Coordinates for date within the shared application infrastructure and reusable interface behavior workflow.
     public function generateForDate(DateTimeInterface $date): string
     {
         $prefix = 'CONEXIA-'.$date->format('Ymd').'-';

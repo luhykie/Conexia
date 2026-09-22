@@ -1,3 +1,4 @@
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 import React from "react";
 import { Eye } from "lucide-react";
 import { DataTable } from "../../../components/DataTable";
@@ -30,6 +31,7 @@ import {
 } from "../../../services/documentFileService";
 import "./Page.css";
 
+// Coordinates counsel review page within the legal review decisions and notarization workflow.
 export default function LegalCounselReviewPage() {
   const [documents, setDocuments] = React.useState([]);
   const [selectedDocument, setSelectedDocument] = React.useState(null);
@@ -51,11 +53,13 @@ export default function LegalCounselReviewPage() {
     clearFilters,
   } = useDocumentFilters();
 
+  // Changes filter within the legal review decisions and notarization workflow.
   function changeFilter(key, value) {
     updateFilter(key, value);
     setPage(1);
   }
 
+  // Loads documents within the legal review decisions and notarization workflow.
   async function loadDocuments() {
     setLoading(true);
     setError("");

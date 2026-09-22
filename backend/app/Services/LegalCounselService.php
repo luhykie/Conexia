@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 
 namespace App\Services;
 
@@ -13,11 +14,13 @@ use Illuminate\Validation\ValidationException;
 
 class LegalCounselService
 {
+    // Coordinates CT within the legal review decisions and notarization workflow.
     public function __construct(
         private readonly LegalCounselRepository $documents
     ) {
     }
 
+    // Coordinates documents within the legal review decisions and notarization workflow.
     public function reviewDocuments(
         Profile $legalCounsel,
         array $options
@@ -37,6 +40,7 @@ class LegalCounselService
         ];
     }
 
+    // Submits decision within the legal review decisions and notarization workflow.
     public function submitDecision(
         Profile $legalCounsel,
         string $documentId,
@@ -96,6 +100,7 @@ class LegalCounselService
         });
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     public function history(
         Profile $legalCounsel,
         array $options
@@ -115,6 +120,7 @@ class LegalCounselService
         ];
     }
 
+    // Coordinates document within the legal review decisions and notarization workflow.
     private function findDocument(
         string $documentId,
         Profile $legalCounsel
@@ -133,6 +139,7 @@ class LegalCounselService
         return $document;
     }
 
+    // Coordinates item within the legal review decisions and notarization workflow.
     private function historyItem(Document $document): array
     {
         $trackingNumber =
@@ -163,6 +170,7 @@ class LegalCounselService
         ];
     }
 
+    // Coordinates badge within the legal review decisions and notarization workflow.
     private function historyBadge(string $status): string
     {
         return match ($status) {

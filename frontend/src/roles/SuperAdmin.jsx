@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import React from "react";
 import DashboardPage from "../features/super-admin/dashboard/Page";
 import UsersPage from "../features/super-admin/users/Page";
@@ -7,6 +8,7 @@ import MonitoringPage from "../features/super-admin/monitoring/Page";
 import AuditPage from "../features/super-admin/audit/Page";
 import SettingsPage from "../features/super-admin/settings/Page";
 
+// Coordinates admin within the authentication and role-based access workflow.
 export function SuperAdmin({ page }) {
   if (page === "users") {
     return <UsersPage />;

@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: System Monitoring] - supports platform health and operational monitoring.
 
 namespace App\Http\Middleware;
 
@@ -8,6 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
 {
+    // Handles the operation within the platform health and operational monitoring workflow.
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);

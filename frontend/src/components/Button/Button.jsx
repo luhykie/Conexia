@@ -1,6 +1,8 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React from "react";
 import "./Button.css";
 
+// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
 export function Button({
   children,
   icon: Icon,

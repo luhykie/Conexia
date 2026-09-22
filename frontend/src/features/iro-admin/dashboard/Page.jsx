@@ -1,3 +1,4 @@
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 import React from "react";
 import { useNavigate } from "react-router-dom";
 

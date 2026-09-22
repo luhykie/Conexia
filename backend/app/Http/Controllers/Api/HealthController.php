@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: System Monitoring] - supports platform health and operational monitoring.
 
 namespace App\Http\Controllers\Api;
 
@@ -9,6 +10,7 @@ use Throwable;
 
 class HealthController extends Controller
 {
+    // Coordinates key within the platform health and operational monitoring workflow.
     public function __invoke(): JsonResponse
     {
         $database = [

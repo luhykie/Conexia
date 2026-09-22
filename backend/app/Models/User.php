@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: User Management] - manages user profiles, accounts, and directory access.
 
 namespace App\Models;
 

@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React from "react";
 import { Eye } from "lucide-react";
 

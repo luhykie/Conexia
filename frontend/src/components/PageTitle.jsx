@@ -1,6 +1,8 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React from "react";
 import { Plus } from "lucide-react";
 
+// Coordinates title within the shared application infrastructure and reusable interface behavior workflow.
 export function PageTitle({
   title,
   subtitle,

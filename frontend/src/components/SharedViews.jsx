@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React from "react";
 import {
   CalendarClock,
@@ -108,6 +109,7 @@ export function DashboardView({
   React.useEffect(() => {
     let active = true;
 
+    // Loads dashboard within the shared application infrastructure and reusable interface behavior workflow.
     async function loadDashboard() {
       setLoading(true);
       setError("");
@@ -332,10 +334,12 @@ export function NotificationCenter({ items = [], loading = false, error = "", of
   );
 }
 
+// Formats count within the shared application infrastructure and reusable interface behavior workflow.
 function formatCount(value) {
   return String(Number(value) || 0).padStart(2, "0");
 }
 
+// Formats date time within the shared application infrastructure and reusable interface behavior workflow.
 function formatDateTime(value) {
   if (!value) return "-";
 
@@ -368,6 +372,7 @@ export function ExpiryView({
   React.useEffect(() => {
     let active = true;
 
+    // Loads the operation within the shared application infrastructure and reusable interface behavior workflow.
     async function load() {
       setLoading(true);
       setError("");
@@ -414,6 +419,7 @@ export function ExpiryView({
     };
   }, [page, filters]);
 
+  // Updates filter within the shared application infrastructure and reusable interface behavior workflow.
   function updateFilter(name, value) {
     setFilters((current) => ({
       ...current,
@@ -422,6 +428,7 @@ export function ExpiryView({
     setPage(1);
   }
 
+  // Coordinates renewal within the shared application infrastructure and reusable interface behavior workflow.
   async function requestRenewal(record) {
     if (!record?.id) return;
 
@@ -555,6 +562,7 @@ export function ExpiryView({
   );
 }
 
+// Coordinates filters within the shared application infrastructure and reusable interface behavior workflow.
 function ExpiryFilters({ filters, updateFilter }) {
   return (
     <div className="expiry-filter-panel" aria-label="Expiry filters">
@@ -699,11 +707,13 @@ export function Dropzone({
   const inputRef = React.useRef(null);
   const canPickFile = typeof onFileSelect === "function";
 
+  // Coordinates file within the shared application infrastructure and reusable interface behavior workflow.
   function chooseFile(file) {
     if (!file || disabled || !canPickFile) return;
     onFileSelect(file);
   }
 
+  // Handles drop within the shared application infrastructure and reusable interface behavior workflow.
   function handleDrop(event) {
     if (!canPickFile) return;
 
@@ -711,6 +721,7 @@ export function Dropzone({
     chooseFile(event.dataTransfer.files?.[0]);
   }
 
+  // Handles drag over within the shared application infrastructure and reusable interface behavior workflow.
   function handleDragOver(event) {
     if (canPickFile) {
       event.preventDefault();
@@ -763,6 +774,7 @@ export function Dropzone({
   );
 }
 
+// Formats file size within the shared application infrastructure and reusable interface behavior workflow.
 function formatFileSize(bytes) {
   if (!Number.isFinite(bytes)) return "-";
   if (bytes < 1024 * 1024) {
@@ -772,6 +784,7 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+// Coordinates button within the shared application infrastructure and reusable interface behavior workflow.
 export function ExportButton({ label = "Export" }) {
   return (
     <button className="primary">

@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 
 namespace App\Http\Middleware;
 
@@ -13,6 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthenticateSupabaseUser
 {
+    // Coordinates CT within the authentication and role-based access workflow.
     public function __construct(
         private readonly SupabaseAuthService $supabaseAuthService
     ) {
@@ -110,6 +112,7 @@ class AuthenticateSupabaseUser
         return $next($request);
     }
 
+    // Renders the page for the authentication and role-based access workflow.
     private function unauthorised(string $message): JsonResponse
     {
         return response()->json([

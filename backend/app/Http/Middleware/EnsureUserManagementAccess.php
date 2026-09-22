@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: User Management] - manages user profiles, accounts, and directory access.
 
 namespace App\Http\Middleware;
 
@@ -10,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserManagementAccess
 {
+    // Handles the operation within the user profile, account, and directory management workflow.
     public function handle(Request $request, Closure $next): Response
     {
         $actor = $request->attributes->get(
@@ -52,6 +54,7 @@ class EnsureUserManagementAccess
         return $next($request);
     }
 
+    // Renders the page for the user profile, account, and directory management workflow.
     private function error(
         string $message,
         int $status

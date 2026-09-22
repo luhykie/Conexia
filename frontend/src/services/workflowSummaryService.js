@@ -1,3 +1,4 @@
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 import {
   apiGet,
   apiPatch,

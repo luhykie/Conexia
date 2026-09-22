@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -51,10 +52,12 @@ const SuperAdmin = React.lazy(() =>
   }))
 );
 
+// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
 function App() {
   const [account, setAccount] = React.useState(null);
   const [authChecked, setAuthChecked] = React.useState(false);
 
+  // Coordinates account within the shared application infrastructure and reusable interface behavior workflow.
   function syncAccount(nextAccount) {
     if (nextAccount?.roleKey) {
       localStorage.setItem(
@@ -72,6 +75,7 @@ function App() {
   React.useEffect(() => {
     let active = true;
 
+    // Coordinates session within the shared application infrastructure and reusable interface behavior workflow.
     async function restoreSession() {
       const restoredAccount =
         await getAuthenticatedAccount();
@@ -101,10 +105,12 @@ function App() {
     };
   }, []);
 
+  // Handles login within the shared application infrastructure and reusable interface behavior workflow.
   function handleLogin(nextAccount) {
     syncAccount(nextAccount);
   }
 
+  // Handles logout within the shared application infrastructure and reusable interface behavior workflow.
   async function handleLogout() {
     await logoutFromSupabase();
 
@@ -175,6 +181,7 @@ function App() {
   );
 }
 
+// Coordinates route within the shared application infrastructure and reusable interface behavior workflow.
 function WelcomeRoute() {
   const navigate = useNavigate();
 
@@ -185,9 +192,11 @@ function WelcomeRoute() {
   );
 }
 
+// Signs in route within the shared application infrastructure and reusable interface behavior workflow.
 function LoginRoute({ onLogin }) {
   const navigate = useNavigate();
 
+  // Handles successful login within the shared application infrastructure and reusable interface behavior workflow.
   function handleSuccessfulLogin(nextAccount) {
     onLogin(nextAccount);
 
@@ -205,6 +214,7 @@ function LoginRoute({ onLogin }) {
   );
 }
 
+// Coordinates route within the shared application infrastructure and reusable interface behavior workflow.
 function WorkspaceRoute({ account, onLogout }) {
   const navigate = useNavigate();
   const { page = "dashboard", documentId = null } = useParams();
@@ -219,6 +229,7 @@ function WorkspaceRoute({ account, onLogout }) {
     }
   }, [page, safePage, navigate]);
 
+  // Coordinates to page within the shared application infrastructure and reusable interface behavior workflow.
   function navigateToPage(nextPage) {
     if (!canAccessPage(account.roleKey, nextPage)) {
       navigate(
@@ -232,6 +243,7 @@ function WorkspaceRoute({ account, onLogout }) {
     navigate(`/app/${nextPage}`);
   }
 
+  // Handles logout within the shared application infrastructure and reusable interface behavior workflow.
   async function handleLogout() {
     await onLogout();
     navigate("/", { replace: true });
@@ -352,6 +364,7 @@ function CampusIllustration() {
   );
 }
 
+// Coordinates card within the shared application infrastructure and reusable interface behavior workflow.
 function FeatureCard({ icon: Icon, title }) {
   return (
     <article className="feature-card">
@@ -362,6 +375,7 @@ function FeatureCard({ icon: Icon, title }) {
   );
 }
 
+// Coordinates card within the shared application infrastructure and reusable interface behavior workflow.
 function MetricCard({ value, label, icon: Icon, tone = "" }) {
   return (
     <article className={`metric-card ${tone}`}>
@@ -372,6 +386,7 @@ function MetricCard({ value, label, icon: Icon, tone = "" }) {
   );
 }
 
+// Coordinates column within the shared application infrastructure and reusable interface behavior workflow.
 function FooterColumn({ title, items }) {
   return (
     <div>
@@ -388,6 +403,7 @@ function LoginScreen({ onBack, onLogin }) {
   const [error, setError] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // Handles submit within the shared application infrastructure and reusable interface behavior workflow.
   async function handleSubmit(event) {
     event.preventDefault();
 

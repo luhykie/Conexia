@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 
 namespace App\Repositories;
 

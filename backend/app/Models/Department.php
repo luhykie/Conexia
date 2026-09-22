@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 
 namespace App\Models;
 
@@ -22,11 +23,13 @@ class Department extends Model
         'email',
     ];
 
+    // Renders the page for the department management and department-scoped workflow.
     public function profiles(): HasMany
     {
         return $this->hasMany(Profile::class);
     }
 
+    // Renders the page for the department management and department-scoped workflow.
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);

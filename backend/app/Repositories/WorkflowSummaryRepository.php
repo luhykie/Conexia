@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 
 namespace App\Repositories;
 
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 class WorkflowSummaryRepository
 {
+    // Coordinates documents within the dashboard metrics, workflow summaries, and reporting workflow.
     public function visibleDocuments(
         Profile $profile,
         ?array $options = null,
@@ -120,6 +122,7 @@ class WorkflowSummaryRepository
         );
     }
 
+    // Coordinates documents within the dashboard metrics, workflow summaries, and reporting workflow.
     public function archivedDocuments(
         ?array $options = null
     ): Collection|LengthAwarePaginator
@@ -215,6 +218,7 @@ class WorkflowSummaryRepository
         );
     }
 
+    // Coordinates documents within the dashboard metrics, workflow summaries, and reporting workflow.
     public function reportDocuments(?array $options = null): Collection|LengthAwarePaginator
     {
         $query = Document::query()
@@ -300,6 +304,7 @@ class WorkflowSummaryRepository
         );
     }
 
+    // Coordinates with expiry within the dashboard metrics, workflow summaries, and reporting workflow.
     public function documentsWithExpiry(): Collection
     {
         return Document::query()
@@ -364,6 +369,7 @@ class WorkflowSummaryRepository
             );
     }
 
+    // Coordinates visible document for update within the dashboard metrics, workflow summaries, and reporting workflow.
     public function findVisibleDocumentForUpdate(
         Profile $profile,
         string $documentId

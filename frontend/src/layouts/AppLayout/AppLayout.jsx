@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 /**
  * Layout: Authenticated application shell
  *
@@ -16,6 +17,7 @@ import { Header } from "../../components/AppHeader/Header";
 
 import "./AppLayout.css";
 
+// Coordinates layout within the shared application infrastructure and reusable interface behavior workflow.
 export function AppLayout({
   account,
   onLogout,

@@ -1,3 +1,4 @@
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 import React, { useEffect, useState } from "react";
 import {
   Building2,
@@ -17,6 +18,7 @@ import { getRoleSettings } from "../../../services/superAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Renders the page for the dashboard metrics, workflow summaries, and reporting workflow.
 export default function Page() {
   const [dashboard, setDashboard] = useState(createEmptyDashboard());
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,7 @@ export default function Page() {
   useEffect(() => {
     let active = true;
 
+    // Loads dashboard within the dashboard metrics, workflow summaries, and reporting workflow.
     async function loadDashboard() {
       setLoading(true);
       setErrorMessage("");
@@ -165,6 +168,7 @@ export default function Page() {
   );
 }
 
+// Creates empty dashboard within the dashboard metrics, workflow summaries, and reporting workflow.
 function createEmptyDashboard() {
   return {
     stats: {},
@@ -174,6 +178,7 @@ function createEmptyDashboard() {
   };
 }
 
+// Formats count within the dashboard metrics, workflow summaries, and reporting workflow.
 function formatCount(value) {
   return String(Number.isFinite(Number(value)) ? Number(value) : 0).padStart(2, "0");
 }

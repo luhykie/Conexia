@@ -1,5 +1,7 @@
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 import { apiGet, apiPost, apiPatch, withQuery } from "../api/apiClient";
 
+// Retrieves legal dashboard within the legal review decisions and notarization workflow.
 export function getLegalDashboard() {
   return apiGet("/legal/dashboard");
 }

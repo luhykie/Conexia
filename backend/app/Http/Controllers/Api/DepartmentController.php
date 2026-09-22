@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 
 namespace App\Http\Controllers\Api;
 

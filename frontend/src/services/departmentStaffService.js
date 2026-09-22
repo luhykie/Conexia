@@ -1,3 +1,4 @@
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 import {
   apiGet,
   apiDelete,
@@ -12,6 +13,7 @@ export function createDepartmentDocument(payload) {
   return apiPost("/department/documents", payload);
 }
 
+// Retrieves department documents within the department management and department-scoped workflow.
 export function getDepartmentDocuments(params = {}) {
   return apiGet(withQuery("/department/documents", params));
 }

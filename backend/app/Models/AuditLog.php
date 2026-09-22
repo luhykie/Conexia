@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Audit Log] - records or presents administrative audit activity.
 
 namespace App\Models;
 
@@ -24,6 +25,7 @@ class AuditLog extends Model
         'metadata',
     ];
 
+    // Renders the page for the administrative audit activity workflow.
     protected function casts(): array
     {
         return [
@@ -32,16 +34,19 @@ class AuditLog extends Model
         ];
     }
 
+    // Renders the page for the administrative audit activity workflow.
     public function actor(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'actor_id');
     }
 
+    // Renders the page for the administrative audit activity workflow.
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
     }
 
+    // Coordinates file within the administrative audit activity workflow.
     public function documentFile(): BelongsTo
     {
         return $this->belongsTo(DocumentFile::class);

@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import React from "react";
 import {
   ArrowLeft,
@@ -194,6 +195,7 @@ function SubmissionPage({ account }) {
     }));
   }, [account]);
 
+  // Updates form within the authentication and role-based access workflow.
   function updateForm(event) {
     const { name, value } = event.target;
 
@@ -228,6 +230,7 @@ function SubmissionPage({ account }) {
     setSubmittedTrackingNumber("");
   }
 
+  // Coordinates to upload within the authentication and role-based access workflow.
   function continueToUpload() {
     if (
       form.partnershipType === "Local" && form.departmentToDepartment &&
@@ -267,6 +270,7 @@ function SubmissionPage({ account }) {
     setStep(2);
   }
 
+  // Coordinates to confirmation within the authentication and role-based access workflow.
   function continueToConfirmation() {
     if (!selectedFile) {
       setError("Please select a document before continuing to confirmation.");
@@ -295,11 +299,13 @@ function SubmissionPage({ account }) {
     setLocalPreviewUrl("");
   }
 
+  // Coordinates to step within the authentication and role-based access workflow.
   function backToStep(previousStep) {
     setError("");
     setStep(previousStep);
   }
 
+  // Coordinates payload within the authentication and role-based access workflow.
   function expiryPayload() {
     const effectiveDate = new Date();
     const expiryDate = new Date(effectiveDate);
@@ -334,6 +340,7 @@ function SubmissionPage({ account }) {
     };
   }
 
+  // Submits document within the authentication and role-based access workflow.
   async function submitDocument(event) {
     event.preventDefault();
 
@@ -719,10 +726,12 @@ function SubmissionPage({ account }) {
   );
 }
 
+// Coordinates actions within the authentication and role-based access workflow.
 function WizardActions({ children }) {
   return <div className="wizard-actions">{children}</div>;
 }
 
+// Coordinates summary within the authentication and role-based access workflow.
 function SubmissionSummary({ form, account, selectedFile, compact = false }) {
   return (
     <aside className={`${compact ? "summary-card compact" : "summary-card"} submission-review-summary`}>
@@ -777,12 +786,14 @@ function numbersOnly(value) {
   return value.replace(/\D/g, "").slice(0, 15);
 }
 
+// Coordinates valid duration within the authentication and role-based access workflow.
 function isValidDuration(form) {
   const duration = Number.parseInt(form.durationValue, 10);
 
   return Number.isFinite(duration) && duration > 0;
 }
 
+// Coordinates label within the authentication and role-based access workflow.
 function durationLabel(form) {
   const duration = Number.parseInt(form.durationValue, 10);
   const unit = form.durationUnit === "Months" ? "Month" : "Year";
@@ -856,12 +867,14 @@ function MySubmissionsPage({ account }) {
   clearFilters,
  } = useDocumentFilters();
 
+ // Changes filter within the authentication and role-based access workflow.
  function changeFilter(key, value) {
   updateFilter(key, value);
   setPage(1);
  }
 
   React.useEffect(() => {
+    // Loads documents within the authentication and role-based access workflow.
     async function loadDocuments() {
       setLoading(true);
       setError("");

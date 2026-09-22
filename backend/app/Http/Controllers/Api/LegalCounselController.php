@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 
 namespace App\Http\Controllers\Api;
 
@@ -17,11 +18,13 @@ use Throwable;
 
 class LegalCounselController extends Controller
 {
+    // Coordinates CT within the legal review decisions and notarization workflow.
     public function __construct(
         private readonly LegalCounselService $legalCounsel
     ) {
     }
 
+    // Coordinates documents within the legal review decisions and notarization workflow.
     public function reviewDocuments(Request $request): JsonResponse
     {
         return $this->run(function () use ($request) {
@@ -43,6 +46,7 @@ class LegalCounselController extends Controller
         });
     }
 
+    // Submits decision within the legal review decisions and notarization workflow.
     public function submitDecision(
         DecisionRequest $request,
         string $id
@@ -63,6 +67,7 @@ class LegalCounselController extends Controller
         });
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     public function history(Request $request): JsonResponse
     {
         return $this->run(function () use ($request) {
@@ -84,6 +89,7 @@ class LegalCounselController extends Controller
         });
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     private function options(Request $request): array
     {
         return Pagination::options(
@@ -94,6 +100,7 @@ class LegalCounselController extends Controller
         );
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     private function profile(Request $request): Profile
     {
         return $request->attributes->get(
@@ -101,6 +108,7 @@ class LegalCounselController extends Controller
         );
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     private function success(
         string $message,
         mixed $data,
@@ -114,6 +122,7 @@ class LegalCounselController extends Controller
         ]);
     }
 
+    // Renders the page for the legal review decisions and notarization workflow.
     private function run(callable $action): JsonResponse
     {
         try {

@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 
 namespace App\Repositories;
 
@@ -11,6 +12,7 @@ use App\Support\Pagination;
 
 class DocumentFileRepository
 {
+    // Coordinates document within the document intake, file handling, and administrative workflow.
     public function filesForDocument(
         Document $document,
         array $options
@@ -40,6 +42,7 @@ class DocumentFileRepository
             );
     }
 
+    // Coordinates active file within the document intake, file handling, and administrative workflow.
     public function findActiveFile(
         Document $document,
         string $fileId
@@ -51,6 +54,7 @@ class DocumentFileRepository
             ->first();
     }
 
+    // Coordinates exists within the document intake, file handling, and administrative workflow.
     public function duplicateExists(
         Document $document,
         string $filename,
@@ -64,6 +68,7 @@ class DocumentFileRepository
             ->exists();
     }
 
+    // Coordinates version within the document intake, file handling, and administrative workflow.
     public function nextVersion(Document $document): int
     {
         return ((int) DocumentFile::query()
@@ -71,11 +76,13 @@ class DocumentFileRepository
             ->max('version')) + 1;
     }
 
+    // Creates the operation within the document intake, file handling, and administrative workflow.
     public function create(array $data): DocumentFile
     {
         return DocumentFile::query()->create($data);
     }
 
+    // Coordinates deleted within the document intake, file handling, and administrative workflow.
     public function markDeleted(DocumentFile $file): DocumentFile
     {
         $file->update(['deleted_at' => now()]);
@@ -83,6 +90,7 @@ class DocumentFileRepository
         return $file->refresh();
     }
 
+    // Renders the page for the document intake, file handling, and administrative workflow.
     public function log(
         string $action,
         Profile $actor,

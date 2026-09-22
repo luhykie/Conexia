@@ -1,3 +1,4 @@
+// [FEATURE: Notifications] - loads, formats, and presents workflow notifications.
 import React from "react";
 import {
   Bell,
@@ -13,6 +14,7 @@ import {
 } from "../services/notificationService";
 import { reportClientError } from "../utils/reportClientError";
 
+// Coordinates page within the workflow notifications workflow.
 export function NotificationsPage() {
   const [notifications, setNotifications] =
     React.useState([]);
@@ -28,6 +30,7 @@ export function NotificationsPage() {
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
 
+  // Loads notifications within the workflow notifications workflow.
   async function loadNotifications() {
     setLoading(true);
     setError("");
@@ -58,6 +61,7 @@ export function NotificationsPage() {
     loadNotifications();
   }, [page]);
 
+  // Coordinates as read within the workflow notifications workflow.
   async function markAsRead(notificationId) {
     setProcessingId(notificationId);
     setError("");
@@ -102,6 +106,7 @@ export function NotificationsPage() {
     setProcessingId(null);
   }
 
+  // Coordinates all as read within the workflow notifications workflow.
   async function markAllAsRead() {
     setError("");
 

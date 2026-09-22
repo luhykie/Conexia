@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 
 namespace App\Services;
 
@@ -62,6 +63,7 @@ class SupabaseAuthService
         return $this->userFromSupabase($accessToken, $supabaseUrl);
     }
 
+    // Coordinates with jwks within the authentication and role-based access workflow.
     private function decodeWithJwks(string $accessToken, string $kid): ?object
     {
         $key = $this->keyForKid($kid);
@@ -102,6 +104,7 @@ class SupabaseAuthService
         }
     }
 
+    // Coordinates with jwt secret within the authentication and role-based access workflow.
     private function decodeWithJwtSecret(string $accessToken): ?object
     {
         $jwtSecret = (string) config('supabase.jwt_secret', '');
@@ -125,6 +128,7 @@ class SupabaseAuthService
         }
     }
 
+    // Coordinates for kid within the authentication and role-based access workflow.
     private function keyForKid(string $kid, bool $forceRefresh = false): ?Key
     {
         $jwks = $this->jwks($forceRefresh);
@@ -144,6 +148,7 @@ class SupabaseAuthService
         return $keys[$kid] ?? null;
     }
 
+    // Coordinates jwt within the authentication and role-based access workflow.
     private function decodeJwt(string $accessToken, Key $key): object
     {
         $previousLeeway = JWT::$leeway;
@@ -257,6 +262,7 @@ class SupabaseAuthService
         return is_array($header) ? $header : [];
     }
 
+    // Coordinates url decode within the authentication and role-based access workflow.
     private function base64UrlDecode(string $value): string
     {
         $remainder = strlen($value) % 4;
@@ -409,6 +415,7 @@ class SupabaseAuthService
             (int) $claimsArray['exp'] > time();
     }
 
+    // Coordinates authenticated audience within the authentication and role-based access workflow.
     private function hasAuthenticatedAudience(mixed $audience): bool
     {
         if (is_string($audience)) {
@@ -422,6 +429,7 @@ class SupabaseAuthService
         return false;
     }
 
+    // Coordinates cache key within the authentication and role-based access workflow.
     private function jwksCacheKey(): string
     {
         $supabaseUrl = rtrim((string) config('supabase.url'), '/');

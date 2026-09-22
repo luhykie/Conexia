@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import React from "react";
 
 import { canAccessPage } from "../auth/rbac";
@@ -14,6 +15,7 @@ const pages = {
   settings: SettingsPage,
 };
 
+// Coordinates counsel within the authentication and role-based access workflow.
 export function LegalCounsel({ page = "dashboard", account }) {
   const requestedPage = canAccessPage("legal", page) ? page : "dashboard";
   const Page = pages[requestedPage] || DashboardPage;

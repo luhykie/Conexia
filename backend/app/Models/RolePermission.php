@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Role Management] - configures application roles and role permissions.
 
 namespace App\Models;
 

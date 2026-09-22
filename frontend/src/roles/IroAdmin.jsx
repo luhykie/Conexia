@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import React from "react";
 
 import { canAccessPage } from "../auth/rbac";

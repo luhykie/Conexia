@@ -1,3 +1,4 @@
+// [FEATURE: System Monitoring] - supports platform health and operational monitoring.
 import React, {
   useEffect,
   useState,
@@ -16,6 +17,7 @@ import { getSuperAdminDashboard } from "../../../services/dashboardService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Renders the page for the platform health and operational monitoring workflow.
 export default function Page() {
   const [system, setSystem] = useState({});
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState("");
 
+  // Loads system within the platform health and operational monitoring workflow.
   async function loadSystem(isRefresh = false) {
     if (isRefresh) {
       setRefreshing(true);
@@ -112,6 +115,7 @@ export default function Page() {
   );
 }
 
+// Coordinates card within the platform health and operational monitoring workflow.
 function StatusCard({ icon: Icon, label, value }) {
   return (
     <article className="monitor-card">

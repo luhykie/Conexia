@@ -1,3 +1,4 @@
+// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
 import { apiGet } from "../api/apiClient";
 
 // Loads the Department Staff dashboard summary.

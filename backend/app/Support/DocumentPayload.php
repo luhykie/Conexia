@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 
 namespace App\Support;
 
@@ -6,6 +7,7 @@ use App\Models\Document;
 
 class DocumentPayload
 {
+    // Renders the page for the document intake, file handling, and administrative workflow.
     public static function make(Document $document): array
     {
         $document->loadMissing(['department', 'partnerDepartment']);

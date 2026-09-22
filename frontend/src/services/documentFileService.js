@@ -1,3 +1,4 @@
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 import {
   apiDelete,
   apiGet,
@@ -8,12 +9,14 @@ import {
   withQuery,
 } from "../api/apiClient";
 
+// Retrieves document files within the document intake, file handling, and administrative workflow.
 export function getDocumentFiles(documentId, params = {}) {
   return apiGet(
     withQuery(`/documents/${documentId}/files`, params)
   );
 }
 
+// Coordinates document file within the document intake, file handling, and administrative workflow.
 export function uploadDocumentFile(documentId, file) {
   const formData = new FormData();
   formData.append("file", file);
@@ -24,6 +27,7 @@ export function uploadDocumentFile(documentId, file) {
   );
 }
 
+// Coordinates document file within the document intake, file handling, and administrative workflow.
 export async function downloadDocumentFile(
   documentId,
   fileId,
@@ -47,6 +51,7 @@ export async function downloadDocumentFile(
   URL.revokeObjectURL(objectUrl);
 }
 
+// Coordinates document file within the document intake, file handling, and administrative workflow.
 export async function previewDocumentFile(
   documentId,
   fileId
@@ -71,6 +76,7 @@ export async function getDocumentPreviewUrl(documentId, fileId) {
   return URL.createObjectURL(blob);
 }
 
+// Removes document file within the document intake, file handling, and administrative workflow.
 export function deleteDocumentFile(documentId, fileId) {
   return apiDelete(
     `/documents/${documentId}/files/${fileId}`
@@ -109,6 +115,7 @@ export function removeDocumentAnnotation(documentId, fileId, annotationId) {
   );
 }
 
+// Coordinates from disposition within the document intake, file handling, and administrative workflow.
 function filenameFromDisposition(response) {
   const disposition = response.headers.get(
     "Content-Disposition"

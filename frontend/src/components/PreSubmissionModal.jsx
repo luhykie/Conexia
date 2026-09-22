@@ -1,3 +1,4 @@
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 import React from "react";
 import { ArrowLeft, ArrowRight, FilePlus2, X } from "lucide-react";
 import { DepartmentSelect } from "./DepartmentSelect";

@@ -1,3 +1,4 @@
+// [FEATURE: Role Management] - configures application roles and role permissions.
 import {
   Archive,
   Building2,

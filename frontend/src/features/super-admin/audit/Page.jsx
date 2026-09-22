@@ -1,3 +1,4 @@
+// [FEATURE: Audit Log] - records or presents administrative audit activity.
 import React, {
   useEffect,
   useState,
@@ -18,6 +19,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Renders the page for the administrative audit activity workflow.
 export default function Page() {
   const [logs, setLogs] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -27,6 +29,7 @@ export default function Page() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
+  // Loads logs within the administrative audit activity workflow.
   async function loadLogs() {
     setLoading(true);
     setError("");
@@ -54,6 +57,7 @@ export default function Page() {
     loadLogs();
   }, [page]);
 
+  // Coordinates logs within the administrative audit activity workflow.
   async function exportLogs() {
     setExporting(true);
     setError("");
@@ -144,6 +148,7 @@ export default function Page() {
   );
 }
 
+// Formats role within the administrative audit activity workflow.
 function formatRole(role) {
   return String(role || "-")
     .split("_")

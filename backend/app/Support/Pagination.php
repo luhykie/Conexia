@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 
 namespace App\Support;
 
@@ -12,6 +13,7 @@ class Pagination
     public const DEFAULT_PER_PAGE = 15;
     public const MAX_PER_PAGE = 100;
 
+    // Renders the page for the shared application infrastructure and reusable interface behavior workflow.
     public static function options(
         Request $request,
         array $sortColumns,
@@ -45,6 +47,7 @@ class Pagination
         ];
     }
 
+    // Renders the page for the shared application infrastructure and reusable interface behavior workflow.
     public static function meta(LengthAwarePaginator $paginator): array
     {
         return [
@@ -57,6 +60,7 @@ class Pagination
         ];
     }
 
+    // Coordinates operator within the shared application infrastructure and reusable interface behavior workflow.
     public static function searchOperator(): string
     {
         return DB::connection()->getDriverName() === 'pgsql'

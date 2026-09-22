@@ -1,3 +1,4 @@
+// [FEATURE: User Management] - manages user profiles, accounts, and directory access.
 import React, {
   useEffect,
   useState,
@@ -21,6 +22,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Renders the page for the user profile, account, and directory management workflow.
 export default function Page() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -40,6 +42,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Loads users within the user profile, account, and directory management workflow.
   async function loadUsers() {
     setLoading(true);
     setError("");
@@ -67,6 +70,7 @@ export default function Page() {
     loadUsers();
   }, [page]);
 
+  // Changes status within the user profile, account, and directory management workflow.
   async function changeStatus(user) {
     if (!user?.id) return;
 
@@ -93,6 +97,7 @@ export default function Page() {
     }
   }
 
+  // Submits new user within the user profile, account, and directory management workflow.
   async function submitNewUser(event) {
     event.preventDefault();
 
@@ -146,6 +151,7 @@ export default function Page() {
     }
   }
 
+  // Updates new user within the user profile, account, and directory management workflow.
   function updateNewUser(event) {
     const { name, value, type, checked } = event.target;
 
@@ -306,6 +312,7 @@ export default function Page() {
   );
 }
 
+// Formats role within the user profile, account, and directory management workflow.
 function formatRole(role) {
   return String(role || "-")
     .split("_")

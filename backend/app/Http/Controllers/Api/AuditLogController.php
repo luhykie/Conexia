@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Audit Log] - records or presents administrative audit activity.
 
 namespace App\Http\Controllers\Api;
 
@@ -10,6 +11,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
+    // Renders the page for the administrative audit activity workflow.
     public function index(Request $request)
     {
         $options = Pagination::options(
@@ -37,6 +39,7 @@ class AuditLogController extends Controller
         ]);
     }
 
+    // Renders the page for the administrative audit activity workflow.
     public function export(Request $request): StreamedResponse
     {
         $filename = 'CONEXIA-Audit-Logs-'.now()->format('Ymd').'.csv';
@@ -73,6 +76,7 @@ class AuditLogController extends Controller
         ]);
     }
 
+    // Renders the page for the administrative audit activity workflow.
     private function query(Request $request)
     {
         $validated = $request->validate([
@@ -110,6 +114,7 @@ class AuditLogController extends Controller
             });
     }
 
+    // Renders the page for the administrative audit activity workflow.
     private function row(AuditLog $log): array
     {
         return [

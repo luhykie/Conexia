@@ -1,3 +1,4 @@
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 import React from "react";
 import { Filter, Search, X } from "lucide-react";
 
@@ -205,6 +206,7 @@ export function DocumentFilters({
   );
 }
 
+// Coordinates document filters within the document intake, file handling, and administrative workflow.
 export function useDocumentFilters(initialFilters = {}) {
   const emptyFilters = React.useMemo(
     () => ({
@@ -251,6 +253,7 @@ export function useDocumentFilters(initialFilters = {}) {
   };
 }
 
+// Filters select within the document intake, file handling, and administrative workflow.
 function FilterSelect({
   label,
   value,
@@ -279,6 +282,7 @@ function FilterSelect({
   );
 }
 
+// Filters date within the document intake, file handling, and administrative workflow.
 function FilterDate({ label, value, disabled = false, onChange }) {
   return (
     <label className="document-filter-control">
@@ -316,6 +320,7 @@ function FilterText({
   );
 }
 
+// Coordinates filter items within the document intake, file handling, and administrative workflow.
 function activeFilterItems(filters) {
   return Object.entries(filters)
     .filter(([, value]) => value)
@@ -325,6 +330,7 @@ function activeFilterItems(filters) {
     }));
 }
 
+// Coordinates the operation within the document intake, file handling, and administrative workflow.
 function labelFor(key) {
   return {
     search: "Search",

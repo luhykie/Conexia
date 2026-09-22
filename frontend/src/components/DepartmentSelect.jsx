@@ -1,7 +1,9 @@
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 import React from "react";
 import { getDepartments } from "../services/departmentService";
 import { reportClientError } from "../utils/reportClientError";
 
+// Coordinates select within the department management and department-scoped workflow.
 export function DepartmentSelect({
   value,
   ownDepartmentId,
@@ -14,6 +16,7 @@ export function DepartmentSelect({
   React.useEffect(() => {
     let active = true;
 
+    // Loads departments within the department management and department-scoped workflow.
     async function loadDepartments() {
       try {
         const response = await getDepartments({

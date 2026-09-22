@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 
 namespace App\Repositories;
 
@@ -9,6 +10,7 @@ use App\Support\Pagination;
 
 class LegalCounselRepository
 {
+    // Coordinates documents within the legal review decisions and notarization workflow.
     public function reviewDocuments(
         Profile $legalCounsel,
         array $options
@@ -28,6 +30,7 @@ class LegalCounselRepository
             );
     }
 
+    // Coordinates history within the legal review decisions and notarization workflow.
     public function legalHistory(
         Profile $legalCounsel,
         array $options
@@ -52,6 +55,7 @@ class LegalCounselRepository
             );
     }
 
+    // Coordinates assigned document for update within the legal review decisions and notarization workflow.
     public function findAssignedDocumentForUpdate(
         string $documentId,
         Profile $legalCounsel
@@ -66,6 +70,7 @@ class LegalCounselRepository
             ->first();
     }
 
+    // Saves the operation within the legal review decisions and notarization workflow.
     public function save(Document $document): Document
     {
         $document->save();
@@ -73,6 +78,7 @@ class LegalCounselRepository
         return $document->refresh();
     }
 
+    // Coordinates array within the legal review decisions and notarization workflow.
     public function toArray(Document $document): array
     {
         $document->loadMissing([
@@ -111,6 +117,7 @@ class LegalCounselRepository
         ];
     }
 
+    // Coordinates documents within the legal review decisions and notarization workflow.
     private function assignedDocuments(Profile $legalCounsel)
     {
         return Document::query()

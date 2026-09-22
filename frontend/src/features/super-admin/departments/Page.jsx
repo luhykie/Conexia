@@ -1,3 +1,4 @@
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 import React, {
   useEffect,
   useState,
@@ -18,6 +19,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+// Renders the page for the department management and department-scoped workflow.
 export default function Page() {
   const [departments, setDepartments] = useState([]);
   const [page, setPage] = useState(1);
@@ -34,6 +36,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Loads departments within the department management and department-scoped workflow.
   async function loadDepartments() {
     setLoading(true);
     setError("");
@@ -56,6 +59,7 @@ export default function Page() {
     loadDepartments();
   }, [page]);
 
+  // Submits department within the department management and department-scoped workflow.
   async function submitDepartment(event) {
     event.preventDefault();
     setSaving(true);
@@ -81,6 +85,7 @@ export default function Page() {
     }
   }
 
+  // Updates department within the department management and department-scoped workflow.
   function updateDepartment(event) {
     const { name, value } = event.target;
 

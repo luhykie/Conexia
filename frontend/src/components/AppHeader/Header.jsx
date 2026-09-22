@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 /**
  * Component: Application Header
  *
@@ -27,6 +28,7 @@ import {
 import { reportClientError } from "../../utils/reportClientError";
 import "./Header.css";
 
+// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
 export function Header({
   account,
 }) {
@@ -46,6 +48,7 @@ export function Header({
       "User",
   );
 
+  // Loads unread count within the shared application infrastructure and reusable interface behavior workflow.
   async function loadUnreadCount() {
     try {
       const response = await getUnreadNotificationCount();
@@ -66,6 +69,7 @@ export function Header({
     }
   }
 
+  // Loads notifications within the shared application infrastructure and reusable interface behavior workflow.
   async function loadNotifications() {
     setLoading(true);
     setError("");
@@ -126,6 +130,7 @@ export function Header({
   React.useEffect(() => {
     if (!isNotificationsOpen) return undefined;
 
+    // Handles pointer down within the shared application infrastructure and reusable interface behavior workflow.
     function handlePointerDown(event) {
       if (
         panelRef.current &&
@@ -135,6 +140,7 @@ export function Header({
       }
     }
 
+    // Handles key down within the shared application infrastructure and reusable interface behavior workflow.
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setIsNotificationsOpen(false);
@@ -150,6 +156,7 @@ export function Header({
     };
   }, [isNotificationsOpen]);
 
+  // Coordinates as read within the shared application infrastructure and reusable interface behavior workflow.
   async function markAsRead(notificationId) {
     setProcessingId(notificationId);
     setError("");
@@ -180,6 +187,7 @@ export function Header({
     }
   }
 
+  // Coordinates all as read within the shared application infrastructure and reusable interface behavior workflow.
   async function markAllAsRead() {
     setProcessingId("all");
     setError("");
@@ -334,10 +342,12 @@ export function Header({
   );
 }
 
+// Coordinates notification read within the shared application infrastructure and reusable interface behavior workflow.
 function isNotificationRead(notification) {
   return Boolean(notification?.is_read || notification?.read_at);
 }
 
+// Retrieves initials within the shared application infrastructure and reusable interface behavior workflow.
 function getInitials(name) {
   return String(name)
     .split(" ")
@@ -348,6 +358,7 @@ function getInitials(name) {
     .toUpperCase();
 }
 
+// Formats role within the shared application infrastructure and reusable interface behavior workflow.
 function formatRole(role, roleKey) {
   if (roleKey === "admin") {
     return "IRO Admin";

@@ -1,9 +1,11 @@
+// [FEATURE: Legal Review & Notarization] - supports legal review decisions and notarization workflow data.
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
 import { DashboardView } from "../../../components/SharedViews";
 import "./Page.css";
 
+// Coordinates counsel dashboard page within the legal review decisions and notarization workflow.
 export default function LegalCounselDashboardPage() {
   const navigate = useNavigate();
 

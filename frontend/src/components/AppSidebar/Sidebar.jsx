@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 /**
  * Component: Application Sidebar
  *
@@ -22,6 +23,7 @@ import { roles } from "../../data/roles";
 import conexiaLogo from "../../assets/conexia-logo.png";
 import "./Sidebar.css";
 
+// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
 export function Sidebar({
   roleKey,
   onLogout,

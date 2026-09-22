@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import React, {
   useState,
 } from "react";
@@ -13,6 +14,7 @@ import { Panel } from "../../../components/Panel";
 import { Button } from "../../../components/Button/Button";
 import "./Page.css";
 
+// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
 export default function Page() {
   const [settings, setSettings] = useState({
     systemName: "CONEXIA",
@@ -22,6 +24,7 @@ export default function Page() {
     senderEmail: "noreply@conexia.edu",
   });
 
+  // Updates setting within the shared application infrastructure and reusable interface behavior workflow.
   function updateSetting(event) {
     const { name, value } = event.target;
 
@@ -103,6 +106,7 @@ export default function Page() {
   );
 }
 
+// Coordinates panel within the shared application infrastructure and reusable interface behavior workflow.
 function SettingsPanel({ icon: Icon, title, children }) {
   return (
     <Panel title={title}>

@@ -1,3 +1,4 @@
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 import React from "react";
 
 // Shared submission detail block ni; both Department and Legal use this metadata layout so the common review details stay consistent.

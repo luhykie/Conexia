@@ -1,3 +1,4 @@
+// [FEATURE: IRO Admin Workflow] - supports document intake, file handling, and administrative workflow processing.
 import React from "react";
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, History, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -394,6 +395,7 @@ function VersionDropdownHistory({ documentId, documentTitle, loadHistory, onView
   </Section>;
 }
 
+// Coordinates timeline event within the document intake, file handling, and administrative workflow.
 function HistoryTimelineEvent({ event }) {
   return <article className={`submission-activity-history__event${event.action === "document.viewed" ? " document-view-history-event" : ""}`}>
     <History size={16} aria-hidden="true" />

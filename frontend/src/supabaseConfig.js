@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl =

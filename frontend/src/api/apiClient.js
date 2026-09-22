@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import {
   supabase,
   isSupabaseConfigured,
@@ -20,16 +21,19 @@ export class AuthenticationError extends Error {
     }
 }
 
+// Coordinates api access token within the shared application infrastructure and reusable interface behavior workflow.
 export function primeApiAccessToken(session) {
     cachedAccessToken = session?.access_token || null;
     cachedExpiresAt = session?.expires_at || 0;
 }
 
+// Coordinates api access token within the shared application infrastructure and reusable interface behavior workflow.
 export function clearApiAccessToken() {
     cachedAccessToken = null;
     cachedExpiresAt = 0;
 }
 
+// Coordinates usable cached token within the shared application infrastructure and reusable interface behavior workflow.
 function hasUsableCachedToken() {
     if (!cachedAccessToken) {
         return false;
@@ -42,6 +46,7 @@ function hasUsableCachedToken() {
     return cachedExpiresAt - Math.floor(Date.now() / 1000) > 30;
 }
 
+// Refreshes access token within the shared application infrastructure and reusable interface behavior workflow.
 async function refreshAccessToken() {
     if (!refreshPromise) {
         refreshPromise = (async () => {
@@ -68,6 +73,7 @@ async function refreshAccessToken() {
     return refreshPromise;
 }
 
+// Coordinates out once within the shared application infrastructure and reusable interface behavior workflow.
 async function signOutOnce() {
     if (!signOutPromise) {
         signOutPromise = (async () => {
@@ -84,6 +90,7 @@ async function signOutOnce() {
     return signOutPromise;
 }
 
+// Retrieves current access token within the shared application infrastructure and reusable interface behavior workflow.
 async function getCurrentAccessToken(forceRefresh = false) {
     if (!isSupabaseConfigured) {
         throw new AuthenticationError(
@@ -120,6 +127,7 @@ async function getCurrentAccessToken(forceRefresh = false) {
     return refreshAccessToken();
 }
 
+// Builds request headers within the shared application infrastructure and reusable interface behavior workflow.
 async function buildRequestHeaders(options, accessToken) {
     const isFormData =
         options.body instanceof FormData;
@@ -133,6 +141,7 @@ async function buildRequestHeaders(options, accessToken) {
     };
 }
 
+// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
 async function request(endpoint, options = {}) {
     const accessToken = await getCurrentAccessToken();
     let headers = await buildRequestHeaders(options, accessToken);
@@ -198,10 +207,12 @@ async function request(endpoint, options = {}) {
     return response.json();
 }
 
+// Coordinates get within the shared application infrastructure and reusable interface behavior workflow.
 export function apiGet(endpoint) {
     return request(endpoint);
 }
 
+// Coordinates query within the shared application infrastructure and reusable interface behavior workflow.
 export function withQuery(endpoint, params = {}) {
     const query = new URLSearchParams();
 
@@ -216,6 +227,7 @@ export function withQuery(endpoint, params = {}) {
     return queryString ? `${endpoint}?${queryString}` : endpoint;
 }
 
+// Coordinates post within the shared application infrastructure and reusable interface behavior workflow.
 export function apiPost(endpoint, body) {
     return request(endpoint, {
         method: "POST",
@@ -223,6 +235,7 @@ export function apiPost(endpoint, body) {
     });
 }
 
+// Coordinates post form within the shared application infrastructure and reusable interface behavior workflow.
 export function apiPostForm(endpoint, formData) {
     return request(endpoint, {
         method: "POST",
@@ -230,6 +243,7 @@ export function apiPostForm(endpoint, formData) {
     });
 }
 
+// Coordinates patch within the shared application infrastructure and reusable interface behavior workflow.
 export function apiPatch(endpoint, body) {
     return request(endpoint, {
         method: "PATCH",
@@ -237,12 +251,14 @@ export function apiPatch(endpoint, body) {
     });
 }
 
+// Coordinates delete within the shared application infrastructure and reusable interface behavior workflow.
 export function apiDelete(endpoint) {
     return request(endpoint, {
         method: "DELETE",
     });
 }
 
+// Coordinates get blob within the shared application infrastructure and reusable interface behavior workflow.
 export function apiGetBlob(endpoint) {
     return request(endpoint, {
         responseType: "blob",

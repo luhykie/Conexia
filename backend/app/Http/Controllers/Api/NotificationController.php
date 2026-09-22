@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Notifications] - loads, formats, and presents workflow notifications.
 
 namespace App\Http\Controllers\Api;
 

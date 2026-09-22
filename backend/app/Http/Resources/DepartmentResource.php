@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 
 namespace App\Http\Resources;
 
@@ -7,6 +8,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class DepartmentResource extends JsonResource
 {
+    // Coordinates array within the department management and department-scoped workflow.
     public function toArray(Request $request): array
     {
         return [

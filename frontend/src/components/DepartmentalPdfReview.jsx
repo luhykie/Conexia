@@ -1,3 +1,4 @@
+// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
 import React from "react";
 import { getDocumentFiles, getDocumentPreviewUrl } from "../services/documentFileService";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist/build/pdf";

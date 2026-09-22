@@ -1,4 +1,5 @@
 <?php
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 
 namespace App\Http\Middleware;
 
@@ -9,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureRole
 {
+    // Handles the operation within the authentication and role-based access workflow.
     public function handle(
         Request $request,
         Closure $next,
@@ -35,6 +37,7 @@ class EnsureRole
         return $next($request);
     }
 
+    // Renders the page for the authentication and role-based access workflow.
     private function error(
         string $message,
         int $status

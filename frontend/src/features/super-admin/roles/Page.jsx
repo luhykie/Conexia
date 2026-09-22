@@ -1,3 +1,4 @@
+// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
 import React, {
   useEffect,
   useState,
@@ -31,6 +32,7 @@ const permissionCopy = {
   system_monitoring: ["System Monitoring", "View system monitoring information."],
 };
 
+// Renders the page for the authentication and role-based access workflow.
 export default function Page() {
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -40,6 +42,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Loads roles within the authentication and role-based access workflow.
   async function loadRoles() {
     setLoading(true);
     setError("");
@@ -59,6 +62,7 @@ export default function Page() {
     loadRoles();
   }, []);
 
+  // Coordinates role within the authentication and role-based access workflow.
   function openRole(role) {
     setSelectedRole(role);
     setDraftPermissions(role.permissions || {});
@@ -66,11 +70,13 @@ export default function Page() {
     setSuccess("");
   }
 
+  // Coordinates role within the authentication and role-based access workflow.
   function closeRole() {
     setSelectedRole(null);
     setDraftPermissions({});
   }
 
+  // Toggles permission within the authentication and role-based access workflow.
   function togglePermission(key) {
     setDraftPermissions((current) => ({
       ...current,
@@ -78,6 +84,7 @@ export default function Page() {
     }));
   }
 
+  // Saves role within the authentication and role-based access workflow.
   async function saveRole() {
     if (!selectedRole) return;
 
@@ -181,6 +188,7 @@ export default function Page() {
   );
 }
 
+// Coordinates editor within the authentication and role-based access workflow.
 function RoleEditor({
   role,
   permissions,

@@ -1,3 +1,4 @@
+// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
 import {
   apiGet,
   apiGetBlob,
@@ -5,12 +6,14 @@ import {
   withQuery,
 } from "../api/apiClient";
 
+// Retrieves role settings within the shared application infrastructure and reusable interface behavior workflow.
 export async function getRoleSettings() {
   const response = await apiGet("/super-admin/roles");
 
   return response.data ?? [];
 }
 
+// Saves role settings within the shared application infrastructure and reusable interface behavior workflow.
 export async function saveRoleSettings(permissions) {
   const response = await apiPatch("/super-admin/roles", {
     permissions,
@@ -19,10 +22,12 @@ export async function saveRoleSettings(permissions) {
   return response.data ?? [];
 }
 
+// Retrieves audit logs within the shared application infrastructure and reusable interface behavior workflow.
 export async function getAuditLogs(params = {}) {
   return apiGet(withQuery("/super-admin/audit-logs", params));
 }
 
+// Coordinates audit logs within the shared application infrastructure and reusable interface behavior workflow.
 export async function exportAuditLogs(params = {}) {
   const { blob, response } = await apiGetBlob(
     withQuery("/super-admin/audit-logs/export", params),
