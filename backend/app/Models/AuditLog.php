@@ -1,5 +1,5 @@
 <?php
-// [FEATURE: Audit Log] - records or presents administrative audit activity.
+// Audit log model: sayon i-query ang actor, document, ug file relations.
 
 namespace App\Models;
 
@@ -25,7 +25,7 @@ class AuditLog extends Model
         'metadata',
     ];
 
-    // Renders the page for the administrative audit activity workflow.
+    // I-keep nga consistent ang JSON payloads ug timestamp casting sa audit entries.
     protected function casts(): array
     {
         return [
@@ -34,19 +34,19 @@ class AuditLog extends Model
         ];
     }
 
-    // Renders the page for the administrative audit activity workflow.
+    // I-expose ang actor profile nga naka-link sa matag audit entry.
     public function actor(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'actor_id');
     }
 
-    // Renders the page for the administrative audit activity workflow.
+    // I-expose ang main document nga naka-link ani nga audit entry.
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
     }
 
-    // Coordinates file within the administrative audit activity workflow.
+    // I-expose ang uploaded file reference nga naka-link ani nga audit entry.
     public function documentFile(): BelongsTo
     {
         return $this->belongsTo(DocumentFile::class);

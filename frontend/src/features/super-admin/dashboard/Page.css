@@ -1,3 +1,4 @@
+/* UI-CHECK: I-keep nga aligned ang dashboard cards sa tibuok admin layout. */
 .super-page {
   display: grid;
   gap: 20px;

@@ -1,4 +1,4 @@
-// [FEATURE: System Monitoring] - supports platform health and operational monitoring.
+// Monitoring page: ipakita ang core system health metrics para sa admin.
 import React, {
   useEffect,
   useState,
@@ -17,7 +17,7 @@ import { getSuperAdminDashboard } from "../../../services/dashboardService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-// Renders the page for the platform health and operational monitoring workflow.
+// I-render ang system health status cards ug current telemetry summary.
 export default function Page() {
   const [system, setSystem] = useState({});
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState("");
 
-  // Loads system within the platform health and operational monitoring workflow.
+  // I-load ang current monitoring data ug refresh state nga responsive gihapon ang UI.
   async function loadSystem(isRefresh = false) {
     if (isRefresh) {
       setRefreshing(true);
@@ -115,7 +115,7 @@ export default function Page() {
   );
 }
 
-// Coordinates card within the platform health and operational monitoring workflow.
+// Himoa ang compact status card sa matag monitoring metric.
 function StatusCard({ icon: Icon, label, value }) {
   return (
     <article className="monitor-card">

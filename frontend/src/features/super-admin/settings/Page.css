@@ -1,3 +1,4 @@
+/* UI-CHECK: I-keep nga tarong ang stack sa settings panels sa gagmay nga screens. */
 .super-admin-page {
   display: grid;
   gap: 24px;

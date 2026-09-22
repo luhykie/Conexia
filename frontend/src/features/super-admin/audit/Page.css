@@ -1,3 +1,4 @@
+/* UI-CHECK: I-keep nga limpyo ug sayon basahon ang audit empty-state spacing. */
 .super-admin-page {
   display: grid;
   gap: 24px;

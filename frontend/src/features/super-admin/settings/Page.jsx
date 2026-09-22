@@ -1,4 +1,4 @@
-// [FEATURE: Shared/Utility] - provides shared application infrastructure and reusable interface behavior.
+// Settings page: ipakita ang read-only system configuration sa limpyo nga admin panel.
 import React, {
   useState,
 } from "react";
@@ -14,7 +14,7 @@ import { Panel } from "../../../components/Panel";
 import { Button } from "../../../components/Button/Button";
 import "./Page.css";
 
-// Renders the page for the shared application infrastructure and reusable interface behavior workflow.
+// I-render ang system settings panel uban sa current configured values.
 export default function Page() {
   const [settings, setSettings] = useState({
     systemName: "CONEXIA",
@@ -24,7 +24,7 @@ export default function Page() {
     senderEmail: "noreply@conexia.edu",
   });
 
-  // Updates setting within the shared application infrastructure and reusable interface behavior workflow.
+  // I-update ang local form state kung usbon sa user ang setting field.
   function updateSetting(event) {
     const { name, value } = event.target;
 
@@ -106,7 +106,7 @@ export default function Page() {
   );
 }
 
-// Coordinates panel within the shared application infrastructure and reusable interface behavior workflow.
+// Himoa ang reusable settings panel palibot sa current configuration section.
 function SettingsPanel({ icon: Icon, title, children }) {
   return (
     <Panel title={title}>

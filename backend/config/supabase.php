@@ -1,78 +1,30 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Supabase project URL
-    |--------------------------------------------------------------------------
-    |
-    | Example:
-    | https://your-project-reference.supabase.co
-    |
-    */
+    // SECURITY: I-keep ang project URL sa backend para sa Supabase API calls.
 
     'url' => env('SUPABASE_URL'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Supabase publishable key
-    |--------------------------------------------------------------------------
-    |
-    | This is the same publishable/anon key used by the React frontend.
-    | Do not place the service-role key in the frontend.
-    |
-    */
+    // SECURITY: pwede gamiton sa frontend ang publishable key, pero server-only gihapon ang service-role secret.
 
     'publishable_key' => env(
         'SUPABASE_PUBLISHABLE_KEY',
         env('SUPABASE_ANON_KEY')
     ),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Supabase service role key
-    |--------------------------------------------------------------------------
-    |
-    | Backend only. Used for privileged Admin Auth actions such as creating
-    | institutional accounts. Never expose this value to the React frontend.
-    |
-    */
+    // SECURITY: I-keep ang service-role secret sa backend lang para dili ma-leak sa frontend.
 
     'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Supabase JWT secret
-    |--------------------------------------------------------------------------
-    |
-    | Older Supabase projects can issue HS256 access tokens. Keep this only on
-    | the Laravel backend and never expose it to the React frontend.
-    |
-    */
+    // SECURITY: I-keep ang JWT secret sa backend para sa legacy HS256 token verification.
 
     'jwt_secret' => env('SUPABASE_JWT_SECRET'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Supabase JWKS cache time
-    |--------------------------------------------------------------------------
-    |
-    | Supabase Auth publishes public keys for ES256 JWT verification.
-    | Cache them briefly so every API request does not fetch the key set.
-    |
-    */
+    // DB-NOTE: i-cache kadiyot ang public JWKS keys para dili sige og fetch kada request.
 
     'jwks_cache_seconds' => env('SUPABASE_JWKS_CACHE_SECONDS', 3600),
 
-    /*
-    |--------------------------------------------------------------------------
-    | JWT clock skew allowance
-    |--------------------------------------------------------------------------
-    |
-    | Supabase access tokens can be issued a few seconds ahead of the Laravel
-    | server clock. Keep this small so local verification remains strict.
-    |
-    */
+    // SECURITY: gamayi ang clock skew para strict ang token checks pero dili ma-false negative.
 
     'jwt_leeway_seconds' => env('SUPABASE_JWT_LEEWAY_SECONDS', 60),
 ];

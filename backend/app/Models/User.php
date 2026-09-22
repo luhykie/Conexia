@@ -1,9 +1,9 @@
 <?php
-// [FEATURE: User Management] - manages user profiles, accounts, and directory access.
+// Model config: ipahiuyon ang Laravel auth fields ug hashed password rules.
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+// Gamiton ni nga auth contract kung kinahanglan ang email verification.
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -15,14 +15,10 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
+    /** @use HasFactory<UserFactory> para sa factory support ni nga model. */
     use HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    // I-keep nga parehas sa Laravel defaults ang auth field casting.
     protected function casts(): array
     {
         return [

@@ -1,5 +1,5 @@
 <?php
-// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
+// Department model: i-expose ang related profiles ug docs para sa department-scoped access.
 
 namespace App\Models;
 
@@ -23,13 +23,13 @@ class Department extends Model
         'email',
     ];
 
-    // Renders the page for the department management and department-scoped workflow.
+    // I-expose ang related profiles nga sakop ni nga department.
     public function profiles(): HasMany
     {
         return $this->hasMany(Profile::class);
     }
 
-    // Renders the page for the department management and department-scoped workflow.
+    // I-expose ang related documents nga sakop ni nga department.
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);

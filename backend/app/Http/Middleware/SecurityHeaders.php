@@ -1,5 +1,5 @@
 <?php
-// [FEATURE: System Monitoring] - supports platform health and operational monitoring.
+// SECURITY: idugang ang basic browser hardening headers para mas safe ang API responses.
 
 namespace App\Http\Middleware;
 
@@ -9,11 +9,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
 {
-    // Handles the operation within the platform health and operational monitoring workflow.
+    // Idugang ang baseline headers para mas safe ang browser behavior sa matag response.
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 
+        // I-protect ang response batok sa MIME confusion ug basic clickjacking.
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');

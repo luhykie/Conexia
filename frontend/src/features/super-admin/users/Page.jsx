@@ -1,4 +1,4 @@
-// [FEATURE: User Management] - manages user profiles, accounts, and directory access.
+// User page: i-review ang accounts, i-manage ang status, ug himoa ang department-based users.
 import React, {
   useEffect,
   useState,
@@ -22,7 +22,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-// Renders the page for the user profile, account, and directory management workflow.
+// I-render ang user directory uban sa stats summary ug create form.
 export default function Page() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -42,7 +42,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Loads users within the user profile, account, and directory management workflow.
+  // I-load ang user list ug department map para sa directory view.
   async function loadUsers() {
     setLoading(true);
     setError("");
@@ -70,7 +70,7 @@ export default function Page() {
     loadUsers();
   }, [page]);
 
-  // Changes status within the user profile, account, and directory management workflow.
+  // I-toggle ang active state sa napiling user ug i-sync ang table.
   async function changeStatus(user) {
     if (!user?.id) return;
 
@@ -97,7 +97,7 @@ export default function Page() {
     }
   }
 
-  // Submits new user within the user profile, account, and directory management workflow.
+  // I-validate ang payload ug himoa ang bag-ong user pinaagi sa API.
   async function submitNewUser(event) {
     event.preventDefault();
 
@@ -122,6 +122,7 @@ export default function Page() {
     }
 
     if (payload.role === "department_staff" && !payload.department_id) {
+      // Kinahanglan og valid department link ang department staff una dawaton sa API ang record.
       setError("Department Staff must be assigned to a department.");
       return;
     }
@@ -151,7 +152,7 @@ export default function Page() {
     }
   }
 
-  // Updates new user within the user profile, account, and directory management workflow.
+  // I-update ang create-user form fields ug tangtanga ang validation error kung mausab.
   function updateNewUser(event) {
     const { name, value, type, checked } = event.target;
 
@@ -312,7 +313,7 @@ export default function Page() {
   );
 }
 
-// Formats role within the user profile, account, and directory management workflow.
+// I-normalize ang role labels para sa table ug user display.
 function formatRole(role) {
   return String(role || "-")
     .split("_")

@@ -1,4 +1,4 @@
-// [FEATURE: Dashboard & Reporting] - provides dashboard metrics, workflow summaries, and reporting views.
+// Dashboard page: ipakita ang high-level system ug role summary para sa admin.
 import React, { useEffect, useState } from "react";
 import {
   Building2,
@@ -18,7 +18,7 @@ import { getRoleSettings } from "../../../services/superAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-// Renders the page for the dashboard metrics, workflow summaries, and reporting workflow.
+// I-render ang super-admin dashboard ug i-sync ang summary cards.
 export default function Page() {
   const [dashboard, setDashboard] = useState(createEmptyDashboard());
   const [loading, setLoading] = useState(true);
@@ -27,7 +27,7 @@ export default function Page() {
   useEffect(() => {
     let active = true;
 
-    // Loads dashboard within the dashboard metrics, workflow summaries, and reporting workflow.
+    // I-load gikan sa backend ang dashboard metrics ug role summary.
     async function loadDashboard() {
       setLoading(true);
       setErrorMessage("");
@@ -168,7 +168,7 @@ export default function Page() {
   );
 }
 
-// Creates empty dashboard within the dashboard metrics, workflow summaries, and reporting workflow.
+// Himoa ang default empty dashboard state para limpyo ang first load.
 function createEmptyDashboard() {
   return {
     stats: {},
@@ -178,7 +178,7 @@ function createEmptyDashboard() {
   };
 }
 
-// Formats count within the dashboard metrics, workflow summaries, and reporting workflow.
+// I-format ang count value para limpyo tan-awon sa summary cards.
 function formatCount(value) {
   return String(Number.isFinite(Number(value)) ? Number(value) : 0).padStart(2, "0");
 }

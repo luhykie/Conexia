@@ -1,4 +1,4 @@
-// [FEATURE: Audit Log] - records or presents administrative audit activity.
+// Ipadala ang client-side errors sa monitoring layer kung production ang app.
 export function reportClientError() {
-  // Send client errors to a monitoring service here in production.
+  // Ipadala ang client-side errors sa monitoring layer para sa production debugging.
 }

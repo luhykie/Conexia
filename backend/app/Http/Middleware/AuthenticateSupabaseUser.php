@@ -1,5 +1,5 @@
 <?php
-// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
+// Auth guard: i-verify ang Supabase token ug i-attach ang active profile una modagan ang route.
 
 namespace App\Http\Middleware;
 
@@ -14,21 +14,19 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthenticateSupabaseUser
 {
-    // Coordinates CT within the authentication and role-based access workflow.
+    // I-andam ang auth service pag-boot sa middleware.
     public function __construct(
         private readonly SupabaseAuthService $supabaseAuthService
     ) {
     }
 
-    /**
-     * Validate the bearer token and attach the authenticated profile
-     * to the current Laravel request.
-     */
+    // I-validate ang bearer token ug i-attach ang active profile sa request.
     public function handle(Request $request, Closure $next): Response
     {
         $accessToken = $request->bearerToken();
 
         if (!$accessToken) {
+            // Kung walay bearer token, wala nakaabot ang request sa protected route.
             Log::warning('Supabase auth middleware rejected request: missing bearer token.', [
                 'path' => $request->path(),
             ]);
@@ -54,6 +52,7 @@ class AuthenticateSupabaseUser
         }
 
         if ($supabaseUser === []) {
+            // Kasagaran, empty ang user payload kung napakyas o na-expire ang token validation.
             Log::warning('Supabase auth middleware rejected request: token verification returned no user.', [
                 'path' => $request->path(),
             ]);
@@ -67,7 +66,10 @@ class AuthenticateSupabaseUser
             ->with('department')
             ->find($supabaseUser['id']);
 
+        // I-match ang verified Supabase user sa local profile una paagian ang route.
+
         if (!$profile) {
+            // Kung walay profile, valid ang token pero wala pa na-link ang local user record.
             Log::warning('Supabase auth middleware rejected request: profile not found.', [
                 'path' => $request->path(),
                 'supabase_user_id' => $supabaseUser['id'] ?? null,
@@ -82,6 +84,7 @@ class AuthenticateSupabaseUser
         }
 
         if (!$profile->is_active) {
+            // Magpabilin nga blocked ang inactive profiles bisan valid ang Supabase token.
             Log::warning('Supabase auth middleware rejected request: profile inactive.', [
                 'path' => $request->path(),
                 'profile_id' => $profile->id,
@@ -95,10 +98,7 @@ class AuthenticateSupabaseUser
             ], 403);
         }
 
-        /*
-         * Make the authenticated Supabase user and CONEXIA profile
-         * available to controllers.
-         */
+        // Ibutang ang verified Supabase payload ug profile sa request para sa controller checks.
         $request->attributes->set(
             'supabase_user',
             $supabaseUser
@@ -112,7 +112,7 @@ class AuthenticateSupabaseUser
         return $next($request);
     }
 
-    // Renders the page for the authentication and role-based access workflow.
+    // Himoa ang JSON error payload para sa napakyas nga auth checks.
     private function unauthorised(string $message): JsonResponse
     {
         return response()->json([

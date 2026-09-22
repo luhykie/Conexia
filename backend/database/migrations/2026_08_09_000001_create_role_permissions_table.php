@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    // DB-NOTE: himoa ang role permission map nga gamiton sa RBAC checks.
     public function up(): void
     {
         Schema::create('role_permissions', function (Blueprint $table): void {
@@ -16,6 +17,7 @@ return new class extends Migration
         });
     }
 
+    // DB-NOTE: tangtanga ang role permission table kung i-rollback ang migration.
     public function down(): void
     {
         Schema::dropIfExists('role_permissions');

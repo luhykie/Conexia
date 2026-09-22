@@ -1,4 +1,4 @@
-// [FEATURE: Auth & RBAC] - authenticates accounts and enforces role-based access across the application.
+// Role page: i-manage ang protected access levels ug permission map sa matag role.
 import React, {
   useEffect,
   useState,
@@ -32,7 +32,7 @@ const permissionCopy = {
   system_monitoring: ["System Monitoring", "View system monitoring information."],
 };
 
-// Renders the page for the authentication and role-based access workflow.
+// I-render ang role matrix ug permission editor sa napiling role.
 export default function Page() {
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
@@ -42,7 +42,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Loads roles within the authentication and role-based access workflow.
+  // I-load sa API ang role list ug current access settings niini.
   async function loadRoles() {
     setLoading(true);
     setError("");
@@ -62,7 +62,7 @@ export default function Page() {
     loadRoles();
   }, []);
 
-  // Coordinates role within the authentication and role-based access workflow.
+  // Ablihi ang napiling role para i-edit ug andama ang draft permission state.
   function openRole(role) {
     setSelectedRole(role);
     setDraftPermissions(role.permissions || {});
@@ -70,13 +70,13 @@ export default function Page() {
     setSuccess("");
   }
 
-  // Coordinates role within the authentication and role-based access workflow.
+  // Sirad-i ang editor ug limpyohi ang draft permission state.
   function closeRole() {
     setSelectedRole(null);
     setDraftPermissions({});
   }
 
-  // Toggles permission within the authentication and role-based access workflow.
+  // I-flip ang permission flag sa draft; ayaw usba ang saved state pa.
   function togglePermission(key) {
     setDraftPermissions((current) => ({
       ...current,
@@ -84,7 +84,7 @@ export default function Page() {
     }));
   }
 
-  // Saves role within the authentication and role-based access workflow.
+  // I-validate ug i-save ang gi-edit nga permissions sa napiling role.
   async function saveRole() {
     if (!selectedRole) return;
 
@@ -188,7 +188,7 @@ export default function Page() {
   );
 }
 
-// Coordinates editor within the authentication and role-based access workflow.
+// Himoa ang modal editor para i-manage ang role permission set.
 function RoleEditor({
   role,
   permissions,

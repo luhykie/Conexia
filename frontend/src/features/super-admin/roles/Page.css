@@ -1,3 +1,4 @@
+/* UI-CHECK: I-keep nga sayon basahon ang role modal ug permission grid sa tanang breakpoints. */
 .super-admin-page {
   display: grid;
   gap: 24px;

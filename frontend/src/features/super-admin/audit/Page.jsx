@@ -1,4 +1,4 @@
-// [FEATURE: Audit Log] - records or presents administrative audit activity.
+// Audit log page: i-review ug i-export ang admin trail para ni nga screen.
 import React, {
   useEffect,
   useState,
@@ -19,7 +19,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-// Renders the page for the administrative audit activity workflow.
+// I-render ang admin audit log page ug i-sync ang filter state.
 export default function Page() {
   const [logs, setLogs] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -29,12 +29,13 @@ export default function Page() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
-  // Loads logs within the administrative audit activity workflow.
+  // I-load ang latest audit rows ug pagination metadata para sa table.
   async function loadLogs() {
     setLoading(true);
     setError("");
 
     try {
+      // Kuhaa sa backend ang filtered audit rows ug page metadata.
       const response = await getAuditLogs({
         page,
         search,
@@ -57,7 +58,7 @@ export default function Page() {
     loadLogs();
   }, [page]);
 
-  // Coordinates logs within the administrative audit activity workflow.
+  // I-trigger ang CSV export ug ihatag sa browser download.
   async function exportLogs() {
     setExporting(true);
     setError("");
@@ -148,7 +149,7 @@ export default function Page() {
   );
 }
 
-// Formats role within the administrative audit activity workflow.
+// I-normalize ang role labels para sa table view.
 function formatRole(role) {
   return String(role || "-")
     .split("_")

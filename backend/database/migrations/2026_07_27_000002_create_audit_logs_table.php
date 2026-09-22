@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    // DB-NOTE: i-store ang audit trail uban sa actor, document, ug payload metadata fields.
     public function up(): void
     {
         Schema::create('audit_logs', function (Blueprint $table) {
@@ -19,6 +20,7 @@ return new class extends Migration
         });
     }
 
+    // DB-NOTE: tangtanga ang audit trail table kung i-revert ang migration.
     public function down(): void
     {
         Schema::dropIfExists('audit_logs');

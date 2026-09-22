@@ -1,3 +1,4 @@
+/* UI-CHECK: I-keep nga aligned ang user summary cards sa ubang admin layout. */
 .super-admin-page {
   display: grid;
   gap: 24px;

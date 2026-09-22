@@ -1,4 +1,4 @@
-// [FEATURE: Department Management] - manages departments and department-scoped workflow data.
+// Department page: i-maintain ang internal department directory ug related summary metrics.
 import React, {
   useEffect,
   useState,
@@ -19,7 +19,7 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
-// Renders the page for the department management and department-scoped workflow.
+// I-render ang department directory uban sa quick stats ug create form.
 export default function Page() {
   const [departments, setDepartments] = useState([]);
   const [page, setPage] = useState(1);
@@ -36,7 +36,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Loads departments within the department management and department-scoped workflow.
+  // I-load ang department list ug pagination metadata para sa table.
   async function loadDepartments() {
     setLoading(true);
     setError("");
@@ -59,7 +59,7 @@ export default function Page() {
     loadDepartments();
   }, [page]);
 
-  // Submits department within the department management and department-scoped workflow.
+  // I-validate ug ipadala sa backend ang bag-ong department payload.
   async function submitDepartment(event) {
     event.preventDefault();
     setSaving(true);
@@ -85,7 +85,7 @@ export default function Page() {
     }
   }
 
-  // Updates department within the department management and department-scoped workflow.
+  // I-update ang form state kung usbon sa user ang department fields.
   function updateDepartment(event) {
     const { name, value } = event.target;
 

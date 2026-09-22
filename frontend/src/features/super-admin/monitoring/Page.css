@@ -1,3 +1,4 @@
+/* UI-CHECK: I-keep nga aligned ang monitoring cards sa tablet ug mobile. */
 .super-admin-page {
   display: grid;
   gap: 24px;
