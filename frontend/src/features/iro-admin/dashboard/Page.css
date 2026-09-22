@@ -19,7 +19,11 @@
   vertical-align: middle;
 }
 
-.iro-admin-dashboard-page .iro-dashboard-column--status,
+.iro-admin-dashboard-page .iro-dashboard-column--status
+{
+  text-align: left;
+}
+
 .iro-admin-dashboard-page .iro-dashboard-column--action {
   text-align: center;
 }
