@@ -14,7 +14,11 @@ return [
 
     // SECURITY: I-keep ang service-role secret sa backend lang para dili ma-leak sa frontend.
 
-    'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
+    // Accept both Supabase's legacy service-role name and its newer secret-key name.
+    'service_role_key' => env(
+        'SUPABASE_SERVICE_ROLE_KEY',
+        env('SUPABASE_SECRET_KEY')
+    ),
 
     // SECURITY: I-keep ang JWT secret sa backend para sa legacy HS256 token verification.
 

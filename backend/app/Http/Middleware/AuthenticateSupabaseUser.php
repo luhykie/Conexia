@@ -9,6 +9,7 @@ use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -96,6 +97,17 @@ class AuthenticateSupabaseUser
                 'message' => 'Your account has been deactivated.',
                 'errors' => [],
             ], 403);
+        }
+
+        // A successful authenticated request counts as the department's first login and activates its directory status.
+        if (
+            $profile->department_id
+            && Schema::hasColumn('departments', 'is_active')
+        ) {
+            $profile->department?->newQuery()
+                ->whereKey($profile->department_id)
+                ->where('is_active', false)
+                ->update(['is_active' => true]);
         }
 
         // Ibutang ang verified Supabase payload ug profile sa request para sa controller checks.

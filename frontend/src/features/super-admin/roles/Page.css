@@ -30,6 +30,21 @@
   text-transform: uppercase;
 }
 
+/* Center only the Role Management Action header without changing shared table headers. */
+.cx-table th.action-column-header {
+  text-align: center;
+}
+
+/* Center Role Management action cells and buttons vertically and horizontally. */
+.cx-table td.action-column-header {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cx-table td.action-column-header > .table-action {
+  margin-inline: auto;
+}
+
 @media (max-width: 800px) {
   .super-admin-stats {
     grid-template-columns: 1fr;
@@ -139,10 +154,6 @@
   border: 1px solid #d7dfd9;
   border-radius: 6px;
   background: #ffffff;
-}
-
-.permission-row.locked {
-  background: #f6f7f6;
 }
 
 .permission-row strong {

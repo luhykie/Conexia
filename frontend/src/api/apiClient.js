@@ -251,6 +251,14 @@ export function apiPatch(endpoint, body) {
     });
 }
 
+// Sends a full resource replacement for Super Admin edit forms.
+export function apiPut(endpoint, body) {
+    return request(endpoint, {
+        method: "PUT",
+        body: JSON.stringify(body),
+    });
+}
+
 // Coordinates delete within the shared application infrastructure and reusable interface behavior workflow.
 export function apiDelete(endpoint) {
     return request(endpoint, {

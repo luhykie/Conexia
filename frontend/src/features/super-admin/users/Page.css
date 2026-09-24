@@ -30,6 +30,81 @@
   text-transform: uppercase;
 }
 
+/* Center only the User Management Action header without changing other role tables. */
+.cx-table th.action-column-header {
+  text-align: center;
+}
+
+/* Center User Management action cells and keep both action buttons aligned in the row. */
+.cx-table td.action-column-header {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cx-table td.action-column-header > .user-table-actions {
+  align-items: center;
+  justify-content: center;
+  margin-inline: auto;
+}
+
+.user-delete-action {
+  color: #8b1e1e !important;
+  border-color: #b94a48 !important;
+}
+
+.user-delete-action:hover {
+  color: #ffffff !important;
+  background: #b94a48 !important;
+}
+
+.user-management-table .role-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(19, 32, 51, 0.42);
+}
+
+.user-management-table .role-modal {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(19, 32, 51, 0.22);
+}
+
+.user-management-table .role-modal header,
+.user-management-table .role-modal footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.user-management-table .role-modal h2,
+.user-management-table .role-modal p {
+  margin: 0;
+}
+
+.user-management-table .role-modal h2 {
+  color: #004629;
+  font-size: 1.35rem;
+}
+
+.user-management-table .role-modal p {
+  color: #66706d;
+}
+
+.user-management-table .role-modal .danger {
+  color: #ffffff;
+  background: #b94a48;
+  border-color: #b94a48;
+}
+
 @media (max-width: 800px) {
   .super-admin-stats {
     grid-template-columns: 1fr;

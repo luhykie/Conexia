@@ -105,7 +105,7 @@ export default function Page() {
       setSelectedRole(
         updatedRoles.find((role) => role.role === selectedRole.role) ?? null,
       );
-      setSuccess("Role permissions saved.");
+      // Success text is intentionally suppressed; the updated permissions are visible immediately.
     } catch (requestError) {
       reportClientError("Unable to save role settings:", requestError);
       setError(requestError.message || "Unable to save role settings.");
@@ -170,6 +170,7 @@ export default function Page() {
           <DataTable
             headers={["Role", "Purpose", "Scope", "Access Level", "Actions"]}
             rows={rows}
+            columnClasses={["", "", "", "", "action-column-header"]}
           />
         )}
       </Panel>
@@ -197,8 +198,6 @@ function RoleEditor({
   onSave,
   onToggle,
 }) {
-  const locked = new Set(role.locked || []);
-
   return (
     <div className="role-modal-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -211,7 +210,7 @@ function RoleEditor({
         <header>
           <div>
             <h2 id="role-editor-title">Edit Role</h2>
-            <p>Protected permissions are locked by system policy.</p>
+            <p>All permission groups can be edited by Super Admin.</p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose}>
             <X size={18} />
@@ -226,28 +225,23 @@ function RoleEditor({
 
         <div className="permission-grid">
           {Object.entries(permissionCopy).map(([key, [label, description]]) => {
-            const isLocked = locked.has(key);
-
             return (
               <label
                 key={key}
-                className={`permission-row ${isLocked ? "locked" : ""}`}
-                title={isLocked ? "Protected by system policy" : undefined}
+                className="permission-row"
               >
                 <input
                   type="checkbox"
                   checked={Boolean(permissions[key])}
-                  disabled={saving || isLocked}
+                  // Removed protected-permission lock per design decision — Super Admin can now edit every permission group.
+                  disabled={saving}
                   onChange={() => onToggle(key)}
                 />
                 <span>
                   <strong>
                     {label}
-                    {isLocked && <Lock size={13} />}
                   </strong>
-                  <small>
-                    {isLocked ? "Protected by system policy" : description}
-                  </small>
+                  <small>{description}</small>
                 </span>
               </label>
             );

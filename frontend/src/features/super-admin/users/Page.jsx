@@ -1,10 +1,12 @@
 // User page: i-review ang accounts, i-manage ang status, ug himoa ang department-based users.
 import React, {
   useEffect,
+  useRef,
   useState,
 } from "react";
 import {
   RefreshCw,
+  Trash2,
   UserMinus,
   UserPlus,
   Users,
@@ -17,6 +19,7 @@ import { getDepartments } from "../../../services/departmentService";
 import {
   getUsers,
   createUser,
+  deleteUser,
   toggleUserStatus,
 } from "../../../services/userService";
 import { reportClientError } from "../../../utils/reportClientError";
@@ -30,7 +33,9 @@ export default function Page() {
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(null);
   const [creating, setCreating] = useState(false);
+  const creatingRequestRef = useRef(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUser, setNewUser] = useState({
     full_name: "",
@@ -88,7 +93,7 @@ export default function Page() {
             : currentUser,
         ),
       );
-      setSuccess("User status updated.");
+      // Success text is intentionally suppressed; the refreshed row is sufficient feedback.
     } catch (requestError) {
       reportClientError("Unable to update user status:", requestError);
       setError(requestError.message || "Unable to update user status.");
@@ -97,9 +102,38 @@ export default function Page() {
     }
   }
 
+  // Requires an explicit confirmation before permanently removing a profile.
+  async function confirmDeleteUser() {
+    if (!deletingUser?.id) return;
+
+    setProcessingId(deletingUser.id);
+    setError("");
+    setSuccess("");
+
+    try {
+      await deleteUser(deletingUser.id);
+      setDeletingUser(null);
+      // Success text is intentionally suppressed; the refreshed table is sufficient feedback.
+      await loadUsers();
+    } catch (requestError) {
+      reportClientError("Unable to delete user:", requestError);
+      setError(requestError.message || "Unable to delete user.");
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
   // I-validate ang payload ug himoa ang bag-ong user pinaagi sa API.
   async function submitNewUser(event) {
+    // The form submit event is the single submission path; this ref also blocks
+    // rapid clicks before React can re-render the disabled button.
+    if (creatingRequestRef.current) return;
+    creatingRequestRef.current = true;
     event.preventDefault();
+    setCreating(true);
+    // Clear stale error and refresh user list on success — previously a leftover error from an earlier failed attempt could remain visible even after a later attempt succeeded, and the new user required a manual refresh to appear.
+    setError("");
+    setSuccess("");
 
     const payload = {
       ...newUser,
@@ -113,27 +147,30 @@ export default function Page() {
 
     if (!payload.full_name) {
       setError("Full name is required.");
+      creatingRequestRef.current = false;
+      setCreating(false);
       return;
     }
 
     if (!payload.email) {
       setError("Email is required.");
+      creatingRequestRef.current = false;
+      setCreating(false);
       return;
     }
 
     if (payload.role === "department_staff" && !payload.department_id) {
       // Kinahanglan og valid department link ang department staff una dawaton sa API ang record.
       setError("Department Staff must be assigned to a department.");
+      creatingRequestRef.current = false;
+      setCreating(false);
       return;
     }
-
-    setCreating(true);
-    setError("");
-    setSuccess("");
 
     try {
       await createUser(payload);
 
+      setError("");
       setNewUser({
         full_name: "",
         email: "",
@@ -146,8 +183,18 @@ export default function Page() {
       await loadUsers();
     } catch (requestError) {
       reportClientError("Unable to create user:", requestError);
-      setError(requestError.message || "Unable to create user.");
+      // User-facing errors must never expose SQL, stack traces, or connection details.
+      const message = requestError.message || "";
+      const isSafeMessage =
+        message.length <= 160 &&
+        !/sqlstate|select |insert |update |delete |pgsql|postgres|connection:|stack trace|exception/i.test(message);
+      setError(
+        isSafeMessage && message
+          ? message
+          : "Something went wrong. Please try again.",
+      );
     } finally {
+      creatingRequestRef.current = false;
       setCreating(false);
     }
   }
@@ -175,23 +222,29 @@ export default function Page() {
     user.roleLabel || formatRole(user.role),
     user.departmentName || user.department?.name || "-",
     user.is_active ? "Active" : "Inactive",
-    <button
-      type="button"
-      className="table-action"
-      key={`status-${user.id}`}
-      disabled={processingId === user.id}
-      onClick={() => changeStatus(user)}
-    >
-      {processingId === user.id
-        ? "Saving..."
-        : user.is_active
-          ? "Deactivate"
-          : "Activate"}
-    </button>,
+    <div className="user-table-actions" key={`actions-${user.id}`}>
+      <button
+        type="button"
+        className="table-action"
+        disabled={processingId === user.id}
+        onClick={() => changeStatus(user)}
+      >
+        {processingId === user.id ? "Saving..." : user.is_active ? "Deactivate" : "Activate"}
+      </button>
+      <button
+        type="button"
+        className="table-action user-delete-action"
+        disabled={processingId === user.id}
+        onClick={() => setDeletingUser(user)}
+      >
+        <Trash2 size={14} />
+        Delete
+      </button>
+    </div>,
   ]);
 
   return (
-    <section className="super-admin-page">
+    <section className="super-admin-page user-management-table">
       <PageTitle
         title="User Management"
         subtitle="Review CONEXIA user accounts, roles, department assignments, and account status."
@@ -304,11 +357,31 @@ export default function Page() {
           <DataTable
             headers={["Name", "Email", "Role", "Department", "Status", "Action"]}
             rows={rows}
+            columnClasses={["", "", "", "", "", "action-column-header"]}
             meta={meta}
             onPageChange={setPage}
           />
         )}
       </Panel>
+
+      {deletingUser && (
+        <div className="role-modal-backdrop" role="presentation" onClick={() => setDeletingUser(null)}>
+          <section className="role-modal" role="dialog" aria-modal="true" aria-labelledby="delete-user-title" onClick={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <h2 id="delete-user-title">Delete User</h2>
+                <p>This will permanently delete this user's account and login access. This cannot be undone.</p>
+              </div>
+            </header>
+            <footer>
+              <button type="button" onClick={() => setDeletingUser(null)} disabled={processingId === deletingUser.id}>Cancel</button>
+              <button type="button" className="primary danger" onClick={confirmDeleteUser} disabled={processingId === deletingUser.id}>
+                {processingId === deletingUser.id ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </section>
   );
 }

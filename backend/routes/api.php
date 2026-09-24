@@ -110,9 +110,24 @@ Route::middleware(['throttle:api', AuthenticateSupabaseUser::class])
                     [UserController::class, 'store']
                 );
 
+                Route::delete(
+                    '/users/{profile}',
+                    [UserController::class, 'destroy']
+                );
+
                 Route::post(
                     '/departments',
                     [DepartmentController::class, 'store']
+                );
+
+                Route::put(
+                    '/departments/{department}',
+                    [DepartmentController::class, 'update']
+                );
+
+                Route::delete(
+                    '/departments/{department}',
+                    [DepartmentController::class, 'destroy']
                 );
 
                 Route::get(

@@ -11,6 +11,8 @@ class UserResource extends JsonResource
     // Converts a user profile into its public API representation.
     public function toArray(Request $request): array
     {
+        $department = $this->department;
+
         return [
             'id' => $this->id,
 
@@ -25,23 +27,25 @@ class UserResource extends JsonResource
 
             // Related department
             'department' => $this->whenLoaded('department', function () {
-                if (!$this->department) {
+                $department = $this->department;
+
+                if (!$department) {
                     return null;
                 }
 
                 return [
-                    'id' => $this->department->id,
-                    'code' => $this->department->code,
-                    'name' => $this->department->name,
-                    'email' => $this->department->email,
+                    'id' => $department->id,
+                    'code' => $department->code,
+                    'name' => $department->name,
+                    'email' => $department->email,
                 ];
             }),
 
             // Frontend-friendly values
             'fullName' => $this->full_name,
             'roleLabel' => $this->roleLabel(),
-            'departmentCode' => $this->department?->code,
-            'departmentName' => $this->department?->name,
+            'departmentCode' => $department?->code,
+            'departmentName' => $department?->name,
             'status' => $this->is_active ? 'Active' : 'Inactive',
 
             // Temporary until login tracking is added

@@ -68,4 +68,10 @@ class Profile extends Model
     {
         return $this->hasMany(DocumentMessage::class, 'sender_id');
     }
+
+    // Exposes uploaded files so hard deletion can reject accounts with document history.
+    public function documentFiles(): HasMany
+    {
+        return $this->hasMany(DocumentFile::class, 'uploaded_by');
+    }
 }

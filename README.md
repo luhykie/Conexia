@@ -204,12 +204,49 @@ Core protected endpoints:
 - `GET /api/iro/reports`
 - `GET /api/super-admin/dashboard`
 - `GET /api/users`
+- `POST /api/users`
+- `DELETE /api/users/{profile}`
 - `PATCH /api/users/{profile}/status`
 - `PATCH /api/users/{profile}/assignment`
 - `GET /api/departments`
 
 List endpoints support `page`, `per_page`, `search`, `status`, `sort`, and
 `direction` where applicable.
+
+## User Delete/Recreate Smoke Test
+
+Use a valid Super Admin Supabase access token and a department UUID. Run these
+requests against the same API environment used by the demo. The delete call
+does not return success until the local profile is removed and the Supabase
+Auth identity is confirmed absent, so the final create request can follow
+immediately:
+
+```bash
+API_URL=http://127.0.0.1:8000/api
+TOKEN='paste-a-super-admin-access-token-here'
+USER_EMAIL="recreate-demo-$(date +%s)@conexia.test"
+DEPARTMENT_ID='paste-a-department-uuid-here'
+
+curl -sS -X POST "$API_URL/users" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"full_name\":\"Recreate Demo User\",\"email\":\"$USER_EMAIL\",\"role\":\"department_staff\",\"department_id\":\"$DEPARTMENT_ID\",\"is_active\":true}"
+
+# Copy the returned user.id into USER_ID.
+USER_ID='paste-created-user-id-here'
+
+curl -sS -X DELETE "$API_URL/users/$USER_ID" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -sS -X POST "$API_URL/users" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"full_name\":\"Recreated Demo User\",\"email\":\"$USER_EMAIL\",\"role\":\"department_staff\",\"department_id\":\"$DEPARTMENT_ID\",\"is_active\":true}"
+```
+
+The last response should be HTTP 201 with `"success": true`. For a repeatable
+terminal check, use a fresh timestamped email each run and verify that the
+delete response is successful before issuing the final create request.
 
 ## Security Checklist
 

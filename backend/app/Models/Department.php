@@ -21,7 +21,17 @@ class Department extends Model
         'name',
         'code',
         'email',
+        'office_assignment',
+        'is_active',
     ];
+
+    // Casts the editable directory status to a boolean for the API and Super Admin form.
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
     // I-expose ang related profiles nga sakop ni nga department.
     public function profiles(): HasMany

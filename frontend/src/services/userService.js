@@ -1,6 +1,7 @@
 // User service: kuhaa ug i-update ang user records para sa directory pages.
 import {
   apiGet,
+  apiDelete,
   apiPatch,
   apiPost,
   withQuery,
@@ -45,4 +46,9 @@ export async function updateUserAssignment(id, payload) {
   );
 
   return response.user ?? response.data;
+}
+
+// Permanently removes a profile after the Super Admin confirmation flow completes.
+export async function deleteUser(id) {
+  return apiDelete(`/users/${id}`);
 }

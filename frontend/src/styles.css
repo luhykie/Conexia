@@ -1831,6 +1831,12 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   background: transparent;
 }
 
+/* Center the Super Admin User Management action contents without affecting other tables. */
+.user-management-table .user-table-actions {
+  grid-template-columns: repeat(2, minmax(0, 108px));
+  justify-content: center;
+}
+
 /* Remove any badge-like background around the actions. */
 
 .user-management-table .tr > span:nth-child(7)::before,
@@ -1853,6 +1859,15 @@ textarea { padding-top: var(--space-3); resize: vertical; }
   background: transparent !important;
   border: 0;
   border-radius: 0;
+}
+
+/* Keep the two User Management actions centered as one group after the legacy grid defaults. */
+.user-management-table .cx-table td.action-column-header > .user-table-actions {
+  width: fit-content;
+  grid-template-columns: 90px 120px;
+  align-items: center;
+  justify-content: center;
+  margin-inline: auto;
 }
 
 /* Action buttons */

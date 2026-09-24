@@ -198,6 +198,8 @@ abstract class SecurityTestCase extends TestCase
             $table->string('name');
             $table->string('code');
             $table->string('email')->nullable();
+            $table->string('office_assignment')->nullable();
+            $table->boolean('is_active')->default(true);
         });
 
         Schema::create('profiles', function (Blueprint $table) {

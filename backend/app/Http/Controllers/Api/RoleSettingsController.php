@@ -23,7 +23,7 @@ class RoleSettingsController extends Controller
         ]);
     }
 
-    // Validates and persists allowed role-permission changes.
+    // Validates and persists every role-permission change submitted by Super Admin.
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -33,27 +33,14 @@ class RoleSettingsController extends Controller
         $permissions = $validated['permissions'];
         $defaults = $this->defaults();
 
-        if ($this->violatesProtectedBoundaries($permissions, $defaults)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Protected role permissions cannot be changed.',
-                'errors' => [
-                    'permissions' => [
-                        'Locked permissions are protected by system policy.',
-                    ],
-                ],
-            ], 422);
-        }
-
         DB::transaction(function () use ($request, $permissions, $defaults): void {
             foreach ($defaults as $role => $definition) {
                 $requested = $permissions[$role] ?? [];
                 $clean = [];
 
                 foreach ($definition['permissions'] as $key => $defaultValue) {
-                    $clean[$key] = in_array($key, $definition['locked'], true)
-                        ? $defaultValue
-                        : (bool) ($requested[$key] ?? $defaultValue);
+                    // Removed protected-permission server lock per design decision — submitted values now persist for every role.
+                    $clean[$key] = (bool) ($requested[$key] ?? $defaultValue);
                 }
 
                 RolePermission::query()->updateOrCreate(
@@ -83,28 +70,6 @@ class RoleSettingsController extends Controller
         ]);
     }
 
-    // Protects mandatory security boundaries from configuration changes.
-    private function violatesProtectedBoundaries(
-        array $permissions,
-        array $defaults
-    ): bool {
-        foreach ($defaults as $role => $definition) {
-            $requested = $permissions[$role] ?? [];
-
-            foreach ($definition['locked'] as $lockedKey) {
-                if (
-                    array_key_exists($lockedKey, $requested)
-                    && (bool) $requested[$lockedKey]
-                        !== (bool) $definition['permissions'][$lockedKey]
-                ) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     // Builds the stored permission matrix on top of the defaults.
     private function matrix(): array
     {
@@ -123,11 +88,6 @@ class RoleSettingsController extends Controller
                     )
                 );
 
-                foreach ($definition['locked'] as $lockedKey) {
-                    $permissions[$lockedKey] =
-                        $definition['permissions'][$lockedKey];
-                }
-
                 return [
                     'role' => $role,
                     'label' => $definition['label'],
@@ -135,7 +95,8 @@ class RoleSettingsController extends Controller
                     'scope' => $definition['scope'],
                     'access_level' => $definition['access_level'],
                     'permissions' => $permissions,
-                    'locked' => $definition['locked'],
+                    // Permission groups are intentionally editable even on roles still labeled Protected.
+                    'locked' => [],
                 ];
             })
             ->values()
@@ -151,12 +112,6 @@ class RoleSettingsController extends Controller
                 'purpose' => 'System governance',
                 'scope' => 'No document workflow access',
                 'access_level' => 'Protected',
-                'locked' => [
-                    'document_contents',
-                    'files',
-                    'workflow',
-                    'assign_legal',
-                ],
                 'permissions' => [
                     'governance' => true,
                     'document_contents' => false,
@@ -174,7 +129,6 @@ class RoleSettingsController extends Controller
                 'purpose' => 'Institutional Relations administration',
                 'scope' => 'Document workflow management',
                 'access_level' => 'Managed',
-                'locked' => ['governance'],
                 'permissions' => [
                     'governance' => false,
                     'document_contents' => true,
@@ -192,14 +146,6 @@ class RoleSettingsController extends Controller
                 'purpose' => 'Legal review',
                 'scope' => 'Assigned legal records only',
                 'access_level' => 'Managed',
-                'locked' => [
-                    'governance',
-                    'assign_legal',
-                    'user_management',
-                    'department_management',
-                    'audit_logs',
-                    'system_monitoring',
-                ],
                 'permissions' => [
                     'governance' => false,
                     'document_contents' => true,
@@ -217,14 +163,6 @@ class RoleSettingsController extends Controller
                 'purpose' => 'Department workspace',
                 'scope' => 'Own department records only',
                 'access_level' => 'Managed',
-                'locked' => [
-                    'governance',
-                    'assign_legal',
-                    'user_management',
-                    'department_management',
-                    'audit_logs',
-                    'system_monitoring',
-                ],
                 'permissions' => [
                     'governance' => false,
                     'document_contents' => true,

@@ -12,7 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -71,7 +74,9 @@ class UserController extends Controller
         ]);
 
         $query = Profile::query()
-            ->with('department');
+            ->with('department')
+            ->leftJoin('departments', 'departments.id', '=', 'profiles.department_id')
+            ->select('profiles.*');
         $operator = Pagination::searchOperator();
 
         if (!empty($validated['search'])) {
@@ -106,13 +111,35 @@ class UserController extends Controller
             $validated['per_page'] ?? Pagination::DEFAULT_PER_PAGE,
             Pagination::MAX_PER_PAGE
         );
-        $sort = $validated['sort'] ?? 'full_name';
+        $sort = $validated['sort'] ?? null;
         $direction = $validated['direction'] ?? 'asc';
         $page = $validated['page'] ?? 1;
 
-        $users = $query
-            ->orderBy($sort, $direction)
-            ->paginate($perPage, ['*'], 'page', $page);
+        // Default directory order follows the RBAC hierarchy, then department/name alphabetically.
+        if ($sort === null) {
+            $users = $query
+                ->orderByRaw("
+                    CASE profiles.role
+                        WHEN ? THEN 1
+                        WHEN ? THEN 2
+                        WHEN ? THEN 3
+                        WHEN ? THEN 4
+                        ELSE 5
+                    END
+                ", [
+                    Profile::ROLE_SUPER_ADMIN,
+                    Profile::ROLE_IRO_ADMIN,
+                    Profile::ROLE_LEGAL_COUNSEL,
+                    Profile::ROLE_DEPARTMENT_STAFF,
+                ])
+                ->orderByRaw('LOWER(COALESCE(departments.name, \'\')) ASC')
+                ->orderByRaw('LOWER(profiles.full_name) ASC')
+                ->paginate($perPage, ['profiles.*'], 'page', $page);
+        } else {
+            $users = $query
+                ->orderBy("profiles.{$sort}", $direction)
+                ->paginate($perPage, ['profiles.*'], 'page', $page);
+        }
 
         return UserResource::collection(
             $users
@@ -178,43 +205,124 @@ class UserController extends Controller
             $validated['department_id'] = null;
         }
 
-        $supabaseUserId = $this->createSupabaseUser(
-            strtolower(trim($validated['email'])),
-            trim($validated['full_name'])
-        );
+        $email = strtolower(trim($validated['email']));
 
-        $profile = DB::transaction(function () use ($request, $validated, $supabaseUserId) {
-            $profile = new Profile([
-                'full_name' => trim($validated['full_name']),
-                'email' => strtolower(trim($validated['email'])),
-                'role' => $validated['role'],
-                'department_id' => $validated['department_id'],
-                'is_active' => $validated['is_active'],
+        // Check the local profile first so duplicate emails receive a deliberate conflict response.
+        if (Profile::query()->where('email', $email)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A user with this email already exists.',
+                'errors' => ['email' => ['Email is already registered.']],
+            ], 409);
+        }
+
+        $supabaseUserId = null;
+
+        try {
+            $supabaseUserId = $this->createSupabaseUser(
+                $email,
+                trim($validated['full_name'])
+            );
+            Log::info('Supabase Auth user ID returned before profile transaction.', [
+                'email' => $email,
+                'supabase_user_id' => $supabaseUserId,
             ]);
 
-            $profile->id = $supabaseUserId;
-            $profile->save();
+            $profile = DB::transaction(function () use ($request, $validated, $email, $supabaseUserId) {
+                $profile = new Profile([
+                    'full_name' => trim($validated['full_name']),
+                    'email' => $email,
+                    'role' => $validated['role'],
+                    'department_id' => $validated['department_id'],
+                    'is_active' => $validated['is_active'],
+                ]);
 
-            AuditLog::query()->create([
-                'actor_id' => $request->attributes->get('authenticated_profile')?->id,
-                'action' => 'super_admin.user.created',
-                'metadata' => [
-                    'profile_id' => $profile->id,
-                    'email' => $profile->email,
-                    'role' => $profile->role,
-                ],
+                $profile->id = $supabaseUserId;
+                $profile->save();
+
+                AuditLog::query()->create([
+                    'actor_id' => $request->attributes->get('authenticated_profile')?->id,
+                    'action' => 'super_admin.user.created',
+                    'metadata' => [
+                        'profile_id' => $profile->id,
+                        'email' => $profile->email,
+                        'role' => $profile->role,
+                    ],
+                ]);
+
+                return $profile;
+            });
+
+        } catch (HttpResponseException $exception) {
+            // Keep deliberate Auth/API validation messages while never exposing unexpected exceptions.
+            throw $exception;
+        } catch (QueryException $exception) {
+            $this->removeOrphanedSupabaseUser($supabaseUserId);
+
+            $constraint = strtolower((string) ($exception->errorInfo[2] ?? ''));
+
+            if (
+                $exception->getCode() === '23505'
+                && str_contains($constraint, 'email')
+            ) {
+                Log::notice('Duplicate user creation prevented.', [
+                    'email' => $email,
+                    'constraint' => $constraint,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A user with this email already exists.',
+                    'errors' => ['email' => ['Email is already registered.']],
+                ], 409);
+            }
+
+            Log::error('Unexpected database error while creating user.', [
+                'email' => $email,
+                'exception' => $exception,
             ]);
 
-            return $profile;
-        });
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to create user. Please try again or contact support.',
+            ], 500);
+        } catch (\Throwable $exception) {
+            $this->removeOrphanedSupabaseUser($supabaseUserId);
+            Log::error('Unexpected error while creating user.', [
+                'email' => $email,
+                'exception' => $exception,
+            ]);
 
-        $profile->load('department');
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to create user. Please try again or contact support.',
+            ], 500);
+        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User created successfully.',
-            'user' => new UserResource($profile),
-        ], 201);
+        try {
+            // The transaction has committed before this response work begins. Previously,
+            // a later response error fell into the creation catch and deleted the already-
+            // committed Auth user; keeping this phase separate prevents that orphaning bug.
+            $profile->load('department');
+            $user = (new UserResource($profile))->resolve($request);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'User created successfully.',
+                'user' => $user,
+            ], 201);
+        } catch (\Throwable $exception) {
+            Log::error('User was created but its response could not be built.', [
+                'email' => $email,
+                'profile_id' => $profile->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'User was created, but the response could not be prepared. Please refresh the user directory.',
+            ], 500);
+        }
     }
 
     /**
@@ -352,6 +460,107 @@ class UserController extends Controller
         ]);
     }
 
+    // Permanently deletes both the local profile and its Supabase Auth account.
+    // Referenced document/workflow records remain protected, while audit history keeps a null actor.
+    public function destroy(
+        Request $request,
+        Profile $profile
+    ): JsonResponse {
+        if ($profile->role === Profile::ROLE_SUPER_ADMIN
+            && Profile::query()
+                ->where('role', Profile::ROLE_SUPER_ADMIN)
+                ->count() <= 1
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The last Super Admin account cannot be deleted.',
+            ], 422);
+        }
+
+        $hasReferences = $profile->submittedDocuments()->exists()
+            || $profile->assignedDocuments()->exists()
+            || $profile->notifications()->exists()
+            || $profile->documentMessages()->exists()
+            || $profile->documentFiles()->exists()
+            || DB::table('document_review_items')
+                ->where('author_id', $profile->id)
+                ->exists()
+            || DB::table('document_discussion_messages')
+                ->where('author_id', $profile->id)
+                ->exists()
+            || DB::table('document_department_reviews')
+                ->where('approved_by', $profile->id)
+                ->exists();
+
+        if ($hasReferences) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This user cannot be deleted because records still reference the account.',
+            ], 409);
+        }
+
+        $profileAttributes = $profile->getAttributes();
+        $profileDeleted = false;
+        try {
+            // Delete the local profile first inside a transaction so audit references are cleared atomically.
+            DB::transaction(function () use ($profile): void {
+                AuditLog::query()
+                    ->where('actor_id', $profile->id)
+                    ->update(['actor_id' => null]);
+
+                $profile->delete();
+            });
+            $profileDeleted = true;
+
+            // Delete the matching Supabase Auth account so the email can be registered again.
+            $this->deleteSupabaseUser($profile->id);
+        } catch (\Throwable $exception) {
+            if ($profileDeleted) {
+                // Restore the profile if Auth deletion fails, avoiding a silent half-deleted account.
+                try {
+                    DB::transaction(function () use ($profileAttributes): void {
+                        Profile::query()->create($profileAttributes);
+                    });
+                } catch (\Throwable $restoreException) {
+                    Log::critical('User deletion failed and profile restoration also failed.', [
+                        'profile_id' => $profile->id,
+                        'exception' => $exception,
+                        'restore_exception' => $restoreException,
+                    ]);
+                }
+            }
+
+            Log::error('User deletion failed.', [
+                'profile_id' => $profile->id,
+                'exception' => $exception,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'User deletion was incomplete. Please try again or contact support.',
+            ], 502);
+        }
+
+        try {
+            AuditLog::query()->create([
+                'actor_id' => $request->attributes->get('authenticated_profile')?->id,
+                'action' => 'super_admin.user.deleted',
+                'metadata' => ['profile_id' => $profile->id],
+            ]);
+        } catch (\Throwable $exception) {
+            // Deletion succeeded even if its optional audit entry cannot be written; log without exposing internals.
+            Log::error('User deletion audit entry could not be written.', [
+                'profile_id' => $profile->id,
+                'exception' => $exception,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User account and login access were permanently deleted.',
+        ]);
+    }
+
     // Creates the authentication account backing a new local user profile.
     private function createSupabaseUser(
         string $email,
@@ -383,7 +592,30 @@ class UserController extends Controller
                 ],
             ]);
 
-        if ($response->status() === 422 || $response->status() === 409) {
+        Log::info('Supabase create-user raw response', ['body' => $response->json()]);
+
+        $responseBody = $response->json();
+        $responseMessage = strtolower((string) (
+            $responseBody['msg']
+            ?? $responseBody['message']
+            ?? $responseBody['error_description']
+            ?? ''
+        ));
+        $responseCode = strtolower((string) (
+            $responseBody['code']
+            ?? $responseBody['error_code']
+            ?? ''
+        ));
+        $isDuplicateEmail = in_array($responseCode, [
+            'email_exists',
+            'user_already_exists',
+        ], true) || str_contains($responseMessage, 'already registered')
+            || str_contains($responseMessage, 'already exists')
+            || str_contains($responseMessage, 'email exists');
+
+        if (($response->status() === 409 || $response->status() === 422)
+            && $isDuplicateEmail
+        ) {
             abort(response()->json([
                 'success' => false,
                 'message' => 'A Supabase Auth user with this email already exists.',
@@ -394,6 +626,12 @@ class UserController extends Controller
         }
 
         if (!$response->successful()) {
+            Log::error('Supabase Auth user creation failed.', [
+                'status' => $response->status(),
+                'code' => $responseCode ?: null,
+                'message' => $responseMessage ?: null,
+            ]);
+
             abort(response()->json([
                 'success' => false,
                 'message' => 'Unable to create the Supabase Auth user.',
@@ -410,5 +648,70 @@ class UserController extends Controller
         }
 
         return $id;
+    }
+
+    // Removes only the Auth account created by this request when profile creation fails.
+    private function removeOrphanedSupabaseUser(?string $userId): void
+    {
+        if (!$userId) {
+            return;
+        }
+
+        $url = rtrim((string) config('supabase.url'), '/');
+        $serviceRoleKey = config('supabase.service_role_key');
+
+        if (!$url || !$serviceRoleKey) {
+            return;
+        }
+
+        $response = Http::withToken($serviceRoleKey)
+            ->withHeaders(['apikey' => $serviceRoleKey])
+            ->delete("{$url}/auth/v1/admin/users/{$userId}");
+
+        if (!$response->successful()) {
+            Log::warning('Unable to remove orphaned Supabase Auth user.', [
+                'user_id' => $userId,
+                'status' => $response->status(),
+            ]);
+        }
+    }
+
+    // Deletes the Auth identity using the same server-only Supabase REST pattern as account creation.
+    private function deleteSupabaseUser(string $userId): void
+    {
+        $url = rtrim((string) config('supabase.url'), '/');
+        $serviceRoleKey = config('supabase.service_role_key');
+
+        if (!$url || !$serviceRoleKey) {
+            throw new \RuntimeException('Supabase Admin configuration is missing.');
+        }
+
+        $response = Http::withToken($serviceRoleKey)
+            ->withHeaders(['apikey' => $serviceRoleKey])
+            ->delete("{$url}/auth/v1/admin/users/{$userId}");
+
+        if (!$response->successful() && $response->status() !== 404) {
+            throw new \RuntimeException('Supabase Auth user deletion failed.');
+        }
+
+        // The admin DELETE is synchronous for the request, but confirmation prevents
+        // returning success while Auth still exposes the identity to a new create call.
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $check = Http::withToken($serviceRoleKey)
+                ->withHeaders(['apikey' => $serviceRoleKey])
+                ->get("{$url}/auth/v1/admin/users/{$userId}");
+
+            if ($check->status() === 404) {
+                return;
+            }
+
+            if (!$check->successful()) {
+                throw new \RuntimeException('Supabase Auth user deletion could not be confirmed.');
+            }
+
+            usleep(100000);
+        }
+
+        throw new \RuntimeException('Supabase Auth user deletion could not be confirmed.');
     }
 }

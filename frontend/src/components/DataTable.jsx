@@ -12,12 +12,16 @@ export function DataTable({
   statusColumnIndex,
   rowClasses = [],
 }) {
-  const currentPage = meta?.current_page ?? 1;
-  const lastPage = meta?.last_page ?? 1;
-
-  const from = meta?.from ?? (rows.length ? 1 : 0);
-  const to = meta?.to ?? rows.length;
-  const total = meta?.total ?? rows.length;
+  const currentPage = toFiniteNumber(meta?.current_page, 1);
+  const lastPage = toFiniteNumber(meta?.last_page, 1);
+  const perPage = toFiniteNumber(meta?.per_page, rows.length || 1);
+  const total = toFiniteNumber(meta?.total, rows.length);
+  const from = rows.length
+    ? ((currentPage - 1) * perPage) + 1
+    : 0;
+  const to = rows.length
+    ? from + rows.length - 1
+    : 0;
 
   return (
     <div className="cx-table">
@@ -103,4 +107,10 @@ function statusClass(value) {
   return `badge ${value
     .toLowerCase()
     .replace(/\s+/g, "-")}`;
+}
+
+function toFiniteNumber(value, fallback) {
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : fallback;
 }

@@ -30,8 +30,147 @@
   text-transform: uppercase;
 }
 
+/* Center the Department action header, cell, and Manage button with the status column. */
+.cx-table th.department-action-column,
+.cx-table td.department-action-column {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cx-table td.department-action-column > .table-action {
+  margin-inline: auto;
+}
+
+.cx-table td.department-action-column .department-manage-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.department-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #8b1e1e !important;
+  border-color: #b94a48 !important;
+}
+
+.department-delete-button:hover {
+  color: #ffffff !important;
+  background: #b94a48 !important;
+}
+
+.department-delete-modal {
+  width: min(520px, 100%);
+}
+
+.department-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(19, 32, 51, 0.42);
+}
+
+.department-modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(19, 32, 51, 0.22);
+}
+
+/* Give the Manage form its own layout so every field and action remains fully visible. */
+.department-modal .admin-inline-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  margin-bottom: 0;
+}
+
+.department-modal .admin-inline-form .admin-checkbox {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.department-modal .admin-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.department-modal .admin-form-actions button {
+  flex: 0 0 auto;
+  min-width: 112px;
+  white-space: nowrap;
+}
+
+.department-modal .admin-form-actions .department-delete-button {
+  min-width: 112px;
+}
+
+.department-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.department-modal h2,
+.department-modal p {
+  margin: 0;
+}
+
+.department-modal h2 {
+  color: #004629;
+  font-size: 1.35rem;
+}
+
+.department-modal p {
+  color: #66706d;
+}
+
+.department-modal > header button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #d7dfd9;
+  border-radius: 6px;
+  color: #004629;
+  background: #ffffff;
+}
+
 @media (max-width: 800px) {
   .super-admin-stats {
     grid-template-columns: 1fr;
+  }
+
+  .department-modal .admin-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .department-modal .admin-inline-form .admin-checkbox,
+  .department-modal .admin-form-actions {
+    grid-column: auto;
+  }
+
+  .department-modal .admin-form-actions {
+    justify-content: stretch;
+  }
+
+  .department-modal .admin-form-actions button {
+    flex: 1 1 140px;
   }
 }
