@@ -1,6 +1,7 @@
 // User page: i-review ang accounts, i-manage ang status, ug himoa ang department-based users.
 import React, {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -25,11 +26,20 @@ import {
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
 
+const SORT_VALUES = {
+  Name: (user) => user.fullName || user.full_name || user.name || "-",
+  Email: (user) => user.email || "-",
+  Role: (user) => user.roleLabel || formatRole(user.role),
+  Department: (user) => user.departmentName || user.department?.name || "-",
+  Status: (user) => user.is_active ? "Active" : "Inactive",
+};
+
 // I-render ang user directory uban sa stats summary ug create form.
 export default function Page() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState(null);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
@@ -216,12 +226,39 @@ export default function Page() {
   const departmentCount = departments.length;
   const activeCount = users.filter((user) => user.is_active).length;
 
-  const rows = users.map((user) => [
-    user.fullName || user.full_name || user.name || "-",
-    user.email || "-",
-    user.roleLabel || formatRole(user.role),
-    user.departmentName || user.department?.name || "-",
-    user.is_active ? "Active" : "Inactive",
+  function cycleSort(column) {
+    setSort((current) => {
+      if (current?.column !== column) return { column, direction: "asc" };
+      if (current.direction === "asc") return { column, direction: "desc" };
+      return null;
+    });
+  }
+
+  const sortedUsers = useMemo(() => {
+    if (!sort) return [...users];
+
+    return [...users].sort((left, right) => {
+      const leftValue = SORT_VALUES[sort.column](left);
+      const rightValue = SORT_VALUES[sort.column](right);
+      const leftEmpty = leftValue === "-";
+      const rightEmpty = rightValue === "-";
+      if (leftEmpty !== rightEmpty) return leftEmpty ? 1 : -1;
+      if (leftEmpty) return 0;
+
+      const result = leftValue.localeCompare(rightValue, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+      return sort.direction === "asc" ? result : -result;
+    });
+  }, [users, sort]);
+
+  const rows = sortedUsers.map((user) => [
+    SORT_VALUES.Name(user),
+    SORT_VALUES.Email(user),
+    SORT_VALUES.Role(user),
+    SORT_VALUES.Department(user),
+    SORT_VALUES.Status(user),
     <div className="user-table-actions" key={`actions-${user.id}`}>
       <button
         type="button"
@@ -357,6 +394,9 @@ export default function Page() {
           <DataTable
             headers={["Name", "Email", "Role", "Department", "Status", "Action"]}
             rows={rows}
+            sortableColumns={["Name", "Email", "Role", "Department", "Status"]}
+            sort={sort}
+            onSort={cycleSort}
             columnClasses={["", "", "", "", "", "action-column-header"]}
             meta={meta}
             onPageChange={setPage}

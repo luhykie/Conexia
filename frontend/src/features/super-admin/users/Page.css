@@ -35,6 +35,12 @@
   text-align: center;
 }
 
+.cx-table th.cx-table-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
 /* Center User Management action cells and keep both action buttons aligned in the row. */
 .cx-table td.action-column-header {
   text-align: center;

@@ -11,6 +11,9 @@ export function DataTable({
   columnClasses = [],
   statusColumnIndex,
   rowClasses = [],
+  sortableColumns = [],
+  sort = null,
+  onSort,
 }) {
   const currentPage = toFiniteNumber(meta?.current_page, 1);
   const lastPage = toFiniteNumber(meta?.last_page, 1);
@@ -28,9 +31,28 @@ export function DataTable({
       <table>
         <thead>
           <tr>
-            {headers.map((header, headerIndex) => (
-              <th key={header} className={columnClasses[headerIndex] || ""}>{header}</th>
-            ))}
+            {headers.map((header, headerIndex) => {
+              const sortable = Boolean(onSort) && sortableColumns.includes(header);
+              const ariaSort = sort?.column === header
+                ? sort.direction === "asc" ? "ascending" : "descending"
+                : "none";
+
+              return (
+                <th
+                  key={header}
+                  className={[
+                    columnClasses[headerIndex] || "",
+                    sortable ? "cx-table-sortable" : "",
+                  ].filter(Boolean).join(" ")}
+                  {...(sortable ? {
+                    "aria-sort": ariaSort,
+                    onDoubleClick: () => onSort(header),
+                  } : {})}
+                >
+                  {header}
+                </th>
+              );
+            })}
           </tr>
         </thead>
 
