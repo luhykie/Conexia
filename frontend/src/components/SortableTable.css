@@ -1,0 +1,2 @@
+.sortable-table { display: contents; }
+.sortable-table th { cursor: pointer; user-select: none; white-space: nowrap; }

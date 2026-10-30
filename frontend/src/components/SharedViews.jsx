@@ -16,6 +16,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { DataTable } from "./DataTable";
+import { SortableTable } from "./SortableTable";
 import { Panel } from "./Panel";
 import { PageTitle } from "./PageTitle";
 import { StatGrid } from "./StatGrid";
@@ -248,7 +249,8 @@ export function DashboardView({
             <p>No recent activity is available.</p>
           )}
           {!loading && !error && activityRows.length > 0 && (
-            <DataTable
+            <SortableTable
+              sortableColumns={roleKey === "department" ? undefined : []}
               headers={departmentActivity
                 ? [
                     // View Status is intentionally removed from this dashboard table.
