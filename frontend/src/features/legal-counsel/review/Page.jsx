@@ -2,10 +2,6 @@
 import React from "react";
 import { Eye } from "lucide-react";
 import { DataTable } from "../../../components/DataTable";
-import {
-  DocumentFilters,
-  useDocumentFilters,
-} from "../../../components/DocumentFilters";
 import { DocumentFilesPanel } from "../../../components/DocumentFilesPanel";
 import { DepartmentalPdfReview } from "../../../components/DepartmentalPdfReview";
 import { DepartmentalDocumentHistory, PdfViewer, getPdfTextSelection } from "../../../components/DocumentReviewPanel";
@@ -46,18 +42,6 @@ export default function LegalCounselReviewPage() {
   const [success, setSuccess] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
-  const {
-    filters,
-    queryParams,
-    updateFilter,
-    clearFilters,
-  } = useDocumentFilters();
-
-  // Changes filter within the legal review decisions and notarization workflow.
-  function changeFilter(key, value) {
-    updateFilter(key, value);
-    setPage(1);
-  }
 
   // Loads documents within the legal review decisions and notarization workflow.
   async function loadDocuments() {
@@ -67,7 +51,6 @@ export default function LegalCounselReviewPage() {
     try {
       const response = await getReviewDocuments({
         page,
-        ...queryParams,
       });
       const loadedDocuments = response.documents ?? response.data ?? [];
 
@@ -92,7 +75,7 @@ export default function LegalCounselReviewPage() {
 
   React.useEffect(() => {
     loadDocuments();
-  }, [page, queryParams]);
+  }, [page]);
 
   React.useEffect(() => {
     setLegalNotes(
@@ -230,23 +213,6 @@ export default function LegalCounselReviewPage() {
         />
 
         {!selectedDocument && <Panel title="Routed Documents">
-          <DocumentFilters
-            filters={filters}
-            onChange={changeFilter}
-            onClear={() => {
-              clearFilters();
-              setPage(1);
-            }}
-            statusOptions={["Under Legal Review", "Corrections Needed"]}
-            showDepartment
-            unsupported={{
-              document_type: true,
-              partnership_scope: true,
-              date_from: true,
-              date_to: true,
-              department: true,
-            }}
-          />
           {loading && <p>Loading routed documents...</p>}
           {error && !selectedDocument && <p className="auth-error">{error}</p>}
 

@@ -3,10 +3,6 @@ import React from "react";
 import { Eye } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
-import {
-  DocumentFilters,
-  useDocumentFilters,
-} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { useNavigate } from "react-router-dom";
@@ -27,18 +23,6 @@ export default function IroAdminLogReviewPage({ documentId }) {
   const [routingId, setRoutingId] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
-  const {
-    filters,
-    queryParams,
-    updateFilter,
-    clearFilters,
-  } = useDocumentFilters();
-
-  // Applies a queue filter and returns pagination to page one.
-  function changeFilter(key, value) {
-    updateFilter(key, value);
-    setPage(1);
-  }
 
   // Sends Legal's correction request to the originating department.
   async function routeCorrection(document) {
@@ -71,7 +55,6 @@ export default function IroAdminLogReviewPage({ documentId }) {
       try {
           const response = await getIncomingDocuments({
             page,
-            ...queryParams,
           });
 
         if (active) {
@@ -96,7 +79,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
     return () => {
       active = false;
     };
-  }, [documentId, page, queryParams]);
+  }, [documentId, page]);
 
   const rows = documents.map((document) => [
     document.title || "-",
@@ -140,21 +123,6 @@ export default function IroAdminLogReviewPage({ documentId }) {
       />
 
       <Panel title="Logged Documents">
-          <DocumentFilters
-            filters={filters}
-            onChange={changeFilter}
-            onClear={() => {
-              clearFilters();
-              setPage(1);
-            }}
-            statusOptions={["Logged", "Revised", "Correction Required"]}
-            partnershipScopeOptions={["Local", "International"]}
-            searchPlaceholder="Search by tracking number, document title, partner, or institution..."
-            showDepartment
-            showTitleFilter
-            titleFilterLabel="Partner/Institution"
-            titleFilterPlaceholder="Filter by partner/institution"
-          />
           {loading && <p>Loading incoming documents...</p>}
           {error && <p className="auth-error">{error}</p>}
           {!loading && !error && rows.length === 0 && (

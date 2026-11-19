@@ -3,10 +3,6 @@ import React from "react";
 import { Eye } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
-import {
-  DocumentFilters,
-  useDocumentFilters,
-} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { DocumentChat } from "../../../components/DocumentChat";
@@ -38,18 +34,6 @@ export default function IroAdminEngagementsPage() {
   const [editError, setEditError] = React.useState("");
   const [partnerEmailError, setPartnerEmailError] = React.useState("");
   const [historyVersion, setHistoryVersion] = React.useState(null);
-  const {
-    filters,
-    queryParams,
-    updateFilter,
-    clearFilters,
-  } = useDocumentFilters();
-
-  // Applies an engagement filter and resets pagination.
-  function changeFilter(key, value) {
-    updateFilter(key, value);
-    setPage(1);
-  }
 
   // Closes the details drawer and clears edit state.
   function closeDetails() {
@@ -145,7 +129,6 @@ export default function IroAdminEngagementsPage() {
       try {
         const response = await getIroStatusDocuments({
           page,
-          ...queryParams,
         });
         const loadedDocuments = (response.documents ?? response.data ?? [])
           .filter((document) => document.status !== "Archived");
@@ -176,7 +159,7 @@ export default function IroAdminEngagementsPage() {
     return () => {
       active = false;
     };
-  }, [page, queryParams]);
+  }, [page]);
 
   React.useEffect(() => {
     if (!selectedDocument) return undefined;
@@ -217,23 +200,6 @@ export default function IroAdminEngagementsPage() {
         />
 
         <Panel title="Engagement Registry">
-          <DocumentFilters
-            filters={filters}
-            onChange={changeFilter}
-            onClear={() => {
-              clearFilters();
-              setPage(1);
-            }}
-            statusOptions={[
-              "Submitted",
-              "Logged",
-              "Under Legal Review",
-              "Corrections Needed",
-              "Approved",
-            ]}
-            searchPlaceholder="Search by tracking number, document title, partner, or institution..."
-            showDepartment
-          />
           {loading && <p>Loading engagement records...</p>}
           {error && <p className="auth-error">{error}</p>}
           {!loading && !error && rows.length === 0 && (

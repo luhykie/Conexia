@@ -2,7 +2,6 @@
 import React from "react";
 import {
   CalendarClock,
-  ChevronDown,
   Download,
   FileCheck2,
   FileText,
@@ -360,14 +359,6 @@ export function ExpiryView({
   const [processingId, setProcessingId] = React.useState(null);
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
-  const [filters, setFilters] = React.useState({
-    expiryWindow: "all",
-    agreementType: "all",
-    partnershipScope: "all",
-    department: "all",
-    status: "all",
-    search: "",
-  });
 
   React.useEffect(() => {
     let active = true;
@@ -378,21 +369,7 @@ export function ExpiryView({
       setError("");
 
       try {
-        const response = await getExpirySummary({
-          page,
-          search: filters.search || undefined,
-          status: filters.status === "all" ? undefined : filters.status,
-          expiry_window:
-            filters.expiryWindow === "all" ? undefined : filters.expiryWindow,
-          document_type:
-            filters.agreementType === "all" ? undefined : filters.agreementType,
-          partnership_scope:
-            filters.partnershipScope === "all"
-              ? undefined
-              : filters.partnershipScope,
-          department:
-            filters.department === "all" ? undefined : filters.department,
-        });
+        const response = await getExpirySummary({ page });
 
         if (active) {
           setSummary(response.data ?? {});
@@ -417,16 +394,7 @@ export function ExpiryView({
     return () => {
       active = false;
     };
-  }, [page, filters]);
-
-  // Updates filter within the shared application infrastructure and reusable interface behavior workflow.
-  function updateFilter(name, value) {
-    setFilters((current) => ({
-      ...current,
-      [name]: value,
-    }));
-    setPage(1);
-  }
+  }, [page]);
 
   // Coordinates renewal within the shared application infrastructure and reusable interface behavior workflow.
   async function requestRenewal(record) {
@@ -439,23 +407,9 @@ export function ExpiryView({
     try {
       await requestDocumentRenewal(record.id);
       setSuccess("Renewal request recorded.");
-      const response = await getExpirySummary({
-        page,
-        search: filters.search || undefined,
-        status: filters.status === "all" ? undefined : filters.status,
-        expiry_window:
-          filters.expiryWindow === "all" ? undefined : filters.expiryWindow,
-        document_type:
-          filters.agreementType === "all" ? undefined : filters.agreementType,
-        partnership_scope:
-          filters.partnershipScope === "all"
-            ? undefined
-            : filters.partnershipScope,
-        department:
-          filters.department === "all" ? undefined : filters.department,
-      });
-          setSummary(response.data ?? {});
-          setMeta(response.meta ?? null);
+      const response = await getExpirySummary({ page });
+      setSummary(response.data ?? {});
+      setMeta(response.meta ?? null);
     } catch (requestError) {
       reportClientError("Unable to request renewal:", requestError);
       setError(requestError.message);
@@ -494,28 +448,6 @@ export function ExpiryView({
   return (
     <section className="page expiry-page">
       <PageTitle title={title} subtitle={subtitle} action={action} />
-      <div className="expiry-milestone-strip" aria-label="Expiry reminder windows">
-        {expiryMilestones.map((milestone) => (
-          <span
-            className={`expiry-milestone ${milestone.tone} ${
-              filters.expiryWindow === milestone.value ? "selected" : ""
-            }`}
-            key={milestone.label}
-            role="button"
-            tabIndex={0}
-            onClick={() => updateFilter("expiryWindow", milestone.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                updateFilter("expiryWindow", milestone.value);
-              }
-            }}
-          >
-            <strong>{milestone.label}</strong>
-            <small>{milestone.detail}</small>
-          </span>
-        ))}
-      </div>
       <StatGrid
         stats={[
           {
@@ -541,7 +473,6 @@ export function ExpiryView({
           },
         ]}
       />
-      <ExpiryFilters filters={filters} updateFilter={updateFilter} />
       <Panel title="Urgent Attention (Next 30 Days)">
         {loading && <p>Loading expiry records...</p>}
         {error && <p className="auth-error">{error}</p>}
@@ -562,137 +493,6 @@ export function ExpiryView({
   );
 }
 
-// Coordinates filters within the shared application infrastructure and reusable interface behavior workflow.
-function ExpiryFilters({ filters, updateFilter }) {
-  return (
-    <div className="expiry-filter-panel" aria-label="Expiry filters">
-      <label>
-        Search
-        <input
-          value={filters.search}
-          onChange={(event) => updateFilter("search", event.target.value)}
-          placeholder="Tracking number, partner, or department"
-        />
-      </label>
-      <label>
-        Expiry Window
-        <select
-          value={filters.expiryWindow}
-          onChange={(event) => updateFilter("expiryWindow", event.target.value)}
-        >
-          <option value="all">All</option>
-          <option value="120">120 Days</option>
-          <option value="90">90 Days</option>
-          <option value="60">60 Days</option>
-          <option value="30">30 Days</option>
-          <option value="expired">Expired</option>
-        </select>
-      </label>
-      <label>
-        Agreement Type
-        <select
-          value={filters.agreementType}
-          onChange={(event) => updateFilter("agreementType", event.target.value)}
-        >
-          <option value="all">All</option>
-          <option value="MOA">MOA</option>
-          <option value="MOU">MOU</option>
-        </select>
-      </label>
-      <label>
-        Partnership Scope
-        <select
-          value={filters.partnershipScope}
-          onChange={(event) =>
-            updateFilter("partnershipScope", event.target.value)
-          }
-        >
-          <option value="all">All</option>
-          <option value="Local">Local</option>
-          <option value="International">International</option>
-        </select>
-      </label>
-      <label>
-        Office / Department
-        <select
-          value={filters.department}
-          onChange={(event) => updateFilter("department", event.target.value)}
-        >
-          <option value="all">All</option>
-          <option value="SCS">SCS</option>
-          <option value="SEA">SEA</option>
-          <option value="SBM">SBM</option>
-          <option value="SAS">SAS</option>
-          <option value="SAMS">SAMS</option>
-          <option value="SED">SED</option>
-          <option value="SOL">SOL</option>
-          <option value="ETEEAP">ETEEAP</option>
-        </select>
-      </label>
-      <label>
-        Status
-        <select
-          value={filters.status}
-          onChange={(event) => updateFilter("status", event.target.value)}
-        >
-          <option value="all">All</option>
-          <option value="Active">Active</option>
-          <option value="Renewal Required">Renewal Required</option>
-          <option value="Renewed">Renewed</option>
-          <option value="Expired">Expired</option>
-        </select>
-      </label>
-    </div>
-  );
-}
-
-const expiryMilestones = [
-  {
-    label: "120 Days",
-    detail: "Early watch",
-    tone: "early",
-    value: "120",
-  },
-  {
-    label: "90 Days",
-    detail: "Review window",
-    tone: "review",
-    value: "90",
-  },
-  {
-    label: "60 Days",
-    detail: "Renewal prep",
-    tone: "prep",
-    value: "60",
-  },
-  {
-    label: "30 Days",
-    detail: "Urgent action",
-    tone: "urgent",
-    value: "30",
-  },
-  {
-    label: "Expired",
-    detail: "Overdue",
-    tone: "expired",
-    value: "expired",
-  },
-];
-
-// Shared filter strip used by dense list pages.
-export function FilterBar({ labels }) {
-  return (
-    <div className="filter-bar">
-      <Filter size={20} />
-      {labels.map((label, index) => (
-        <button className={index === 0 ? "active-filter" : ""} key={label}>
-          {label}
-          <ChevronDown size={16} />
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // Shared upload dropzone used by submission and log/review pages.
 export function Dropzone({

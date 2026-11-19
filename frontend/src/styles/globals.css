@@ -1963,3 +1963,87 @@ textarea:focus {
     flex-wrap: wrap;
   }
 }
+
+.cx-table-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: var(--cx-table-min-width);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--cx-color-border);
+  background: #ffffff;
+}
+
+.cx-table-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--cx-color-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cx-table-filter select,
+.cx-table-filter input {
+  min-width: 160px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--cx-color-border);
+  border-radius: var(--cx-radius-sm);
+  color: var(--cx-color-text);
+  background: #ffffff;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.cx-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.cx-sort-button svg {
+  flex: 0 0 auto;
+}
+
+.cx-table-filter-reset {
+  min-width: 60px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--cx-color-border);
+  border-radius: var(--cx-radius-sm);
+  color: var(--cx-color-primary-900);
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cx-sort-button:focus-visible,
+.cx-table-filter select:focus-visible,
+.cx-table-filter input:focus-visible,
+.cx-table-filter-reset:focus-visible {
+  outline: 2px solid var(--cx-color-primary-600);
+  outline-offset: 2px;
+}
+
+.cx-table-page-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--cx-color-muted);
+}

@@ -2,10 +2,6 @@
 import React from "react";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
-import {
-  DocumentFilters,
-  useDocumentFilters,
-} from "../../../components/DocumentFilters";
 import { getLegalHistory } from "../../../services/legalCounselServices";
 import { reportClientError } from "../../../utils/reportClientError";
 import "./Page.css";
@@ -17,18 +13,6 @@ export default function LegalCounselHistoryPage() {
   const [error, setError] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState(null);
-  const {
-    filters,
-    queryParams,
-    updateFilter,
-    clearFilters,
-  } = useDocumentFilters();
-
-  // Changes filter within the legal review decisions and notarization workflow.
-  function changeFilter(key, value) {
-    updateFilter(key, value);
-    setPage(1);
-  }
 
   React.useEffect(() => {
     // Loads history within the legal review decisions and notarization workflow.
@@ -39,7 +23,6 @@ export default function LegalCounselHistoryPage() {
       try {
         const response = await getLegalHistory({
           page,
-          ...queryParams,
         });
         const loadedHistory =
           response.history ?? response.data ?? response.items ?? [];
@@ -56,7 +39,7 @@ export default function LegalCounselHistoryPage() {
     }
 
     loadHistory();
-  }, [page, queryParams]);
+  }, [page]);
 
   return (
     <section className="page legal-page legal-counsel-history-page">
@@ -67,28 +50,6 @@ export default function LegalCounselHistoryPage() {
 
       <div>
         <Panel title="Audit Log & Activity">
-          <DocumentFilters
-            filters={filters}
-            onChange={changeFilter}
-            onClear={() => {
-              clearFilters();
-              setPage(1);
-            }}
-            statusOptions={[
-              "Correction Required",
-              "Corrections Needed",
-              "Approved",
-              "Archived",
-            ]}
-            showDepartment
-            unsupported={{
-              document_type: true,
-              partnership_scope: true,
-              date_from: true,
-              date_to: true,
-              department: true,
-            }}
-          />
           {loading && <p>Loading legal action history...</p>}
           {error && <p className="auth-error">{error}</p>}
 

@@ -15,10 +15,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DataTable } from "../components/DataTable";
-import {
-  DocumentFilters,
-  useDocumentFilters,
-} from "../components/DocumentFilters";
 import { PageTitle } from "../components/PageTitle";
 import { createNotification } from "../utils/notifications";
 import { Panel } from "../components/Panel";
@@ -860,18 +856,6 @@ function MySubmissionsPage({ account }) {
  const [success, setSuccess] = React.useState("");
  const [page, setPage] = React.useState(1);
  const [meta, setMeta] = React.useState(null);
- const {
-  filters,
-  queryParams,
-  updateFilter,
-  clearFilters,
- } = useDocumentFilters();
-
- // Changes filter within the authentication and role-based access workflow.
- function changeFilter(key, value) {
-  updateFilter(key, value);
-  setPage(1);
- }
 
   React.useEffect(() => {
     // Loads documents within the authentication and role-based access workflow.
@@ -883,7 +867,6 @@ function MySubmissionsPage({ account }) {
         const response =
           await getDepartmentDocuments({
             page,
-            ...queryParams,
           });
 
         const loadedDocuments =
@@ -912,7 +895,7 @@ function MySubmissionsPage({ account }) {
     }
 
     loadDocuments();
-  }, [page, queryParams]);
+  }, [page]);
 
   React.useEffect(() => {
     let active = true;
@@ -1182,31 +1165,6 @@ function MySubmissionsPage({ account }) {
         />
 
         <Panel title="Submission Records">
-          <DocumentFilters
-            filters={filters}
-            onChange={changeFilter}
-            onClear={() => {
-              clearFilters();
-              setPage(1);
-            }}
-            statusOptions={[
-              "Submitted",
-              "Logged",
-              "Under Legal Review",
-              "Corrections Needed",
-              "Approved",
-              "Pending Notarization",
-              "Notarized",
-              "Archived",
-            ]}
-            showDepartment={false}
-            unsupported={{
-              document_type: true,
-              partnership_scope: true,
-              date_from: true,
-              date_to: true,
-            }}
-          />
           {loading && <p>Loading submissions...</p>}
 
           {error && (
@@ -1531,34 +1489,11 @@ function formatDocumentDate(value) {
 
 // Lists external partnerships visible to the department.
 function EngagementsPage() {
-  const {
-    filters,
-    updateFilter,
-    clearFilters,
-  } = useDocumentFilters();
-
   return (
     <section className="page split-page department-page">
       <div>
         <PageTitle title="Engagements Management" subtitle="Oversee institutional partnerships and document compliance for your office." />
         <Panel title="Partner Engagements">
-          <DocumentFilters
-            filters={filters}
-            onChange={updateFilter}
-            onClear={clearFilters}
-            statusOptions={["Active", "Renewal Required", "Renewed", "Expired"]}
-            showDepartment={false}
-            showExpiryWindow
-            unsupported={{
-              search: true,
-              document_type: true,
-              partnership_scope: true,
-              status: true,
-              date_from: true,
-              date_to: true,
-              expiry_window: true,
-            }}
-          />
           <DataTable
             headers={departmentTableHeaders}
             rows={[]}

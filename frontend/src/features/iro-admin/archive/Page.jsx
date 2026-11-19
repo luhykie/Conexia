@@ -8,10 +8,6 @@ import {
 } from "lucide-react";
 
 import { DataTable } from "../../../components/DataTable";
-import {
-  DocumentFilters,
-  useDocumentFilters,
-} from "../../../components/DocumentFilters";
 import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { StatGrid } from "../../../components/StatGrid";
@@ -32,18 +28,6 @@ export default function IroAdminArchivePage() {
   const [meta, setMeta] = React.useState(null);
   const [processingId, setProcessingId] = React.useState(null);
   const [success, setSuccess] = React.useState("");
-  const {
-    filters,
-    queryParams,
-    updateFilter,
-    clearFilters,
-  } = useDocumentFilters();
-
-  // Applies an archive filter and resets the current page.
-  function changeFilter(key, value) {
-    updateFilter(key, value);
-    setPage(1);
-  }
 
   // Loads archive statistics and records from the backend.
   const loadArchive = React.useCallback(async (isActive = () => true) => {
@@ -53,7 +37,6 @@ export default function IroAdminArchivePage() {
       try {
         const response = await getArchiveSummary({
           page,
-          ...queryParams,
         });
 
         if (isActive()) {
@@ -70,7 +53,7 @@ export default function IroAdminArchivePage() {
       } finally {
         if (isActive()) setLoading(false);
       }
-  }, [page, queryParams]);
+  }, [page]);
 
   React.useEffect(() => {
     let active = true;
@@ -187,16 +170,6 @@ export default function IroAdminArchivePage() {
       />
 
       <Panel title="Archive Records">
-        <DocumentFilters
-          filters={filters}
-          onChange={changeFilter}
-          onClear={() => {
-            clearFilters();
-            setPage(1);
-          }}
-          statusOptions={["Pending Archival", "Archived"]}
-          showDepartment
-        />
         {loading && <p>Loading archive records...</p>}
         {error && <p className="auth-error">{error}</p>}
         {success && <p className="success-message">{success}</p>}
