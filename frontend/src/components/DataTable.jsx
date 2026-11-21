@@ -18,6 +18,7 @@ export function DataTable({
   rowClasses = [],
   sortable = true,
   filterable = true,
+  filterDefinitions,
   tableId,
 }) {
   const tableKey = tableId !== undefined
@@ -40,14 +41,19 @@ export function DataTable({
     ? from + rows.length - 1
     : 0;
 
+  const filterSources = filterDefinitions ?? headers.map((header, columnIndex) => ({
+    columnIndex,
+    label: cellText(header).trim(),
+  }));
   const filterColumns = filterable
-    ? headers.reduce((columns, header, columnIndex) => {
-        const label = cellText(header).trim();
+    ? filterSources.reduce((columns, definition) => {
+        const { columnIndex, getValue } = definition;
+        const label = cellText(definition.label).trim();
         if (!label || ACTION_HEADER.test(label)) return columns;
 
         const values = new Map();
         rows.forEach((row) => {
-          const value = cellText(row[columnIndex]).trim();
+          const value = cellText(getValue ? getValue(row) : row[columnIndex]).trim();
           if (value) values.set(value, (values.get(value) || 0) + 1);
         });
 
@@ -71,6 +77,7 @@ export function DataTable({
             label,
             type: selectFilter ? "select" : "search",
             values: [...values.keys()],
+            getValue,
           });
         }
 
@@ -82,13 +89,16 @@ export function DataTable({
   const activeSort = sortable ? tableState.sort : null;
   const hasActiveSortOrFilter = Boolean(activeSort || hasActiveFilter);
   const filterTypes = new Map(filterColumns.map(({ columnIndex, type }) => [columnIndex, type]));
+  const filterValueGetters = new Map(filterColumns.map(
+    ({ columnIndex, getValue }) => [columnIndex, getValue],
+  ));
   const originalRows = rows.map((row, originalIndex) => ({ row, originalIndex }));
   const visibleRows = originalRows.filter(({ row }) =>
     Object.entries(activeFilters).every(([columnIndex, selectedValue]) =>
       selectedValue === "" ||
       (filterTypes.get(Number(columnIndex)) === "select"
-        ? cellText(row[Number(columnIndex)]).trim() === selectedValue
-        : cellText(row[Number(columnIndex)]).trim().toLocaleLowerCase()
+        ? filterCellText(row, Number(columnIndex), filterValueGetters).trim() === selectedValue
+        : filterCellText(row, Number(columnIndex), filterValueGetters).trim().toLocaleLowerCase()
           .includes(selectedValue.trim().toLocaleLowerCase())),
     ),
   );
@@ -96,8 +106,8 @@ export function DataTable({
     ? visibleRows.slice().sort((left, right) => {
         const leftValue = cellText(left.row[activeSort.columnIndex]).trim();
         const rightValue = cellText(right.row[activeSort.columnIndex]).trim();
-        const leftEmpty = !leftValue || leftValue === "-";
-        const rightEmpty = !rightValue || rightValue === "-";
+        const leftEmpty = !leftValue || leftValue === "-" || leftValue === "—";
+        const rightEmpty = !rightValue || rightValue === "-" || rightValue === "—";
 
         if (leftEmpty !== rightEmpty) return leftEmpty ? 1 : -1;
         if (leftEmpty) return left.originalIndex - right.originalIndex;
@@ -308,6 +318,11 @@ function cellText(value) {
   }
 
   return "";
+}
+
+function filterCellText(row, columnIndex, valueGetters) {
+  const getValue = valueGetters.get(columnIndex);
+  return cellText(getValue ? getValue(row) : row[columnIndex]);
 }
 
 function compareCellValues(leftValue, rightValue) {

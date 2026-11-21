@@ -19,6 +19,11 @@ import { createNotification } from "../../../utils/notifications";
 import { reportClientError } from "../../../utils/reportClientError";
 import { departmentStatusBadgeClass } from "../../../utils/departmentStatus";
 import {
+  documentTableFilterDefinitions,
+  documentTableHeaders,
+  documentTableValues,
+} from "../../../utils/documentTable";
+import {
   getDocumentAnnotations,
   getDocumentFiles,
   createDocumentAnnotation,
@@ -181,12 +186,7 @@ export default function LegalCounselReviewPage() {
   }
 
   const rows = documents.map((document) => [
-    document.partner_institution || "-",
-    document.tracking_number || "-",
-    document.partnership_scope === "Departmental"
-      ? "Local"
-      : document.partnership_scope || document.partnership_type || "-",
-    document.document_type || "-",
+    ...documentTableValues(document),
     <span
       key={`status-${document.id}`}
       className={departmentStatusBadgeClass(document.status)}
@@ -222,17 +222,11 @@ export default function LegalCounselReviewPage() {
 
           {!loading && documents.length > 0 && (
             <DataTable
-              headers={[
-                "Partner/Institution",
-                "Tracking Number",
-                "Partnership Scope",
-                "Document Type",
-                "Status",
-                "Action",
-              ]}
+              headers={[...documentTableHeaders, "Action"]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
+              filterDefinitions={documentTableFilterDefinitions}
             />
           )}
         </Panel>}

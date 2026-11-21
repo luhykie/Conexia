@@ -12,6 +12,11 @@ import {
 } from "../../../services/iroAdminService";
 import { getIncomingDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
+import {
+  documentTableHeaders,
+  documentTableValues,
+  iroDocumentTableFilterDefinitions,
+} from "../../../utils/documentTable";
 import "./Page.css";
 
 // Shows the IRO review queue or one selected review workspace.
@@ -82,10 +87,7 @@ export default function IroAdminLogReviewPage({ documentId }) {
   }, [documentId, page]);
 
   const rows = documents.map((document) => [
-    document.title || "-",
-    document.tracking_number,
-    partnershipScope(document),
-    document.document_type || "-",
+    ...documentTableValues(document),
     document.review_status || document.status || "-",
     document.status === "Correction Required" && !isIroAdminCreated(document) ? (
       <button
@@ -130,18 +132,13 @@ export default function IroAdminLogReviewPage({ documentId }) {
           )}
           {!loading && !error && rows.length > 0 && (
             <DataTable
-              headers={[
-                "Partner/Institution",
-                "Tracking Number",
-                "Partnership Scope",
-                "Document Type",
-                "Status",
-                "Action",
-              ]}
+              headers={[...documentTableHeaders, "Action"]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
               columnClasses={[
+                "",
+                "",
                 "",
                 "",
                 "iro-log-review-column--center",
@@ -149,20 +146,13 @@ export default function IroAdminLogReviewPage({ documentId }) {
                 "iro-log-review-column--status",
                 "",
               ]}
-              statusColumnIndex={4}
+              statusColumnIndex={6}
+              filterDefinitions={iroDocumentTableFilterDefinitions}
             />
           )}
       </Panel>
     </section>
   );
-}
-
-// Returns a safe Local or International label for the table.
-function partnershipScope(document) {
-  const scope = document.partnership_scope || document.partnership_type;
-  return ["Local", "International"].includes(scope)
-    ? scope
-    : "-";
 }
 
 // Identifies engagements created directly by an IRO Admin.

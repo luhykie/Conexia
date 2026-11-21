@@ -106,6 +106,12 @@ class LegalCounselRepository
                 ]
                 : null,
             'submitted_by' => $document->submitted_by,
+            'created_by' => $document->submitter
+                ? [
+                    'id' => $document->submitter->id,
+                    'full_name' => $document->submitter->full_name,
+                ]
+                : null,
             'assigned_legal_counsel' =>
                 $document->assigned_legal_counsel,
             'status' => $document->status,

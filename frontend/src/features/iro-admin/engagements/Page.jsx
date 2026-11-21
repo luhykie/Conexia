@@ -16,6 +16,11 @@ import {
 } from "../../../services/iroAdminService";
 import { getIroStatusDocuments } from "../../../services/iroDocumentService";
 import { reportClientError } from "../../../utils/reportClientError";
+import {
+  documentTableHeaders,
+  documentTableValues,
+  iroDocumentTableFilterDefinitions,
+} from "../../../utils/documentTable";
 import "./Page.css";
 
 // Displays, inspects, and edits the IRO engagement registry.
@@ -174,10 +179,7 @@ export default function IroAdminEngagementsPage() {
   }, [selectedDocument, saving]);
 
   const rows = documents.map((document) => [
-    document.title || "-",
-    document.tracking_number || "-",
-    document.partnership_scope || "-",
-    document.document_type || "-",
+    ...documentTableValues(document),
     document.status || "-",
     <button
       type="button"
@@ -207,18 +209,13 @@ export default function IroAdminEngagementsPage() {
           )}
           {!loading && !error && rows.length > 0 && (
             <DataTable
-              headers={[
-                "Partner/Institution",
-                "Tracking Number",
-                "Partnership Scope",
-                "Document Type",
-                "Status",
-                "Action",
-              ]}
+              headers={[...documentTableHeaders, "Action"]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
               columnClasses={[
+                "",
+                "",
                 "",
                 "",
                 "iro-engagements-column--center",
@@ -226,7 +223,8 @@ export default function IroAdminEngagementsPage() {
                 "iro-engagements-column--status",
                 "",
               ]}
-              statusColumnIndex={4}
+              statusColumnIndex={6}
+              filterDefinitions={iroDocumentTableFilterDefinitions}
             />
           )}
         </Panel>

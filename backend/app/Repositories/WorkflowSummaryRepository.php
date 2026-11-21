@@ -19,7 +19,7 @@ class WorkflowSummaryRepository
     ): Collection|LengthAwarePaginator
     {
         $query = Document::query()
-            ->with('department')
+            ->with(['department', 'submitter'])
             ->when($expiryOnly, fn ($query) =>
                 $query->whereNotNull('expiry_date')
             )
@@ -128,7 +128,7 @@ class WorkflowSummaryRepository
     ): Collection|LengthAwarePaginator
     {
         $query = Document::query()
-            ->with('department')
+            ->with(['department', 'submitter'])
             ->whereIn('status', [
                 Document::STATUS_APPROVED,
                 Document::STATUS_ARCHIVED,

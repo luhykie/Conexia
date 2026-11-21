@@ -15,6 +15,11 @@ import {
 } from "../../../services/departmentStaffService";
 import { reportClientError } from "../../../utils/reportClientError";
 import { departmentStatusBadgeClass } from "../../../utils/departmentStatus";
+import {
+  documentTableFilterDefinitions,
+  documentTableHeaders,
+  documentTableValues,
+} from "../../../utils/documentTable";
 import "./Page.css";
 
 export default function Page() {
@@ -103,12 +108,7 @@ export default function Page() {
 
   // Department table keeps status styling and the existing view action intact.
   const rows = documents.map((document) => [
-    document.partner_institution || "-",
-    document.tracking_number || "-",
-    document.partnership_scope === "Departmental"
-      ? "Local"
-      : document.partnership_scope || document.partnership_type || "-",
-    document.document_type || "-",
+    ...documentTableValues(document),
     <span key={`status-${document.id}`} className={departmentStatusBadgeClass(document.status)}>
       {document.status || "-"}
     </span>,
@@ -174,17 +174,11 @@ export default function Page() {
           )}
           {!loading && !error && documents.length > 0 && (
             <DataTable
-              headers={[
-                "Partner/Institution",
-                "Tracking Number",
-                "Partnership Scope",
-                "Document Type",
-                "Status",
-                "Action",
-              ]}
+              headers={[...documentTableHeaders, "Action"]}
               rows={rows}
               meta={meta}
               onPageChange={setPage}
+              filterDefinitions={documentTableFilterDefinitions}
             />
           )}
         </Panel>
