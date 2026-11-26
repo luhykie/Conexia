@@ -17,6 +17,11 @@ import {
   unarchiveIroDocument,
 } from "../../../services/iroAdminService";
 import { reportClientError } from "../../../utils/reportClientError";
+import {
+  documentTableFilterDefinitions,
+  documentTableHeaders,
+  documentTableValues,
+} from "../../../utils/documentTable";
 import "./Page.css";
 
 // Displays pending archival and completed archive records.
@@ -115,10 +120,7 @@ export default function IroAdminArchivePage() {
 
   const stats = summary?.stats ?? {};
   const rows = (summary?.records ?? []).map((record) => [
-    record.partner_institution || "-",
-    record.tracking_number || "-",
-    record.partnership_scope || "-",
-    record.document_type || "-",
+    ...documentTableValues(record),
     record.status || "-",
     <button
       type="button"
@@ -178,18 +180,13 @@ export default function IroAdminArchivePage() {
         )}
         {!loading && !error && rows.length > 0 && (
           <DataTable
-            headers={[
-              "Partner/Institution",
-              "Tracking Number",
-              "Partnership Scope",
-              "Document Type",
-              "Status",
-              "Action",
-            ]}
+            headers={[...documentTableHeaders, "Action"]}
             rows={rows}
             meta={meta}
             onPageChange={setPage}
             columnClasses={[
+              "",
+              "",
               "",
               "",
               "iro-archive-column--center",
@@ -197,7 +194,8 @@ export default function IroAdminArchivePage() {
               "iro-archive-column--status",
               "",
             ]}
-            statusColumnIndex={4}
+            statusColumnIndex={6}
+            filterDefinitions={documentTableFilterDefinitions}
           />
         )}
       </Panel>

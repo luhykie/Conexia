@@ -241,6 +241,10 @@ class WorkflowSummaryService
     {
         return [
             'tracking_number' => $document->tracking_number,
+            'title' => $document->title,
+            'created_by' => $document->submitter
+                ? ['full_name' => $document->submitter->full_name]
+                : null,
             'partner_institution' =>
                 $document->partner_institution ?? '-',
             'partnership_scope' => $document->partnership_scope,
@@ -265,7 +269,7 @@ class WorkflowSummaryService
         Profile $profile
     ): array
     {
-        $document->loadMissing('department');
+        $document->loadMissing(['department', 'submitter']);
 
         $daysRemaining = now()
             ->startOfDay()
@@ -279,6 +283,9 @@ class WorkflowSummaryService
             'document_name' =>
                 $document->title ?? $document->tracking_number,
             'title' => $document->title,
+            'created_by' => $document->submitter
+                ? ['full_name' => $document->submitter->full_name]
+                : null,
             'document_type' => $document->document_type,
             'partner_institution' =>
                 $document->partner_institution ?? '-',

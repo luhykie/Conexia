@@ -46,20 +46,18 @@ import {
 import { uploadDocumentFile } from "../services/documentFileService";
 import { reportClientError } from "../utils/reportClientError";
 import { departmentStatusBadgeClass } from "../utils/departmentStatus";
+import {
+  documentTableFilterDefinitions,
+  documentTableHeaders,
+  documentTableValues,
+} from "../utils/documentTable";
 
 // Department Staff route hub ni; this wrapper keeps the department dashboard, submission, and tracking pages aligned with the staff office.
 const partnershipTypes = [
   ["Local", MapPin],
   ["International", Globe2],
 ];
-const departmentTableHeaders = [
-  "Partner/Institution",
-  "Tracking Number",
-  "Partnership Scope",
-  "Document Type",
-  "Status",
-  "Action",
-];
+const departmentTableHeaders = [...documentTableHeaders, "Action"];
 
 // Routes all Department Staff pages through one role-owned component.
 export function DepartmentStaff({ page, account }) {
@@ -918,12 +916,7 @@ function MySubmissionsPage({ account }) {
   }, [reviewOpen, selectedDocument?.id, selectedDocument?.status]);
 
   const rows = documents.map((document) => [
-    document.partner_institution || "-",
-    document.tracking_number || "-",
-    document.partnership_scope === "Departmental"
-      ? "Local"
-      : document.partnership_scope || document.partnership_type || "-",
-    document.document_type || "-",
+    ...documentTableValues(document),
     <span
       key={`status-${document.id}`}
       className={departmentStatusBadgeClass(document.status)}
@@ -1190,6 +1183,7 @@ function MySubmissionsPage({ account }) {
                 rows={rows}
                 meta={meta}
                 onPageChange={setPage}
+                filterDefinitions={documentTableFilterDefinitions}
               />
             )}
         </Panel>
@@ -1497,6 +1491,7 @@ function EngagementsPage() {
           <DataTable
             headers={departmentTableHeaders}
             rows={[]}
+            filterDefinitions={documentTableFilterDefinitions}
           />
         </Panel>
       </div>

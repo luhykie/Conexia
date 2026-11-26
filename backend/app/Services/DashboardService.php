@@ -250,8 +250,13 @@ class DashboardService
                     : null;
 
                 $payload = [
+                    'id' => $document->id,
                     'tracking_number' => $document->tracking_number,
                     'title' => $document->title,
+                    'created_by' => $document->submitter
+                        ? ['full_name' => $document->submitter->full_name]
+                        : null,
+                    'partner_institution' => $document->partner_institution,
                     'document_type' => $document->document_type,
                     'partnership_scope' => $document->partnership_scope,
                     'timestamp' => $document->updated_at
@@ -263,7 +268,6 @@ class DashboardService
                 ];
 
                 if ($includePartnershipScope) {
-                    $payload['id'] = $document->id;
                     $payload['partnership_scope'] =
                         $document->partnership_scope;
                 }

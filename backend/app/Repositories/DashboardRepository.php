@@ -20,7 +20,7 @@ class DashboardRepository
     {
         return Document::query()
             ->select($this->dashboardColumns())
-            ->with('department')
+            ->with(['department', 'submitter'])
             ->withExists([
                 'auditLogs as viewed' => fn ($query) => $query
                     ->where('action', 'document.viewed')
@@ -36,7 +36,7 @@ class DashboardRepository
     {
         return Document::query()
             ->select($this->dashboardColumns())
-            ->with('department')
+            ->with(['department', 'submitter'])
             ->when(
                 !$includeArchived,
                 fn ($query) => $query->where(
@@ -54,7 +54,7 @@ class DashboardRepository
     {
         return Document::query()
             ->select($this->dashboardColumns())
-            ->with('department')
+            ->with(['department', 'submitter'])
             ->withExists([
                 'auditLogs as viewed' => fn ($query) => $query
                     ->where('action', 'document.viewed')
@@ -195,6 +195,7 @@ class DashboardRepository
             'partner_institution',
             'partnership_scope',
             'department_id',
+            'submitted_by',
             'assigned_legal_counsel',
             'status',
             'submitted_at',

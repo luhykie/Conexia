@@ -29,6 +29,12 @@ import {
 } from "../services/workflowSummaryService";
 import { reportClientError } from "../utils/reportClientError";
 import { departmentStatusBadgeClass } from "../utils/departmentStatus";
+import {
+  documentTableFilterDefinitions,
+  documentTableHeaders,
+  documentTableValues,
+  iroDocumentTableFilterDefinitions,
+} from "../utils/documentTable";
 
 const dashboardLoaders = {
   // Shared dashboard loaders ni for Department and Legal; each role gets its own API summary.
@@ -155,69 +161,29 @@ export function DashboardView({
     }),
   );
 
-  const departmentActivity = roleKey === "department";
+  const documentDashboard = ["department", "admin", "legal"].includes(roleKey);
   const activityRows = (dashboard?.recent_activity ?? []).map((item) =>
-    roleKey === "admin"
+    documentDashboard
       ? [
-          item.title || "-",
-          item.tracking_number || "-",
-          item.partnership_scope || "-",
-          item.type || "-",
-          item.status || "-",
+          ...documentTableValues(item),
+          roleKey === "admin"
+            ? item.status || "—"
+            : <span className={departmentStatusBadgeClass(item.status)}>
+                {item.status || "—"}
+              </span>,
           <button
             type="button"
-            className="iro-dashboard-view-action"
-            key={item.id}
-            aria-label={`View ${item.tracking_number || "document"}`}
-            title="View document"
-            onClick={() => onViewDocument?.(item)}
-          >
-            <Eye size={16} aria-hidden="true" />
-          </button>,
-        ]
-      : departmentActivity
-      ? [
-          // Department dashboard activity ni; keep tracking, status, and the existing view action.
-          item.partner_institution || item.entity_name || "-",
-          item.tracking_number || "-",
-          item.partnership_scope === "Departmental"
-            ? "Local"
-            : item.partnership_scope || "-",
-          item.document_type || item.type || "-",
-          <span className={departmentStatusBadgeClass(item.status)}>
-            {item.status || "-"}
-          </span>,
-          <button
-            type="button"
-            className="table-action table-action--icon"
+            className={roleKey === "admin"
+              ? "iro-dashboard-view-action"
+              : "table-action table-action--icon"}
             key={`view-${item.id || item.tracking_number}`}
-            aria-label="View Submission"
-            title="View Submission"
+            aria-label={roleKey === "admin"
+              ? `View ${item.tracking_number || "document"}`
+              : "View Submission"}
+            title={roleKey === "admin" ? "View document" : "View Submission"}
             onClick={() => onViewDocument?.(item)}
           >
-            <Eye size={18} aria-hidden="true" />
-          </button>,
-        ]
-      : roleKey === "legal"
-      ? [
-          item.partner_institution || item.entity_name || "-",
-          item.tracking_number || "-",
-          item.partnership_scope === "Departmental"
-            ? "Local"
-            : item.partnership_scope || "-",
-          item.document_type || item.type || "-",
-          <span className={departmentStatusBadgeClass(item.status)}>
-            {item.status || "-"}
-          </span>,
-          <button
-            type="button"
-            className="table-action table-action--icon"
-            key={`view-${item.id || item.tracking_number}`}
-            aria-label="View Submission"
-            title="View Submission"
-            onClick={() => onViewDocument?.(item)}
-          >
-            <Eye size={16} aria-hidden="true" />
+            <Eye size={roleKey === "department" ? 18 : 16} aria-hidden="true" />
           </button>,
         ]
       : [
@@ -248,35 +214,8 @@ export function DashboardView({
           )}
           {!loading && !error && activityRows.length > 0 && (
             <DataTable
-              headers={departmentActivity
-                ? [
-                    // View Status is intentionally removed from this dashboard table.
-                    // Hint: dashboard-only ni; View Status stays on other Department and Legal pages.
-                    "Partner/Institution",
-                    "Tracking Number",
-                    "Partnership Scope",
-                    "Document Type",
-                    "Status",
-                    "Action",
-                  ]
-                : roleKey === "legal"
-                  ? [
-                      "Partner/Institution",
-                      "Tracking Number",
-                      "Partnership Scope",
-                      "Document Type",
-                      "Status",
-                      "Action",
-                    ]
-                : roleKey === "admin"
-                  ? [
-                      "Partner/Institution",
-                      "Tracking Number",
-                      "Partnership Scope",
-                      "Document Type",
-                      "Status",
-                      "Action",
-                    ]
+              headers={documentDashboard
+                ? [...documentTableHeaders, "Action"]
                 : [
                     "Submission ID",
                     "Entity Name",
@@ -287,15 +226,22 @@ export function DashboardView({
               rows={activityRows}
               columnClasses={roleKey === "admin"
                 ? [
-                    "iro-dashboard-column--partner",
                     "iro-dashboard-column--tracking",
+                    "",
+                    "",
+                    "iro-dashboard-column--partner",
                     "iro-dashboard-column--center",
                     "iro-dashboard-column--center",
                     "iro-dashboard-column--center iro-dashboard-column--status",
                     "iro-dashboard-column--center iro-dashboard-column--action",
                   ]
                 : []}
-              statusColumnIndex={roleKey === "admin" ? 4 : undefined}
+              statusColumnIndex={roleKey === "admin" ? 6 : undefined}
+              filterDefinitions={documentDashboard
+                ? roleKey === "admin"
+                  ? iroDocumentTableFilterDefinitions
+                  : documentTableFilterDefinitions
+                : undefined}
             />
           )}
         </Panel>
@@ -420,10 +366,9 @@ export function ExpiryView({
 
   const stats = summary?.stats ?? {};
   const rows = (summary?.records ?? []).map((record) => [
-    record.document_name || record.tracking_number || "-",
-    record.partner_institution || "-",
-    record.expiry || "-",
-    record.status || "-",
+    ...documentTableValues(record),
+    record.status || "—",
+    record.expiry || "—",
     record.action === "Initiate Renewal" ? (
       <button
         type="button"
@@ -482,10 +427,21 @@ export function ExpiryView({
         )}
         {!loading && !error && rows.length > 0 && (
           <DataTable
-            headers={[documentNameHeader, "Partner Entity", "Expiry / Days", "Status", "Actions"]}
+            headers={[...documentTableHeaders, "Expiry / Days", "Actions"]}
             rows={rows}
             meta={meta}
             onPageChange={setPage}
+            statusColumnIndex={6}
+            filterDefinitions={[
+              {
+                columnIndex: 1,
+                label: documentNameHeader,
+                getValue: (row) => row[1] === "—" ? row[0] : row[1],
+              },
+              { columnIndex: 3, label: "Partner Entity" },
+              { columnIndex: 7, label: "Expiry / Days" },
+              { columnIndex: 6, label: "Status" },
+            ]}
           />
         )}
       </Panel>

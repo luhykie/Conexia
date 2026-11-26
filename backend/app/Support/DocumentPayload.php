@@ -10,7 +10,7 @@ class DocumentPayload
     // Renders the page for the document intake, file handling, and administrative workflow.
     public static function make(Document $document): array
     {
-        $document->loadMissing(['department', 'partnerDepartment']);
+        $document->loadMissing(['department', 'partnerDepartment', 'submitter']);
 
         return [
             'id' => $document->id,
@@ -34,6 +34,12 @@ class DocumentPayload
             'department_review_version' => $document->department_review_version,
             'department_review_routed_at' => $document->department_review_routed_at?->toISOString(),
             'submitted_by' => $document->submitted_by,
+            'created_by' => $document->submitter
+                ? [
+                    'id' => $document->submitter->id,
+                    'full_name' => $document->submitter->full_name,
+                ]
+                : null,
             'assigned_legal_counsel' =>
                 $document->assigned_legal_counsel,
             'status' => $document->status,

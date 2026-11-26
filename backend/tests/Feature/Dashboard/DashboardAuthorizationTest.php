@@ -161,6 +161,42 @@ class DashboardAuthorizationTest extends SecurityTestCase
             ->assertJsonPath('data.stats.pending_legal_reviews', 1);
     }
 
+    public function test_role_dashboards_map_distinct_document_values(): void
+    {
+        $department = $this->department(['code' => 'DASH']);
+        $creator = $this->profile(Profile::ROLE_DEPARTMENT_STAFF, [
+            'department_id' => $department->id,
+            'full_name' => 'Original Creator Name',
+        ]);
+        $iroAdmin = $this->profile(Profile::ROLE_IRO_ADMIN);
+        $legal = $this->profile(Profile::ROLE_LEGAL_COUNSEL);
+        $document = $this->document([
+            'department_id' => $department->id,
+            'submitted_by' => $creator->id,
+            'assigned_legal_counsel' => $legal->id,
+            'title' => 'Distinct Document Title',
+            'partner_institution' => 'Distinct Partner Name',
+            'partnership_scope' => 'International',
+            'document_type' => 'MOU',
+            'status' => Document::STATUS_UNDER_LEGAL_REVIEW,
+        ]);
+
+        foreach ([
+            ['/api/department/dashboard', $creator],
+            ['/api/iro/dashboard', $iroAdmin],
+            ['/api/legal/dashboard', $legal],
+        ] as [$route, $viewer]) {
+            $this->getJson($route, $this->authHeaders($viewer))
+                ->assertOk()
+                ->assertJsonPath('data.recent_activity.0.tracking_number', $document->tracking_number)
+                ->assertJsonPath('data.recent_activity.0.title', 'Distinct Document Title')
+                ->assertJsonPath('data.recent_activity.0.created_by.full_name', 'Original Creator Name')
+                ->assertJsonPath('data.recent_activity.0.partner_institution', 'Distinct Partner Name')
+                ->assertJsonPath('data.recent_activity.0.partnership_scope', 'International')
+                ->assertJsonPath('data.recent_activity.0.document_type', 'MOU');
+        }
+    }
+
     public function test_super_admin_dashboard_is_governance_only(): void
     {
         $superAdmin = $this->profile(Profile::ROLE_SUPER_ADMIN);

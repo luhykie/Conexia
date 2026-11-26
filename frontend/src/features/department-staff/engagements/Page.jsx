@@ -5,6 +5,10 @@ import { PageTitle } from "../../../components/PageTitle";
 import { Panel } from "../../../components/Panel";
 import { Button } from "../../../components/Button/Button";
 import "./Page.css";
+import {
+  documentTableFilterDefinitions,
+  documentTableHeaders,
+} from "../../../utils/documentTable";
 
 export default function Page() {
   return (
@@ -20,16 +24,10 @@ export default function Page() {
 
       <Panel title="Partner Engagements">
         <DataTable
-          headers={[
-            "Partner/Institution",
-            "Tracking Number",
-            "Partnership Scope",
-            "Document Type",
-            "Status",
-            "Action",
-          ]}
+          headers={[...documentTableHeaders, "Action"]}
           rows={[]}
           emptyMessage="Engagement records require a backend endpoint."
+          filterDefinitions={documentTableFilterDefinitions}
         />
       </Panel>
     </section>
